@@ -8,9 +8,7 @@
 ;;
 ;; Display
 (defvaralias 'star-tabs-header-line-format
-  (if (boundp 'tab-line-format)
-      'tab-line-format 
-    'header-line-format)
+    'header-line-format
   "Header line format for display of the tab bar")
 (defvar star-tabs-header-line 'header-line
   "Header line where tabs are displayed")
@@ -203,6 +201,20 @@ Return nil if ELT is not in LIST."
       (dolist (value (cdr item) flattened-list)
 	(push value flattened-list)))
     (delq nil (reverse flattened-list))))
+(defun star-tabs-set-temporarily (symbol value duration &optional value-after func-after &rest args)
+  "Set symbol SYMBOL to value VALUE for DURATION. After DURATION, set SYMBOL to VALUE-AFTER (default nil). 
+Optionally run function FUNCTION with arguments ARGS after DURATION. Return timer."
+  ;; Set to new value when the timer starts.
+  (set symbol value)
+  (run-at-time duration
+	       nil
+	       (lambda (symbol value-after func-after args)
+		 ;; Set to nil when the timer ends.
+		 (set symbol value-after)
+		 ;; If set, run FUNC-AFTER when the timer ends.
+		 (when func-after 
+		     (apply func-after args)))
+	       symbol value-after func-after args))
 
 ;; TODO Display collection name in tab bar temporarily when switched.
 ;;; Filter Collections
@@ -384,7 +396,7 @@ Refresh tab bar if INHIBIT-REFRESH is nil."
       (set (star-tabs-active-filter-collection) (star-tabs-cycle-list-car (eval (star-tabs-active-filter-collection)) reverse))
       (setq filter-count (1- filter-count)))) ;Prevent infinite loop in case all groups are empty
   (unless inhibit-refresh
-    (star-tabs-display-filter-name-temporarily)
+    (star-tabs--display-filter-name-temporarily)
     (star-tabs-display-tab-bar)))
 (defun star-tabs-find-active-filter () ; TODO fix this
   "Find and display a filter for the currently active buffer, if such filter exists"
@@ -857,7 +869,7 @@ sometimes returns temporary buffers used by other extensions."
     (if (not (equal star-tabs-current-buffer (current-buffer)))
 	(progn
 	  (when star-tabs-tab-bar-filter-name
-	    (star-tabs-display-filter-name-temporarily))
+	    (star-tabs--display-filter-name-temporarily))
 	  (setq star-tabs-current-buffer (current-buffer))
 	  (message (format "Buffer SWITCHED: %s" star-tabs-current-buffer ))
 	  t)
@@ -907,56 +919,33 @@ was also a filter switch command."
 				  (let ((name (buffer-name (cdr buffer))))
 				    (setq tab-line
 					  (concat tab-line
-						  (star-tabs-tab name counter)))
+						  (star-tabs--tab name counter)))
 				    (setq counter (1+ counter)))))))))
       (setq star-tabs-header-line-format
-	    (concat star-tabs-header-line-format (star-tabs-header-line-white-space)))
+	    (concat star-tabs-header-line-format (star-tabs-header--line-white-space)))
       ))
   (force-mode-line-update t)
   nil)
+
 (defun star-tabs-display-tab-bar (&optional force-refresh)
-  "Refresh and display the tab bar"
+  "Display the tab bar. Refresh it when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs-buffer-list) are met."
   (unless (window-dedicated-p) ; Only show the tab bar in non-dedicated windows
     (star-tabs-set-header-line (star-tabs-buffer-list force-refresh)))
     nil)
 
-(defun star-tabs-display-filter-name-temporarily ()
-  (when star-tabs-last-timer
-    (cancel-timer star-tabs-last-timer)
-    star-tabs-last-timer nil)
-  (setq star-tabs-last-timer (star-tabs-set-temporarily 'star-tabs-tab-bar-filter-name
-		      (star-tabs-get-active-filter-name)
-		      "1 sec"
-		      nil
-		      #'star-tabs-display-tab-bar
-		      t)))
-(defun star-tabs-set-temporarily (symbol
-			   value
-			   duration
-			   &optional value-after func-after
-			   &rest args)
-  "Set symbol SYMBOL to value VALUE for DURATION, then set SYMBOL to VALUE-AFTER (default nil). 
-Optionally run FUNCTION after DURATION. Return timer."
-  (set symbol value)
-  (run-at-time duration
-	       nil
-	       (lambda (symbol value-after func-after args)
-		 (set symbol value-after)
-		 (if func-after 
-		     (apply func-after args)))
-	       symbol value-after func-after args))
-(defun star-tabs-tab (buffer-name number)
-  "Return a propertized string that represents a tab for buffer BUFFER."
+(defun star-tabs--tab (buffer-name number)
+  "Return a propertized string that represents a tab for buffer BUFFER-NAME (string)."
   (let* ((name buffer-name)
+	 ;; Space between tabs:
 	 (tab-separator (if (not (equal number 1))
-			  (propertize star-tabs-tab-separator
-				      'keymap star-tabs-map-select-tab
-				      'face 
-				      (if (equal name (star-tabs-current-buffer-name))
-					  'star-tabs-selected-tab
-					'star-tabs-non-selected-tab)
-				      'buffer-name name
-				      'buffer-number number)
+			    (propertize star-tabs-tab-separator
+					'keymap star-tabs-map-select-tab
+					'face 
+					(if (equal name (star-tabs-current-buffer-name))
+					    'star-tabs-selected-tab
+					  'star-tabs-non-selected-tab)
+					'buffer-name name
+					'buffer-number number)
 			  ""))
 	 ;; Number and name:
 	 (number-and-name (propertize (concat
@@ -979,12 +968,12 @@ Optionally run FUNCTION after DURATION. Return timer."
 					      (not (star-tabs-buffer-read-only-p name)))
 					  ;; Display (un)modified symbol:
 					  (concat  
-						  (if (buffer-modified-p (get-buffer name))
-						      star-tabs-modified-buffer-symbol
-						    star-tabs-unmodified-buffer-symbol)
-						  (when (not(star-tabs-get-filter-collection-prop-value
-							     :hide-close-buttons))
-						    star-tabs-modified-symbol-close-button-separator))
+					   (if (buffer-modified-p (get-buffer name))
+					       star-tabs-modified-buffer-symbol
+					     star-tabs-unmodified-buffer-symbol)
+					   (when (not(star-tabs-get-filter-collection-prop-value
+						      :hide-close-buttons))
+					     star-tabs-modified-symbol-close-button-separator))
 					;; Display nothing if it's a system or read-only buffer:
 					"")
 				      'keymap star-tabs-map-select-tab
@@ -1009,10 +998,10 @@ Optionally run FUNCTION after DURATION. Return timer."
 				   'mouse-face 'star-tabs-filter-name
 				   'buffer-name name
 				   'buffer-number number))
-	 ;; (icon (star-tabs-select-icon name (if (equal name (star-tabs-current-buffer-name))
+	 ;; (icon (star-tabs--select-icon name (if (equal name (star-tabs-current-buffer-name))
 	 ;; 				'star-tabs-selected-icon
 	 ;; 			      'star-tabs-non-selected-icon)))
-	 (icon (star-tabs-select-icon name))
+	 (icon (star-tabs--select-icon name))
 	 (divider (propertize " " 
 			      'keymap star-tabs-map-select-tab
 			      'face 
@@ -1022,48 +1011,67 @@ Optionally run FUNCTION after DURATION. Return timer."
 			      'buffer-name name
 			      'mouse-face 'star-tabs-filter-name
 			      'buffer-number number)))
-
     (concat divider
 	    (when (stringp icon)
-		  icon)
+	      icon)
 	    divider
 	    number-and-name
 	    modified-symbol
 	    close-button
 	    divider)))
-(defun star-tabs-header-line-remaining-space()
-  (- (window-total-width) (length star-tabs-header-line-format)))
-(defun star-tabs-header-line-white-space ()
-  (let ((empty-space (star-tabs-header-line-remaining-space))
-	(whitespace ""))
-    (while (> empty-space 0)
-      (setq whitespace (concat " " whitespace))
-      (setq empty-space 
-	    (1- empty-space)))
-    (propertize whitespace
-		'face 'star-tabs-non-selected-tab)))
-(defun star-tabs-select-icon (buffer)
+
+(defun star-tabs--select-icon (buffer)
   (with-current-buffer buffer
-    ;(all-the-icons-icon-for-mode major-mode :face face :v-adjust 0.03)
+    ;; REVIEW: (all-the-icons-icon-for-mode major-mode :face face :v-adjust 0.03)
     (all-the-icons-icon-for-buffer)))
 
+(defun star-tabs-header--line-remaining-space()
+  "Return the number of characters between the end of the last tab and the right edge of the window."
+  ;; FIXME: Make more accurate calculation of empty space in tab bar.
+  (- (window-total-width) (length star-tabs-header-line-format)))
+
+(defun star-tabs-header--line-white-space ()
+  "Return white space to fill out the unoccupied part, if any, of tab bar."
+  (let ((empty-space (star-tabs-header--line-remaining-space))
+	(white-space ""))
+    (while (> empty-space 0)
+      (setq white-space (concat " " white-space))
+      (setq empty-space (1- empty-space)))
+    ;; REVIEW: Is the face appropriate?
+    (propertize white-space
+		'face 'star-tabs-non-selected-tab))) 
+
+(defun star-tabs--display-filter-name-temporarily (&optional filter-name)
+  "Return filter name FILTER-NAME for temporary display in tab bar. 
+Unless set, FILTER-NAME defaults to the currently active filter name.
+This function uses global helper variable star-tabs-last-timer to keep track of the timer."
+  ;; Force cancel on any other active timers set with this function.
+  (when star-tabs-last-timer
+    (cancel-timer star-tabs-last-timer)
+    star-tabs-last-timer nil)
+  (setq star-tabs-last-timer (star-tabs-set-temporarily 'star-tabs-tab-bar-filter-name
+							(star-tabs-get-active-filter-name)
+							"1 sec"
+							nil
+							#'star-tabs-display-tab-bar
+							t)))
+
+
 ;;;General
-(defun star-tabs-select-icon (buffer)
-   (with-current-buffer buffer
-     ;(all-the-icons-icon-for-mode major-mode :face face :v-adjust 0.03)
-     (all-the-icons-icon-for-buffer)))
 (defun star-tabs-when-buffer-first-modified ()
-  "Run when a buffer goes from an unmodified state to a modified state"
+  "Run when a buffer goes from an unmodified state to a modified state."
   (if (member (current-buffer) star-tabs-active-buffers)
-      (progn (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t
+      (progn (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should be.
 	     (star-tabs-display-tab-bar  t))))
+
 (defun star-tabs-when-buffer-first-saved ()
-   "Run when a buffer goes from a modified state to a unmodified state"
-   (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil.
-   (star-tabs-display-tab-bar t))
+   "Run when a buffer goes from a modified state to an unmodified state."
+   (when (member (current-buffer) star-tabs-active-buffers)
+   (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
+   (star-tabs-display-tab-bar t)))
 
 
-;; Modes
+;;; Modes
 (define-minor-mode star-tabs-tab-bar-mode
   "...desc..."
   :lighter " ST"
@@ -1071,15 +1079,12 @@ Optionally run FUNCTION after DURATION. Return timer."
 
   (if star-tabs-tab-bar-mode
       (progn (star-tabs-init-filters)
-	     ;; Update the tab bar when buffers are created or killed
-	     (add-hook 'buffer-list-update-hook
-		       #'star-tabs-display-tab-bar nil nil)
-	     ;; Functions to run when a buffer goes from an unmodified to a modified state
-	     (add-hook 'first-change-hook
-		       #'star-tabs-when-buffer-first-modified nil nil)
-	     ;; Update the tab bar when a buffer is saved 
-	     (add-hook 'after-save-hook
-		       #'star-tabs-when-buffer-first-saved nil nil))))
+	     ;; Refresh the tab bar when buffers are created or killed.
+	     (add-hook 'buffer-list-update-hook #'star-tabs-display-tab-bar nil nil)
+	     ;; Functions to run when a buffer goes from an unmodified to a modified state.
+	     (add-hook 'first-change-hook #'star-tabs-when-buffer-first-modified nil nil)
+	     ;; Update the tab bar when a buffer is saved.
+	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil))))
 
 (star-tabs-tab-bar-mode t)
 
