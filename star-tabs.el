@@ -52,7 +52,7 @@
 
 ;; Global state variables
 (defvar star-tabs-current-buffer nil
-  "Helper variable to for function (star-tabs-buffer-switched-p) to keep track of the current 'real' buffer.
+  "Helper variable to for function (star-tabs--buffer-switched-p) to keep track of the current 'real' buffer.
 A 'real' or 'active' buffer refers open buffers that are not ephemeral/temporary or otherwise deemed unimportant.")
 (defvar star-tabs-current-filter nil
   "Helper variable for (star-tabs-filter-changed-p) to keep track of when a filter changes.")
@@ -232,7 +232,7 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 	 (enable-file-extension-filters (plist-get collection-props :enable-file-extension-filters))
 	 (hide-close-buttons (plist-get collection-props :hide-close-buttons))
 	 (display-filter-name (plist-get collection-props :display-filter-name))
-	 (collection-name-prefix (or (plist-get collection-props :collection-name-prefix) "star-tabs-filter-collection-" ))
+	 (collection-name-prefix (or (plist-get collection-props :collection-name-prefix) "star-tabs-filter-collection-"))
 	 (name (intern (concat collection-name-prefix (plist-get collection-props :name))))
 	 (collection `(,name :enable-file-extension-filters ,enable-file-extension-filters
 			     :display-filter-name ,display-filter-name
@@ -374,7 +374,7 @@ COLLECTION defaults to the currently active filter collection."
   
   ;; Add file extension filters if customizable variable is set 
   (if (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters)
-      (star-tabs-update-file-extension-filters)))
+      (star-tabs--update-file-extension-filters)))
 
 ;; Filter Interactions 
 (defun star-tabs-cycle-filters (&optional reverse inhibit-refresh)
@@ -432,8 +432,9 @@ exists in filter, return buffer star-tabs-current-buffer instead."
       (plist-put (alist-get filter-name (eval collection-name))
 		 :always-include always-include)))
   (star-tabs-display-tab-bar t))
-(defun star-tabs-remove-from-always-include-in-filter (buffer &optional filter-name collection-name)
-  "Remove buffer BUFFER from automatic inclusion in filter FILTER-NAME of collection COLLECTION-NAME."
+(defun star-tabs-exclude-from-filter (buffer &optional filter-name collection-name)
+  "Exclude buffer BUFFER from filter FILTER-NAME of collection COLLECTION-NAME.
+Also remove it from automatic inclusion, if applicable."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection)))
   (let* ((buffer-name (buffer-name buffer))
@@ -449,68 +450,75 @@ exists in filter, return buffer star-tabs-current-buffer instead."
       (plist-put (alist-get filter-name (eval collection-name))
 		 :exclude exclude))
     (star-tabs-display-tab-bar t)))
+
 (defun star-tabs-include-current-buffer-in-current-filter ()
+  "Include current buffer in the currently active filter."
   (interactive)
   (star-tabs-add-to-always-include-in-filter (star-tabs-current-buffer)))
+
 (defun star-tabs-exclude-current-buffer-from-current-filter ()
+  "Exclude current buffer from the currently active filter."
   (interactive)
-  (star-tabs-remove-from-always-include-in-filter (star-tabs-current-buffer)))
+  (star-tabs-exclude-from-filter (star-tabs-current-buffer)))
+
 
 ;; Get filter data 
-(defun star-tabs-get-filter (filter-name &optional collection)
+(defun star-tabs-get-filter-name (filter-name &optional collection)
   "Return the filter FILTER-NAME in filter collection COLLECTION.
 COLLECTION defaults to the currently active filter collection."
   (setq collection (or collection (star-tabs-active-filter-collection)))
   (alist-get filter-name (eval collection)))
+
 (defun star-tabs-get-filter-names (&optional collection)
   "Return all filter names in filter collection COLLECTION.
 COLLECTION defaults to the currently active filter collection."
   (setq collection (or collection (star-tabs-active-filter-collection)))
   (mapcar 'car (eval collection)))
+
 (defun star-tabs-get-active-filter ()
-  "Return the active filter"
+  "Return the active filter."
  (car (eval (star-tabs-active-filter-collection))))
+
 (defun star-tabs-get-active-filter-name ()
   "Return the active filter's name as a symbol. If there is no active filter, return 'ALL" 
   (or (car(star-tabs-get-active-filter))
       'ALL))
 
+
 ;; Apply filters
+
 (defun star-tabs-filter-buffers (filter-name buffer-list)
-  "Filter buffer list BUFFER-LIST with filter FILTER and return the filtered list of buffers."
-  (let* ((filter (star-tabs-get-filter filter-name))
+  "Filter buffers BUFFER-LIST with filter FILTER and return the filtered list of buffers."
+  (let* ((filter (star-tabs-get-filter-name filter-name))
 	 (include (plist-get filter :include))
 	 (exclude (plist-get filter :exclude))
 	 (always-include (plist-get filter :always-include))
 	 (buffers buffer-list))
-
+    ;; Return all buffers if neither :include nor :exclude are defined.
     (if (and
 	 (null include)
 	 (null exclude))
-	buffers ; Return all buffers if neither :include or :exclude is defined
-      
+	buffers 
       (let ()
-	;; Apply an inclusive filter
+	;; Apply an inclusive filter.
 	(when (and
 	       (null include)
 	       exclude)
-	  (setq buffers (star-tabs-apply-filter-list buffers exclude nil always-include)))
-
-	;; Apply an exclusive filter
+	  (setq buffers (star-tabs--apply-filter-list buffers exclude nil always-include)))
+	;; Apply an exclusive filter.
 	(when (and
 	       include
 	       (null exclude))
-	  (setq buffers (star-tabs-apply-filter-list buffers include t always-include)))
-	
-	;; Apply an a filter that is both inclusive and exclusive (include first, then exclude from the ones included)
+	  (setq buffers (star-tabs--apply-filter-list buffers include t always-include)))
+	;; Apply a filter that is both inclusive and exclusive (include first, then exclude from the ones included).
 	(when (and
 	       include
 	       exclude)
-	  (setq buffers (star-tabs-apply-filter-list buffers include t always-include))
-	  (setq buffers (star-tabs-apply-filter-list (star-tabs-get-buffers buffers) exclude nil always-include)))
-	))
+	  (setq buffers (star-tabs--apply-filter-list buffers include t always-include))
+	  (setq buffers (star-tabs--apply-filter-list (star-tabs-get-buffers buffers) exclude nil always-include)))))
     (star-tabs-get-buffers buffers)))
-(defun star-tabs-apply-filter-list (buffer-list regexps include always-include)
+
+(defun star-tabs--apply-filter-list (buffer-list regexps include always-include)
   "Apply all regular expressions in list REGEXPS to all buffers in BUFFER-LIST. 
 If INCLUDE is non-nil, include all matching buffers. 
 If INCLUDE is nil, exclude all matching buffers.
@@ -544,14 +552,15 @@ Buffers matching regexp in ALWAYS-INCLUDE will be always be included."
 					((setq match buffer)))))))
 			(star-tabs-get-buffer-names buffer-list)))))
     buffers))
+
 (defun star-tabs-filter-by-prefix (buffer-list prefix-list &optional include)
-  "Globally filter buffers BUFFER-LIST with the prefixes PREFIX-LIST. If INCLUDE (default nil) is non-nil, 
-return a list of buffers that match any of the prefixes.
+  "Return globally filtered buffers BUFFER-LIST with/without the prefixes PREFIX-LIST. 
+If INCLUDE (default nil) is non-nil, return a list of buffers that match any of the prefixes.
 Otherwise, return a list of buffers that don't match any of the prefixes."
   (or include (setq include nil))
-  ;; Apply string-prefix-p for each prefix in PREFIX-LIST to each buffer in BUFFER-LIST 
-  ;; If a buffer contains any of the prefixes, return nil.
-  ;; Otherwise, return the buffer (or vice versa in case include is non-nil),
+  ;; Apply string-prefix-p for each prefix in PREFIX-LIST to each buffer in BUFFER-LIST.
+  ;; If a buffer contains any of the prefixes, return nil;
+  ;; otherwise, return the buffer (or vice versa in case include is non-nil),
   ;; then delete all nil elements of the list.
   (delq nil (mapcar (lambda (buffer)
 		      (if (not (member nil (mapcar (lambda (prefix)
@@ -560,37 +569,45 @@ Otherwise, return a list of buffers that don't match any of the prefixes."
 			  (if include nil buffer)
 			(if include buffer nil)))
 		    buffer-list)))
+
 (defun star-tabs-buffer-prefix-p (prefix buffer)
-  "Return BUFFER if its name has the prefix PREFIX. Otherwise, return nil."
+  "Return buffer BUFFER if its name has the prefix PREFIX. Otherwise, return nil."
   (if (string-prefix-p prefix (buffer-name buffer))
       nil  
     buffer))
 
+
 ;; Cache filtered buffers
+
 (defun star-tabs-clear-cached-buffers ()
-  "Clears cache STAR-TABS-CACHED-FILTERED-BUFFERS"
+  "Clear cache star-tabs-cached-filtered-buffers."
+  (interactive)
   (clrhash star-tabs-cached-filtered-buffers))
+
 (defun star-tabs-add-filtered-buffer-to-cache (buffer hash-table)
-  "Add buffer BUFFER to cache HASH-TABLE"
+  "Add unwanted buffer BUFFER to cache HASH-TABLE."
   (puthash buffer t hash-table))
+
 (defun star-tabs-add-filtered-buffers-to-cache (buffer-list hash-table)
-  "Add list of buffers BUFFER-LIST to cache HASH-TABLE"
+  "Add unwanted buffers BUFFER-LIST to cache HASH-TABLE."
   (mapc (lambda (buffer) (star-tabs-add-filtered-buffer-to-cache buffer hash-table)) buffer-list))
 
+
 ;; File extension filters
+
 (defun star-tabs-get-file-extensions ()
-  "Return all file extensions from all active buffers."
+  "Return all file extension names for all active buffers."
   (let ((buffers (star-tabs-get-buffer-names star-tabs-active-buffers))
-	(file-ext-regexp ".+\\.*?\\(\\..+$\\)")  ; Regexp matching file extensions
-	(no-ext-regexp "^[a-z0-9A-Z]+$")	 ; Regexp matching extensionless files/buffers TODO: FIX THIS
+	(file-ext-regexp ".+\\.*?\\(\\..+$\\)")  ; Regexp matching file extensions.
+	(no-ext-regexp "^[a-z0-9A-Z]+$")	 ; Regexp matching extensionless files/buffers FIXME: Use this or throw it away.
 	file-extensions)
-      
-    ;; For each buffer, push the file extension name of that buffer, if one exists, to a list of file extensions. 
+    ;; For each buffer, push the file extension name of that buffer, if one exists, to a list of file extensions names. 
     (dolist (buffer buffers file-extensions)
       (when (string-match file-ext-regexp buffer)
 	(push (match-string 1 buffer) file-extensions))) 
     file-extensions))
-(defun star-tabs-add-file-extension-filter (extension-name &optional collection)
+
+(defun star-tabs--add-file-extension-filter (extension-name &optional collection)
   "Add an inclusive filter for file extension EXTENSION-NAME to filter collection COLLECTION.
 COLLECTION defaults to the currently active filter collection."
   (setq collection (or collection (star-tabs-active-filter-collection)))
@@ -598,38 +615,24 @@ COLLECTION defaults to the currently active filter collection."
   (if (or (not (member extension-name star-tabs-file-extension-filter-names))
 	  (and (not (alist-get extension-name (eval collection)))
 	       (member extension-name star-tabs-file-extension-filter-names)))
-      ;; Add filter to the filter list, then add the file extension to the file extension list
+      ;; Add the filter to the filter list, then add the file extension name to the file extension list.
       (progn (star-tabs-add-filter
 	      :name extension-name
 	      :include (list(concat (symbol-name extension-name) "$"))
 	      :collection collection)
-
 	     (when (not (member extension-name star-tabs-file-extension-filter-names))
 	       (push extension-name star-tabs-file-extension-filter-names)))))
-(defun star-tabs-add-file-extension-filters (&optional collection)
-  "Automatically add filters for each file type among all open buffers to filter collection COLLECTION.
-COLLECTION defaults to the currently active filter collection."
-  ;; Get all file extensions and turn them into filters
-  (setq collection (or collection (star-tabs-active-filter-collection)))
-  (let ((file-extensions (mapcar 'intern (star-tabs-get-file-extensions))))
-    (dolist (ext file-extensions)
-      (star-tabs-add-file-extension-filter ext collection)))
-  ;; Add a filter for extensionless files too.
-  (star-tabs-add-filter
-   :name 'extensionless
-   :include '("^[a-z0-9A-Z]+$")
-   :collection collection)
-  nil)
-(defun star-tabs-update-file-extension-filters (&optional collection)
+
+(defun star-tabs--update-file-extension-filters (&optional collection)
   "Update automatically added file extension buffer filters in filter collection COLLECTION.
 COLLECTION defaults to the currently active filter collection."
   (setq collection (or collection (star-tabs-active-filter-collection)))
   ;; Make sure there is a filter for extensionless files.
   (when (not (member 'extensionless (star-tabs-get-filter-names)))
-      (star-tabs-add-filter
-       :name 'extensionless
-       :include '("^[a-z0-9A-Z]+$")
-       :collection collection))
+    (star-tabs-add-filter
+     :name 'extensionless
+     :include '("^[a-z0-9A-Z]+$") ;; FIXME: Make better regexp.
+     :collection collection))
   (let ((file-extensions (mapcar 'intern (star-tabs-get-file-extensions)))
 	(filter-names star-tabs-file-extension-filter-names))
     ;; Add new filters if there are new file extensions among open buffers.
@@ -637,41 +640,45 @@ COLLECTION defaults to the currently active filter collection."
       (if (or (not (member ext filter-names))
 	      (and (not (alist-get ext (eval collection)))
 		   (member ext filter-names)))
-	  (star-tabs-add-file-extension-filter ext collection)))
+	  (star-tabs--add-file-extension-filter ext collection)))
     ;; Remove automatically added filters if there no longer are buffers with the corresponding file extension.
     (dolist (filter filter-names)
       (if (not (member filter file-extensions))
-	  (star-tabs-remove-file-extension-filter filter collection))))
-    nil)
-(defun star-tabs-remove-file-extension-filter (filter-name &optional collection)
-  "Remove automatically added file extension buffer filter FILTER-NAME from filter collection COLLECTION.
+	  (star-tabs--remove-file-extension-filter filter collection))))
+  nil)
+
+(defun star-tabs--remove-file-extension-filter (filter-name &optional collection)
+  "Remove automatically added file extension filter FILTER-NAME from filter collection COLLECTION.
 COLLECTION defaults to the currently active filter collection."
   (setq collection (or collection (star-tabs-active-filter-collection)))
   (if (member filter-name star-tabs-file-extension-filter-names) ; Make sure the filter is one of the automatically added filters.
-      ;; Keep track of the current filter so that we don't accidentally change it
-      (let ((current-filter (star-tabs-get-active-filter-name))) 
+	;; First remove the filter from the collection...
 	(progn (star-tabs-remove-filter filter-name collection)
+	       ;; Then remove the file extension from the list of file extensions.
 	       (setq star-tabs-file-extension-filter-names (delete filter-name star-tabs-file-extension-filter-names))
-	       (if (and (not (equal current-filter (star-tabs-get-active-filter-name)))
-			(not (equal current-filter filter-name)))
-		   (star-tabs-cycle-filters t)))))
+	       ;; Make sure we're still in a non-empty filter
+	       (if (not (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
+		   (star-tabs-cycle-filters t))))
   nil)
-(defun star-tabs-remove-file-extension-filters (&optional collection)
+
+(defun star-tabs--remove-file-extension-filters (&optional collection)
   "Remove all automatically added file extension buffer filters from filter collection COLLECTION.
 COLLECTION defaults to the currently active filter collection."
   (setq collection (or collection (star-tabs-active-filter-collection)))
   (let ((file-extensions star-tabs-file-extension-filter-names))
     (dolist (ext file-extensions)
-      (star-tabs-remove-file-extension-filter ext collection)))
+      (star-tabs--remove-file-extension-filter ext collection)))
   ;; Remove the extensionless file filter.
   (star-tabs-remove-filter 'extensionless collection)
   nil)
-(defun star-tabs-auto-activate-file-extension-filters-on-buffer-count (threshold)
+
+(defun star-tabs--auto-activate-file-extension-filters-on-buffer-count (threshold)
  "When the total number of buffers after global filters have been applied reaches or exceeds 
-THRESHOLD, STAR-TABS-ADD-FILE-EXTENSION-FILTERS is automatically set to t,
+THRESHOLD, star-tabs-add-file-extension-filters is automatically set to t,
 and file extension filters are subsequently added. If the buffer count goes down below the threshold again,
-STAR-TABS-ADD-FILE-EXTENSION-FILTERS is then set to nil, and all automatically added file extension filters removed.
+star-tabs-add-file-extension-filters is then set to nil, and all automatically added file extension filters are removed.
 Deactivate this feature by setting this variable to 0."
+ ;; FIXME: Fix documentation ("this variable" ??)
  (unless (<= threshold 0)
    (if (and (not star-tabs-add-file-extension-filters)
 	    (>= (length star-tabs-active-buffers) threshold))
@@ -679,39 +686,47 @@ Deactivate this feature by setting this variable to 0."
      (when star-tabs-add-file-extension-filters
        (setq star-tabs-add-file-extension-filters nil)))))
 
+
 ;;; Buffers
+
 (defun star-tabs-buffer-read-only-p (buffer-or-name)
-  "Return t if buffer BUFFER-OR-NAME is read-only, otherwise nil"
+  "Return t if buffer BUFFER-OR-NAME is read-only; otherwise return nil."
   (not (with-current-buffer buffer-or-name (null buffer-read-only))))
-(defun star-tabs-modified-state-changed-p (buffer)
-  "Return t if the state of (buffer-modified-p) changed for buffer BUFFER since last time this function was called.
-Use only inside function star-tabs-buffer-list"
+
+(defun star-tabs--modified-state-changed-p (buffer)
+  "Return t if the state of (buffer-modified-p) changed for buffer BUFFER since the last time this function was called.
+Otherwise, return nil. This should only be used inside function (star-tabs--buffer-list)."
   (if (equal (buffer-modified-p buffer) (gethash buffer star-tabs-modified-state-changed-buffer-table "not set"))
       nil
     (progn
-      (message "Modified state changed!")
       (puthash buffer (buffer-modified-p buffer) star-tabs-modified-state-changed-buffer-table)
       t)))
+
 (defun star-tabs-current-buffer ()
-  "Return the current buffer if it's a 'real' buffer. Otherwise, return the last 'real' buffer.
+  "Return the current buffer if it's being displayed in a window. Otherwise, return the last current buffer displayed in a window.
 This is used instead of (current-buffer) because (current-buffer) 
-sometimes returns temporary buffers used by other extensions."
+sometimes returns temporary/unreal buffers."
   (if (get-buffer-window (current-buffer))
       (current-buffer)
     star-tabs-current-buffer))
+
 (defun star-tabs-get-buffer-names (buffer-list)
-  "Return the names of buffers BUFFER-LIST"
+  "Return the names (as strings) of buffers BUFFER-LIST."
   (let ((buffers (mapcar 'buffer-name buffer-list)))
     buffers))
+
 (defun star-tabs-get-buffers (buffer-names)
-  "Return a list of buffers BUFFER-NAMES"
+  "Return a list of buffer BUFFER-NAMES."
   (mapcar 'get-buffer buffer-names))
+
 (defun star-tabs-current-buffer-name ()
-  "Return the name of the current buffer"
+  "Return the name of the current buffer."
     (buffer-name (star-tabs-current-buffer)))
 
+
 ;; Buffer list
-(defun star-tabs-update-buffer-list () 
+
+(defun star-tabs--update-buffer-list () 
   "Update the list of 'real' buffers star-tabs-active-buffers
  if (a) buffer(s) have/has been created or killed. 
  Return t if the buffer list was updated, otherwise nil."
@@ -730,7 +745,6 @@ sometimes returns temporary buffers used by other extensions."
     ;; Return nil if there are no new 'real' buffers. Otherwise, apply global filters to the new buffers.
     (if (seq-set-equal-p star-tabs-active-buffers active-buffers)
 	nil
-
       ;; Apply global filter.
       ;; First include...
       (let*((buffer-list-inc (when star-tabs-global-inclusion-prefix-filter
@@ -744,28 +758,25 @@ sometimes returns temporary buffers used by other extensions."
 			   (if buffer-list-inc
 			       buffer-list-inc
 			     active-buffers))))
-
 	;; Add globally filtered buffers to cache so we can ignore them next time.
 	(star-tabs-add-filtered-buffers-to-cache (seq-difference active-buffers buffer-list) star-tabs-cached-filtered-buffers)
-
 	;; See if the globally filtered buffer list changed. If it did, update the list of active/'real' buffers.
 	;; Otherwise, return nil. 
 	(if (not (seq-set-equal-p star-tabs-active-buffers buffer-list))
 	    (progn (let* ((all-buffers buffer-list)
 			  (new-buffers (seq-difference buffer-list star-tabs-active-buffers))
 			  (old-buffers))
-
 		     ;; Append new buffers to the end of the list of active buffers.
 		     (when new-buffers
 		       (setq star-tabs-active-buffers (append star-tabs-active-buffers new-buffers)))
-
 		     ;; Remove killed buffers from the list of active buffers.
 		     (setq old-buffers (seq-difference star-tabs-active-buffers buffer-list))
 		     (when old-buffers
 		       (setq star-tabs-active-buffers (seq-difference star-tabs-active-buffers old-buffers))))
 		   t)
 	  nil)))))
-(defun star-tabs-buffer-list (&optional force-refresh)
+
+(defun star-tabs--buffer-list (&optional force-refresh)
    "Return a filtered list of buffers on one or more on the following conditions:
  1. star-tabs-active-buffers, the list of all buffers after global filters have been applied, has changed.
  2. The current buffer has changed, and the new current buffer is a 'real' buffer (i.e. not ephemeral or 
@@ -773,97 +784,96 @@ sometimes returns temporary buffers used by other extensions."
  3. The un/modified state of the current buffer has changed.
  4. The active filter has changed.
 
- This should only be used as an argument for star-tabs-set-header-line in order to
+ This should only be used as an argument for star-tabs--set-header-line in order to
  make sure the buffer list is in sync with the tab bar. "
 
    ;; Make sure all of conditions are checked, regardless of whether previous conditions are true (which is why
    ;; the checks are not done within the (or) function).
    (or force-refresh (setq force-refresh nil))
-   (let* ((buffer-list-updated-p (star-tabs-update-buffer-list))
- 	 (buffer-switched-p (star-tabs-buffer-switched-p))
- 	 (modified-state-changed-p (star-tabs-modified-state-changed-p star-tabs-current-buffer))
- 	 (filter-changed-p (star-tabs-filter-changed-p))
- 	 (buffers )
- 	 (counter 1)
- 	 enum-buffer-list)
+   (let* ((buffer-list-updated-p (star-tabs--update-buffer-list))
+	  (buffer-switched-p (star-tabs--buffer-switched-p))
+	  (modified-state-changed-p (star-tabs--modified-state-changed-p star-tabs-current-buffer))
+	  (filter-changed-p (star-tabs-filter-changed-p))
+	  (buffers)
+	  (counter 1)
+	  enum-buffer-list)
      (if (or buffer-list-updated-p 
- 	    modified-state-changed-p
- 	    filter-changed-p
- 	    buffer-switched-p
- 	    force-refresh)
- 	(progn 
-	  (when star-tabs-debug-messages
-	    (message "Blist updated: %s\nModStateChanged: %s\nFilterChanged: %s\nBufferSwtched: %s\nForce: %s"
-		     buffer-list-updated-p
-		     modified-state-changed-p
-		     filter-changed-p
-		     buffer-switched-p
-		     force-refresh))
-
- 	  ;; Decide whether file extension filters should be added.
- 	  ;; One of two conditions should be met:
- 	  ;; 1. The currently active filter collection has the property :enable-file-extension-filters set to non-nil
- 	  ;; 2. The currently active filter collection has the property :enable-file-extension-filters
- 	  ;; set to nil, and a threshold set to above 0 and the total number of buffers
- 	  ;; (after global filters were applied) exceeds that number.
- 	  (setq star-tabs-add-file-extension-filters
- 		(or (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters) nil))
-
- 	  ;; Activate the file extension filters if the buffer count exceeds a certain number
- 	  (when (and (not (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters))
- 		     (not (<= star-tabs-file-ext-filter-buffer-threshold 0)))
- 	    (star-tabs-auto-activate-file-extension-filters-on-buffer-count star-tabs-file-ext-filter-buffer-threshold))
-  
- 	  ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
- 	  (if star-tabs-add-file-extension-filters
- 	      (star-tabs-update-file-extension-filters)
- 	    ;; Remove all automatically set file extension filters in case none of the two conditions described
- 	    ;; above are met.
- 	    (when star-tabs-file-extension-filter-names
- 	      (star-tabs-remove-file-extension-filters)))
-
- 	  ;; Find and display a filter for the current buffer if we just switched buffer, and a filter exists for it.
- 	  (when buffer-switched-p
- 	    (star-tabs-find-active-filter))
-
- 	  ;; Apply all filters
- 	  (let ((filters (star-tabs-get-filter-names))
- 		(buffer-lists nil)
- 		(filtered-buffers)
- 		(filtered-buffers-enum)
- 		(counter 1))
- 	    (dolist (filter filters buffer-lists)
- 	      (setq filtered-buffers-enum nil)
- 	      (setq filtered-buffers (star-tabs-filter-buffers filter star-tabs-active-buffers))
- 	      (dolist (buffer filtered-buffers filtered-buffers-enum)
- 		(add-to-list 'filtered-buffers-enum `(,counter . ,buffer))
- 		(setq counter (1+ counter)))
- 	      (setq buffer-lists (push `(,filter . ,(reverse filtered-buffers-enum)) buffer-lists)))
- 	    (setq star-tabs-buffers-enum (reverse buffer-lists))
- 	    (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists))))
+	     modified-state-changed-p
+	     filter-changed-p
+	     buffer-switched-p
+	     force-refresh)
+	 (progn 
+	   (when star-tabs-debug-messages
+	     (message "Blist updated: %s\nModStateChanged: %s\nFilterChanged: %s\nBufferSwtched: %s\nForce: %s"
+		      buffer-list-updated-p
+		      modified-state-changed-p
+		      filter-changed-p
+		      buffer-switched-p
+		      force-refresh))
+	   ;; Add file extension filters on one of the two conditions:
+	   ;; 1. The currently active filter collection has the property :enable-file-extension-filters set to non-nil
+	   ;; 2. The currently active filter collection has the property :enable-file-extension-filters set to nil,
+	   ;; and a threshold set above 0 and the total number of buffers (after global filters were applied) exceeds that number.
+	   (setq star-tabs-add-file-extension-filters
+		 (or (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters) nil))
+	   ;; Activate the file extension filters if the buffer count exceeds a certain number
+	   (when (and (not (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters))
+		      (not (<= star-tabs-file-ext-filter-buffer-threshold 0)))
+	     (star-tabs--auto-activate-file-extension-filters-on-buffer-count star-tabs-file-ext-filter-buffer-threshold))
+	   ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
+	   (if star-tabs-add-file-extension-filters
+	       (star-tabs--update-file-extension-filters)
+	     ;; Remove all automatically set file extension filters in case none of the two conditions described
+	     ;; above are met.
+	     (when star-tabs-file-extension-filter-names
+	       (star-tabs--remove-file-extension-filters)))
+	   ;; Find and display a filter for the current buffer if we just switched buffer, and a filter exists for it.
+	   (when buffer-switched-p
+	     (star-tabs-find-active-filter))
+	   ;; Apply all filters
+	   (let ((filters (star-tabs-get-filter-names))
+		 (buffer-lists nil)
+		 (filtered-buffers)
+		 (filtered-buffers-enum)
+		 (counter 1))
+	     (dolist (filter filters buffer-lists)
+	       (setq filtered-buffers-enum nil)
+	       (setq filtered-buffers (star-tabs-filter-buffers filter star-tabs-active-buffers))
+	       (dolist (buffer filtered-buffers filtered-buffers-enum)
+		 (add-to-list 'filtered-buffers-enum `(,counter . ,buffer))
+		 (setq counter (1+ counter)))
+	       (setq buffer-lists (push `(,filter . ,(reverse filtered-buffers-enum)) buffer-lists)))
+	     (setq star-tabs-buffers-enum (reverse buffer-lists))
+	     (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists))))
        nil)))
 
+
 ;; Buffer Switching
+
 (defun star-tabs-switch-to-buffer (n)
   "Switch to the buffer associated with the number N."
   (interactive "p")
   (let ((buffer (cdr (assoc n (star-tabs-flatten-alist star-tabs-buffers-enum)))))
     (switch-to-buffer buffer)))
+
 (defun star-tabs-switch-to-buffer-on-click (event)
-  "Switch to buffer when clicked on."
+  "Switch to buffer when its respective tab is clicked on."
   (interactive "e")
   (let* ((window (posn-string (event-start event)))
-	 (buffer-name (get-text-property (cdr window) 'buffer-name ( car window ))))
+	 (buffer-name (get-text-property (cdr window) 'buffer-name (car window))))
     (switch-to-buffer buffer-name)))
+
 (defun star-tabs-close-buffer-on-click (event)
   "Close buffer when its respective close button is clicked."
   (interactive "e")
   (let* ((window (posn-string (event-start event)))
-	 (buffer-name (get-text-property (cdr window) 'buffer-name (car window ))))
+	 (buffer-name (get-text-property (cdr window) 'buffer-name (car window))))
     (kill-buffer buffer-name)))
-(defun star-tabs-buffer-switched-p ()
-  "Return t if buffer has been switched since last time this function was called. Should only be used in one place, inside
-(star-tabs-buffer-list)"
+
+(defun star-tabs--buffer-switched-p ()
+  "Return t if the current buffer has been switched since last time this function was called. Otherwise, return nil.
+This function should only be used in one place, inside (star-tabs--buffer-list)."
+  ;; Make sure it's a real buffer.
   (when (and (get-buffer-window (current-buffer))
 	     (not (string-prefix-p " " (buffer-name (current-buffer)))))
     (if (not (equal star-tabs-current-buffer (current-buffer)))
@@ -871,67 +881,45 @@ sometimes returns temporary buffers used by other extensions."
 	  (when star-tabs-tab-bar-filter-name
 	    (star-tabs--display-filter-name-temporarily))
 	  (setq star-tabs-current-buffer (current-buffer))
-	  (message (format "Buffer SWITCHED: %s" star-tabs-current-buffer ))
 	  t)
       nil)))
-(defun star-tabs-switch-to-first-in-new-filter (filter-name)
- "Switch to the first buffer in filter FILTER, or the last buffer before switching filters, as long as the last
-was also a filter switch command."
 
- ;; Make sure the last command was a filter switch command (TODO: cover all filter switch commands)
- (when (or (eq last-command this-command)
-	   (eq this-command 'star-tabs-cycle-filters))
-   (progn
-     ;; When a filter switch command is not preceded by another filter switch command,
-     ;; remember which buffer we are in.   TODO: FIX?
-     (when (and (not (eq last-command this-command))
-	      (eq this-command 'star-tabs-cycle-filters))
-       (setq star-tabs-current-buffer (buffer-name (current-buffer))))
-     (switch-to-buffer (star-tabs-get-first-buffer-in-filter filter-name)))))
 
 ;;; Display
-(defun star-tabs-set-header-line (buffers)
-  "Set the tab bar to list buffers as tabs"
+
+(defun star-tabs--set-header-line (buffers)
+  "Set the tab bar to list buffers BUFFERS as tabs."
+  ;; If there are no buffers in any group in the current collection, display a message. 
   (if (and (not buffers)
 	   (not star-tabs-active-filtered-buffers-enum))
       (setq star-tabs-header-line-format "   No buffers in any group in current collection.")
-    
+    ;; Build the tab bar using propertized strings.
     (when (and buffers
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
-      (progn 
-	(setq star-tabs-header-line-format
-	      ;; It's all just one giant string...
-	      (concat (propertize star-tabs-left-margin
-				  'face 'star-tabs-tab-bar-left-margin)
-		      ;; Display the name of the active filter
-		      (concat (propertize (concat 
-					   (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
-						      star-tabs-tab-bar-filter-name)
-					     (let ((filter-name star-tabs-tab-bar-filter-name))
-					       (concat (upcase (symbol-name filter-name))
-						       star-tabs-filter-name-number-separator))))
-					  'face 'star-tabs-filter-name)
-					;star-tabs-tab-bar-filter-name
-			      ;; Display tabs
-			      (let (tab-line  ; This will be returned from let function and concat'd with the rest of the string.
-				    (counter 1)) ; Give each tab a unique, incrementing number
-				(dolist (buffer buffers tab-line)
-				  (let ((name (buffer-name (cdr buffer))))
-				    (setq tab-line
-					  (concat tab-line
-						  (star-tabs--tab name counter)))
-				    (setq counter (1+ counter)))))))))
       (setq star-tabs-header-line-format
-	    (concat star-tabs-header-line-format (star-tabs-header--line-white-space)))
-      ))
+	    ;; It's all just one giant string...start with the margin:
+	    (concat (propertize star-tabs-left-margin
+				'face 'star-tabs-tab-bar-left-margin)
+		    ;; Display the name of the active filter:
+		    (concat (propertize (concat 
+					 (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
+						    star-tabs-tab-bar-filter-name)
+					   (let ((filter-name star-tabs-tab-bar-filter-name))
+					     (concat (upcase (symbol-name filter-name))
+						     star-tabs-filter-name-number-separator))))
+					'face 'star-tabs-filter-name)
+			    ;; Display tabs:
+			    (let (tab-line  ; This will be returned from the let function and concat'd with the rest of the string.
+				  (counter 1)) ; Give each tab a unique, incrementing number.
+			      (dolist (buffer buffers tab-line)
+				(let ((name (buffer-name (cdr buffer))))
+				  (setq tab-line
+					(concat tab-line (star-tabs--tab name counter)))
+				  (setq counter (1+ counter))))))))
+      ;; Add a fill to the unused area of the tab bar.
+      (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
   (force-mode-line-update t)
   nil)
-
-(defun star-tabs-display-tab-bar (&optional force-refresh)
-  "Display the tab bar. Refresh it when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs-buffer-list) are met."
-  (unless (window-dedicated-p) ; Only show the tab bar in non-dedicated windows
-    (star-tabs-set-header-line (star-tabs-buffer-list force-refresh)))
-    nil)
 
 (defun star-tabs--tab (buffer-name number)
   "Return a propertized string that represents a tab for buffer BUFFER-NAME (string)."
@@ -1025,14 +1013,14 @@ was also a filter switch command."
     ;; REVIEW: (all-the-icons-icon-for-mode major-mode :face face :v-adjust 0.03)
     (all-the-icons-icon-for-buffer)))
 
-(defun star-tabs-header--line-remaining-space()
+(defun star-tabs--header-line-remaining-space()
   "Return the number of characters between the end of the last tab and the right edge of the window."
   ;; FIXME: Make more accurate calculation of empty space in tab bar.
   (- (window-total-width) (length star-tabs-header-line-format)))
 
-(defun star-tabs-header--line-white-space ()
+(defun star-tabs--header-line-white-space ()
   "Return white space to fill out the unoccupied part, if any, of tab bar."
-  (let ((empty-space (star-tabs-header--line-remaining-space))
+  (let ((empty-space (star-tabs--header-line-remaining-space))
 	(white-space ""))
     (while (> empty-space 0)
       (setq white-space (concat " " white-space))
@@ -1057,7 +1045,8 @@ This function uses global helper variable star-tabs-last-timer to keep track of 
 							t)))
 
 
-;;;General
+;;; Functions to run with hooks
+
 (defun star-tabs-when-buffer-first-modified ()
   "Run when a buffer goes from an unmodified state to a modified state."
   (if (member (current-buffer) star-tabs-active-buffers)
@@ -1070,8 +1059,15 @@ This function uses global helper variable star-tabs-last-timer to keep track of 
    (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
    (star-tabs-display-tab-bar t)))
 
+(defun star-tabs-display-tab-bar (&optional force-refresh)
+  "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met."
+  (unless (window-dedicated-p) ; Only show the tab bar in non-dedicated windows
+    (star-tabs--set-header-line (star-tabs--buffer-list force-refresh)))
+    nil)
+
 
 ;;; Modes
+
 (define-minor-mode star-tabs-tab-bar-mode
   "...desc..."
   :lighter " ST"
@@ -1087,5 +1083,40 @@ This function uses global helper variable star-tabs-last-timer to keep track of 
 	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil))))
 
 (star-tabs-tab-bar-mode t)
+
+
+;;; TODO: Unused functions; remove or fix.
+
+(defun star-tabs--switch-to-first-in-new-filter (filter-name)
+ "Switch to the first buffer in filter FILTER, or the last buffer before switching filters, as long as the last
+was also a filter switch command."
+
+ ;; TODO: Currently not used. Remove or implement.
+ ;; Make sure the last command was a filter switch command (TODO: cover all filter switch commands)
+ (when (or (eq last-command this-command)
+	   (eq this-command 'star-tabs-cycle-filters))
+   (progn
+     ;; When a filter switch command is not preceded by another filter switch command,
+     ;; remember which buffer we are in.   TODO: FIX?
+     (when (and (not (eq last-command this-command))
+	      (eq this-command 'star-tabs-cycle-filters))
+       (setq star-tabs-current-buffer (buffer-name (current-buffer))))
+     (switch-to-buffer (star-tabs-get-first-buffer-in-filter filter-name)))))
+
+(defun star-tabs--add-file-extension-filters (&optional collection)
+  "DEPRECATED: (?) Automatically add filters for each file type among all open buffers to filter collection COLLECTION.
+COLLECTION defaults to the currently active filter collection."
+  (setq collection (or collection (star-tabs-active-filter-collection)))
+  ;; Get all file extensions and turn them into filters.
+  (let ((file-extensions (mapcar 'intern (star-tabs-get-file-extensions))))
+    (dolist (ext file-extensions)
+      (star-tabs--add-file-extension-filter ext collection)))
+  ;; Add a filter for extensionless files too.
+  (star-tabs-add-filter
+   :name 'extensionless
+   :include '("^[a-z0-9A-Z]+$")
+   :collection collection)
+  nil)
+
 
 (provide 'star-tabs)
