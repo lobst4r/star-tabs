@@ -3,47 +3,63 @@
 (require 'cl-lib)
 (require 'all-the-icons)
 
+
 ;;; Global Variables and Constants
 ;;
 ;;
 ;; Display
-(defvaralias 'star-tabs-header-line-format
-    'header-line-format
-  "Header line format for display of the tab bar")
+
+(defvaralias 'star-tabs-header-line-format 'header-line-format
+  "Header line format for display of the tab bar.")
+
 (defvar star-tabs-header-line 'header-line
-  "Header line where tabs are displayed")
+  "Header line where tabs are displayed.")
 
 
 ;; Tab bar dividers 
+
 (defvar star-tabs-left-margin "  " 
   "Space used to the left of the tab bar.")
+
 (defvar star-tabs-right-margin " "
   "Space used to the right of the tab bar.")
+
 (defvar star-tabs-tab-separator " "
   "Tab bar divider that separates tabs.")
+
 (defvar star-tabs-number-name-separator " "
   "Tab bar divider that separates the buffer number and buffer name in a tab.")
-(defvar star-tabs-name-modified-symbol-separator " "
-  "Tab bar divider that separates the buffer number and buffer name in a tab.")
-(defvar star-tabs-modified-symbol-close-button-separator " " 
-  "Tab bar divider that separates the buffer number and buffer name in a tab.")
+
+(defvar star-tabs-name-modified-icon-separator " "
+  "Tab bar divider that separates the buffer name and modified icon in a tab.")
+
+(defvar star-tabs-modified-icon-close-button-separator " " 
+  "Tab bar divider that separates the modified icon and close button in a tab.")
+
 (defvar star-tabs-filter-name-number-separator "   "
   "Tab bar divider that separates the name of the active filter group and the first tab.")
 
-;; Tab symbols
-(defvar star-tabs-modified-buffer-symbol "*"
-  "Tab symbol for modified buffers.")
-(defvar star-tabs-unmodified-buffer-symbol "+"
-  "Tab symbol for unmodified buffers.")
-(defvar star-tabs-close-buffer-symbol "x"
-  "Tab symbol for the tab close button")
+
+;; Tab icons
+
+(defvar star-tabs-modified-buffer-icon "*"
+  "Tab 'icon' for modified buffers.")
+
+(defvar star-tabs-unmodified-buffer-icon "+"
+  "Tab 'icon' for unmodified buffers.")
+
+(defvar star-tabs-close-buffer-icon "x"
+  "Tab 'icon' for the tab close button.")
+
 
 ;; Keymaps
+
 (defvar star-tabs-map-select-tab
   (let ((map (make-sparse-keymap)))
     (define-key map (vector star-tabs-header-line 'mouse-1) 'star-tabs-switch-to-buffer-on-click)
     map)
   "Mouse keymap for select tab button")
+
 (defvar star-tabs-map-close-tab
   (let ((map (make-sparse-keymap)))
     (define-key map (vector star-tabs-header-line 'mouse-1) 'star-tabs-close-buffer-on-click)
@@ -52,21 +68,30 @@
 
 ;; Global state variables
 (defvar star-tabs-current-buffer nil
-  "Helper variable to for function (star-tabs--buffer-switched-p) to keep track of the current 'real' buffer.
-A 'real' or 'active' buffer refers open buffers that are not ephemeral/temporary or otherwise deemed unimportant.")
+  "Helper variable for function (star-tabs--buffer-switched-p) to keep track of the current 'real' buffer.
+A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/temporary or otherwise deemed unimportant.")
+
 (defvar star-tabs-current-filter nil
   "Helper variable for (star-tabs--filter-changed-p) to keep track of when a filter changes.")
+
 (defvar star-tabs-modified-state-changed-buffer-table (make-hash-table :test #'equal)
   "Store whether a buffer has been modified.")
-(defvar star-tabs-last-timer nil
-  "The last used timer. Set automatically by star-tabs-set-temporarily.")
-(defvar star-tabs-debug-messages nil)
 
+(defvar star-tabs-last-timer nil
+  "The last used timer, set automatically by (star-tabs--display-filter-name-temporarily).")
+
+(defvar star-tabs-debug-messages nil
+  "If set to non-nil, debug messages will be displayed."
+  ;; TODO: Remove this, and all debug messages.
+)
 ;; Collections
+
 (defvar star-tabs-filter-collections nil
-  "List of all filter collections. car of list represents the currently active collection in the tab bar.")
+  "List of all filter collections. car of the list represents the currently active collection in the tab bar.")
+
 
 ;; Filters
+
 (defvar star-tabs-global-inclusion-prefix-filter nil
   "List of buffer name prefixes to be included globally. Buffers filtered this way will be cached and ignored
 for all future searches. As such, global filtering may increase performance, and
@@ -76,10 +101,8 @@ Buffers with the space prefix (\" \") are automatically filtered before this fil
 be included.
 
 This filter is applied before star-tabs-global-exclusion-prefix-filter.")
-(defvar star-tabs-global-exclusion-prefix-filter '("magit-"
-					    "magit:"
-					    "*Help"
-					    "*WoM")
+
+(defvar star-tabs-global-exclusion-prefix-filter '("magit-" "magit:" "*Help" "*WoM")
   "List of buffer name prefixes to be excluded globally. Buffers filtered this way will be cached and ignored
 for all future searches. As such, global filtering may increase performance, and
 should (and should only!) be applied to buffers that you really don't care about.
@@ -88,88 +111,116 @@ Buffers with the space prefix (\" \") are automatically filtered before this fil
 be added to this list.
 
 This filter is applied after star-tabs-global-inclusion-prefix-filter.")
+
 (defvar star-tabs-tab-bar-filter-name nil
-  "Filter name to be displayed in the tab bar. Automatically set by other functions.")
+  "Filter name to be displayed in the tab bar; automatically set by other functions.")
+
 (defvar star-tabs-cached-filtered-buffers (make-hash-table :test #'equal)
   "Cache globally filtered buffers to improve performance.")
 
+
 ;; File extension filters
+
 (defvar star-tabs-add-file-extension-filters nil
   "If non-nil, file extension filters will be added to the collection. This variable is set and
-controlled by functions, and depends on collection-specific configuration.")
+controlled by functions, and depends on collection-specific configuration."
+  ;; FIXME: Add as a collection property instead.
+  )
+
 (defcustom star-tabs-file-ext-filter-buffer-threshold 15
   "When the total number of buffers after global filters have been applied reaches or exceeds 
-the number set in this variable, STAR-TABS-SET-FILE-EXTENSION-FILTERS is automatically set to t,
+the number set in this variable, star-tabs-set-file-extension-filters is automatically set to t,
 and file extension filters are subsequently added. If the buffer count goes down below the threshold again,
-STAR-TABS-SET-FILE-EXTENSION-FILTERS is then set to nil, and all automatically added file extension filters removed.
+star-tabs-set-file-extension-filters is then set to nil, and all automatically added file extension filters removed.
 Deactivate this feature by setting this variable to 0."
+  ;; FIXME: Add as a collection property instead.
   :type 'int)
+
 (defvar star-tabs-file-extension-filter-names nil
-  "Automatically added file-extension filters. This is a helper variable for the automatic file extension filters")
+  "Automatically added file-extension filters. 
+This is a helper variable for the automatic file extension filters")
+
 
 ;; Buffers
 (defvar star-tabs-active-filtered-buffers-enum nil
   "Enumerated list of buffers after all filters have been applied.")
+
 (defvar star-tabs-active-buffers nil
   "List of all currently active/'real' buffers.
-A 'real' or 'active' buffer refers open buffers that are not ephemeral/temporary or otherwise deemed unimportant.")
+A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/temporary or otherwise deemed unimportant.")
+
 (defvar star-tabs-buffers-enum nil
-  "Alist of enumerated buffers for all filters. 
+  "Alist of enumerated buffers for all filters in the active collection. 
 Key is filter name, value is an enumerated list of buffers.")
 
+
 ;;; Visuals
-(defvar star-tabs-tab-bar-height 220)
+
+(defvar star-tabs-tab-bar-height 220
+  "Height of the tab bar.")
+
 (defvar star-tabs-tab-bar-text-height 150
   "Text height for tabs.")
+
 (defvar star-tabs-tab-bar-filter-name-foreground "#ef21b3"
   "Foreground color for tab bar filter name.")
+
 (defvar star-tabs-tab-bar-selected-background "#202020"
   "Background color for selected tab.")
+
 (defvar star-tabs-tab-bar-selected-foreground "#a3c9e7"
   "Foreground color for selected tab.")
+
 (defvar star-tabs-tab-bar-non-selected-background "#262626"
   "Background color for non-selected tabs.")
+
 (defvar star-tabs-tab-bar-non-selected-foreground "#e1e1e1"
   "Foreground color for non-selected tabs.")
 
 ;; Faces
+
 (defface star-tabs-tab-bar-left-margin
   `(( t
       (
        :height ,star-tabs-tab-bar-height
        :background ,star-tabs-tab-bar-non-selected-background)))
-  "Face for left margin of the header-line which acts as the height-setter for the entire header-line")
+  "Face for left margin of the header-line which is used for determining the height of the header-line.")
+
 (defface star-tabs-filter-name
   `((t
      (
       :background ,star-tabs-tab-bar-non-selected-background
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
-  "Face for displaying filter-name in the tab bar")
+  "Face for displaying filter-name in the tab bar.")
+
 (defface star-tabs-non-selected-tab
   `((t (
 	:background ,star-tabs-tab-bar-non-selected-background
 	:foreground ,star-tabs-tab-bar-non-selected-foreground
 	:height ,star-tabs-tab-bar-text-height)))
-  "Face for displaying filter-name in the tab bar")
+  "Face for displaying the non-selected tab in the tab bar.")
+
 (defface star-tabs-selected-tab
   `((t
      (
       :background ,star-tabs-tab-bar-selected-background
       :foreground ,star-tabs-tab-bar-selected-foreground
       :height ,star-tabs-tab-bar-text-height)))
-  "Face for displaying filter-name in the tab bar")
+  "Face for displaying the selected tab in the tab bar.")
+
 (defface star-tabs-non-selected-icon
   `((t (
 	:background ,star-tabs-tab-bar-non-selected-background
 	:height ,star-tabs-tab-bar-text-height)))
-  "Face for displaying non-selected icon in the tab bar")
+  "Face for displaying the non-selected icon in the tab bar")
+
 (defface star-tabs-selected-icon
   `((t
-     (
-      :background ,star-tabs-tab-bar-selected-background
+     (:background ,star-tabs-tab-bar-selected-background
       :height ,star-tabs-tab-bar-text-height)))
-  "Face for displaying selected iconin the tab bar")
+  "Face for displaying the selected icon in the tab bar.")
+
 
 ;;; Functions
 ;;
@@ -187,7 +238,7 @@ Key is filter name, value is an enumerated list of buffers.")
     cycled-list))
 
 (defun star-tabs-left-of-elt (list elt)
-  "Return the element to the left of element ELT in list LIST. If ELT is car of LIST, return last element of LIST.
+  "Return the element to the left of element ELT in list LIST. If ELT is the car of LIST, return the last element of LIST.
 Return nil if ELT is not in LIST."
   (if (member elt list)
     (let ((left-elt (cadr (member elt (reverse list)))))
@@ -199,7 +250,7 @@ Return nil if ELT is not in LIST."
     (append (reverse (nthcdr nth-from-end (reverse list))) (list elt) (nthcdr n list))))
 
 (defun star-tabs-flatten-alist (alist)
-  "Flattens an alist by removing keys and keeping values."
+  "Flatten an alist by removing keys and keeping values."
   (let ((flattened-list nil))
     (dolist (item alist flattened-list)
       (dolist (value (cdr item) flattened-list)
@@ -220,6 +271,7 @@ Optionally run function FUNCTION with arguments ARGS after DURATION. Return time
 		 (when func-after 
 		     (apply func-after args)))
 	       symbol value-after func-after args))
+
 
 ;; TODO Display collection name in tab bar temporarily when switched.
 ;;; Filter Collections
@@ -957,7 +1009,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 				       (number-to-string number)
 				       star-tabs-number-name-separator
 				       name
-				       star-tabs-name-modified-symbol-separator)
+				       star-tabs-name-modified-icon-separator)
 				      'keymap star-tabs-map-select-tab
 				      'face 
 				      (if (equal name (star-tabs-current-buffer-name))
@@ -968,17 +1020,17 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 				      'buffer-number number))
 	 ;; Modified symbol:
 	 ;; Don't show (un)modified symbol for system buffers or read-only buffers.
-	 (modified-symbol (propertize (if (and(not (string-match "^[[:space:]]" name))
+	 (modified-icon (propertize (if (and(not (string-match "^[[:space:]]" name))
 					      (not (string-match "^*.*\\*$" name))
 					      (not (star-tabs-buffer-read-only-p name)))
 					  ;; Display (un)modified symbol:
 					  (concat  
 					   (if (buffer-modified-p (get-buffer name))
-					       star-tabs-modified-buffer-symbol
-					     star-tabs-unmodified-buffer-symbol)
+					       star-tabs-modified-buffer-icon
+					     star-tabs-unmodified-buffer-icon)
 					   (when (not(star-tabs-get-filter-collection-prop-value
 						      :hide-close-buttons))
-					     star-tabs-modified-symbol-close-button-separator))
+					     star-tabs-modified-icon-close-button-separator))
 					;; Display nothing if it's a system or read-only buffer:
 					"")
 				      'keymap star-tabs-map-select-tab
@@ -993,7 +1045,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	 ;; Conditionally display close button
 	 (close-button (propertize (if (not(star-tabs-get-filter-collection-prop-value
 					    :hide-close-buttons))
-				       star-tabs-close-buffer-symbol
+				       star-tabs-close-buffer-icon
 				     "")
 				   'keymap star-tabs-map-close-tab
 				   'face 
@@ -1021,7 +1073,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	      icon)
 	    divider
 	    number-and-name
-	    modified-symbol
+	    modified-icon
 	    close-button
 	    divider)))
 
