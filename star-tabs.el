@@ -66,6 +66,7 @@
     map)
   "Mouse keymap for close tab button")
 
+
 ;; Global state variables
 
 (defvar star-tabs-current-buffer nil
@@ -199,6 +200,38 @@ Key is filter name, value is an enumerated list of buffers.")
       :height ,star-tabs-tab-bar-text-height)))
   "Face for displaying filter-name in the tab bar.")
 
+(defface star-tabs-tab-divider-mouse-selected
+  `((t
+     (
+      :background ,star-tabs-tab-bar-selected-background
+      :foreground ,star-tabs-tab-bar-filter-name-foreground
+      :height ,star-tabs-tab-bar-text-height)))
+  "Face to be displayed when hovering over a selected tab with the mouse in the tab bar.")
+
+(defface star-tabs-tab-divider-mouse-non-selected
+  `((t
+     (
+      :background ,star-tabs-tab-bar-non-selected-background
+      :foreground ,star-tabs-tab-bar-filter-name-foreground
+      :height ,star-tabs-tab-bar-text-height)))
+  "Face to be displayed when hovering over a selected tab with the mouse in the tab bar.")
+
+(defface star-tabs-mouse-selected
+  `((t
+     (
+      :background ,star-tabs-tab-bar-selected-background
+      :foreground ,star-tabs-tab-bar-filter-name-foreground
+      :height ,star-tabs-tab-bar-text-height)))
+  "Face to be displayed when hovering over a selected tab with the mouse in the tab bar.")
+
+(defface star-tabs-mouse-non-selected
+  `((t
+     (
+      :background ,star-tabs-tab-bar-non-selected-background
+      :foreground ,star-tabs-tab-bar-filter-name-foreground
+      :height ,star-tabs-tab-bar-text-height)))
+  "Face to be displayed when hovering over a selected tab with the mouse in the tab bar.")
+
 (defface star-tabs-non-selected-tab
   `((t (
 	:background ,star-tabs-tab-bar-non-selected-background
@@ -217,12 +250,14 @@ Key is filter name, value is an enumerated list of buffers.")
 (defface star-tabs-non-selected-icon
   `((t (
 	:background ,star-tabs-tab-bar-non-selected-background
+	:foreground nil	    
 	:height ,star-tabs-tab-bar-text-height)))
   "Face for displaying the non-selected icon in the tab bar")
 
 (defface star-tabs-selected-icon
   `((t
      (:background ,star-tabs-tab-bar-selected-background
+      :foreground nil
       :height ,star-tabs-tab-bar-text-height)))
   "Face for displaying the selected icon in the tab bar.")
 
@@ -999,17 +1034,6 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 (defun star-tabs--tab (buffer-name number)
   "Return a propertized string that represents a tab for buffer BUFFER-NAME (string)."
   (let* ((name buffer-name)
-	 ;; Space between tabs:
-	 (tab-separator (if (not (equal number 1))
-			    (propertize star-tabs-tab-separator
-					'keymap star-tabs-map-select-tab
-					'face 
-					(if (equal name (star-tabs-current-buffer-name))
-					    'star-tabs-selected-tab
-					  'star-tabs-non-selected-tab)
-					'buffer-name name
-					'buffer-number number)
-			  ""))
 	 ;; Number and name:
 	 (number-and-name (propertize (concat
 				       (number-to-string number)
@@ -1022,31 +1046,37 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 					  'star-tabs-selected-tab
 					'star-tabs-non-selected-tab)
 				      'buffer-name name
-				      'mouse-face 'star-tabs-filter-name
+				      'mouse-face 
+				      (if (equal name (star-tabs-current-buffer-name))
+					  'star-tabs-mouse-selected
+					'star-tabs-mouse-non-selected)
 				      'buffer-number number))
 	 ;; Modified symbol:
 	 ;; Don't show (un)modified symbol for system buffers or read-only buffers.
 	 (modified-icon (propertize (if (and(not (string-match "^[[:space:]]" name))
-					      (not (string-match "^*.*\\*$" name))
-					      (not (star-tabs-buffer-read-only-p name)))
-					  ;; Display (un)modified symbol:
-					  (concat  
-					   (if (buffer-modified-p (get-buffer name))
-					       star-tabs-modified-buffer-icon
-					     star-tabs-unmodified-buffer-icon)
-					   (when (not(star-tabs-get-filter-collection-prop-value
-						      :hide-close-buttons))
-					     star-tabs-modified-icon-close-button-separator))
-					;; Display nothing if it's a system or read-only buffer:
-					"")
-				      'keymap star-tabs-map-select-tab
-				      'face 
-				      (if (equal name (star-tabs-current-buffer-name))
-					  'star-tabs-selected-tab
-					'star-tabs-non-selected-tab)
-				      'mouse-face 'star-tabs-filter-name
-				      'buffer-name name
-				      'buffer-number number))
+					    (not (string-match "^*.*\\*$" name))
+					    (not (star-tabs-buffer-read-only-p name)))
+					;; Display (un)modified symbol:
+					(concat  
+					 (if (buffer-modified-p (get-buffer name))
+					     star-tabs-modified-buffer-icon
+					   star-tabs-unmodified-buffer-icon)
+					 (when (not(star-tabs-get-filter-collection-prop-value
+						    :hide-close-buttons))
+					   star-tabs-modified-icon-close-button-separator))
+				      ;; Display nothing if it's a system or read-only buffer:
+				      "")
+				    'keymap star-tabs-map-select-tab
+				    'face 
+				    (if (equal name (star-tabs-current-buffer-name))
+					'star-tabs-selected-tab
+				      'star-tabs-non-selected-tab)
+				    'mouse-face 
+				    (if (equal name (star-tabs-current-buffer-name))
+					'star-tabs-mouse-selected
+				      'star-tabs-mouse-non-selected)
+				    'buffer-name name
+				    'buffer-number number))
 	 ;; Close button:
 	 ;; Conditionally display close button
 	 (close-button (propertize (if (not(star-tabs-get-filter-collection-prop-value
@@ -1058,13 +1088,27 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 				   (if (equal name (star-tabs-current-buffer-name))
 				       'star-tabs-selected-tab
 				     'star-tabs-non-selected-tab)
-				   'mouse-face 'star-tabs-filter-name
+				   'mouse-face 
+				   (if (equal name (star-tabs-current-buffer-name))
+				       'star-tabs-mouse-selected
+				     'star-tabs-mouse-non-selected)
 				   'buffer-name name
 				   'buffer-number number))
-	 ;; (icon (star-tabs--select-icon name (if (equal name (star-tabs-current-buffer-name))
-	 ;; 				'star-tabs-selected-icon
-	 ;; 			      'star-tabs-non-selected-icon)))
+	 ;; Icon:
+	 (icon-background (if (equal name (star-tabs-current-buffer-name))
+			      (face-background 'star-tabs-selected-tab)
+			    (face-background 'star-tabs-non-selected-tab)))
 	 (icon (star-tabs--select-icon name))
+	 (icon (when (stringp icon)
+		 (propertize icon
+			     'face `(:inherit ,(get-text-property 0 'face icon)
+					      :background ,icon-background)
+			     
+			      'mouse-face 
+			      (if (equal name (star-tabs-current-buffer-name))
+				  'star-tabs-mouse-selected
+				'star-tabs-mouse-non-selected))))
+	 ;; Space between elements of tab:
 	 (divider (propertize " " 
 			      'keymap star-tabs-map-select-tab
 			      'face 
@@ -1072,8 +1116,25 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 				  'star-tabs-selected-tab
 				'star-tabs-non-selected-tab)
 			      'buffer-name name
-			      'mouse-face 'star-tabs-filter-name
-			      'buffer-number number)))
+			      'mouse-face 
+			      (if (equal name (star-tabs-current-buffer-name))
+				  'star-tabs-mouse-selected
+				'star-tabs-mouse-non-selected)
+			      'buffer-number number))
+	 ;; Space between tabs:
+	 (tab-divider (propertize " " 
+				  'keymap star-tabs-map-select-tab
+				  'face 
+				  (if (equal name (star-tabs-current-buffer-name))
+				      'star-tabs-selected-tab
+				    'star-tabs-non-selected-tab)
+				  'mouse-face 
+				  (if (equal name (star-tabs-current-buffer-name))
+				      'star-tabs-tab-divider-mouse-selected
+				    'star-tabs-tab-divider-mouse-non-selected)
+				  'buffer-name name
+				  'buffer-number number)))
+    ;; Final tab:
     (concat divider
 	    (when (stringp icon)
 	      icon)
@@ -1081,12 +1142,11 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	    number-and-name
 	    modified-icon
 	    close-button
-	    divider)))
+	    tab-divider)))
 
 (defun star-tabs--select-icon (buffer)
   (with-current-buffer buffer
-    ;; REVIEW: (all-the-icons-icon-for-mode major-mode :face face :v-adjust 0.03)
-    (all-the-icons-icon-for-buffer)))
+   (all-the-icons-icon-for-mode major-mode :v-adjust 0.001 :height 0.8)))
 
 (defun star-tabs--header-line-remaining-space()
   "Return the number of characters between the end of the last tab and the right edge of the window."
