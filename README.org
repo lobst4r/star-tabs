@@ -1,0 +1,26 @@
+#+TITLE: Star Tabs
+#+AUTHOR: Robin Westerlund
+
+* Installation
+TODO: Installation instructions
+** Prerequisites
+- Emacs 26.1+
+- OPTIONAL: [[https://github.com/domtronn/all-the-icons.el][all-the-icons]]
+* Introduction
+Star Tabs aims to be a highly customizable and functional tab bar solution for Emacs, with focus on efficient and fast buffer navigation using numbers to
+identify tabs. In the normal case, switching to any buffer is only 2-4 keystrokes away (its true power is unleashed in evil-mode!), and buffers can easily be arranged and displayed to your needs. 
+* Features
+TODO
+* Usage
+TODO
+** Commands
+TODO
+* Customization 
+TODO
+** Collections
+TODO
+** Filters
+TODO
+* TODO-list
+TODO
+* Contribute
