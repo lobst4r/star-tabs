@@ -67,6 +67,7 @@
   "Mouse keymap for close tab button")
 
 ;; Global state variables
+
 (defvar star-tabs-current-buffer nil
   "Helper variable for function (star-tabs--buffer-switched-p) to keep track of the current 'real' buffer.
 A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/temporary or otherwise deemed unimportant.")
@@ -84,6 +85,8 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
   "If set to non-nil, debug messages will be displayed."
   ;; TODO: Remove this, and all debug messages.
 )
+
+
 ;; Collections
 
 (defvar star-tabs-filter-collections nil
@@ -142,6 +145,7 @@ This is a helper variable for the automatic file extension filters")
 
 
 ;; Buffers
+
 (defvar star-tabs-active-filtered-buffers-enum nil
   "Enumerated list of buffers after all filters have been applied.")
 
@@ -176,6 +180,7 @@ Key is filter name, value is an enumerated list of buffers.")
 
 (defvar star-tabs-tab-bar-non-selected-foreground "#e1e1e1"
   "Foreground color for non-selected tabs.")
+
 
 ;; Faces
 
@@ -532,6 +537,7 @@ Also remove it from automatic inclusion, if applicable."
 
 
 ;; Get filter data 
+
 (defun star-tabs-get-filter-name (filter-name &optional collection-name)
   "Return the filter FILTER-NAME in filter collection COLLECTION-NAME.
 COLLECTION-NAME defaults to the currently active filter collection."
