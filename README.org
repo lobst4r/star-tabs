@@ -2,13 +2,12 @@
 #+AUTHOR: Robin Westerlund
 
 * Installation
-1. Clone repository
-#+BEGIN_SRC 
-git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.git
-#+END_SRC
+
+1. Clone repository:
+
+~git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.git~
 
 2. Add star-tabs.el to your Emacs load path.
-
 3. In your .emacs configuration file, add: 
 #+BEGIN_SRC emacs-lisp
 (require 'star-tabs)
@@ -182,7 +181,7 @@ Most values shown in the examples below are default values.
 
 
 ** Collections
-A collection is a collection of groups and filters. Most customization in Star Tabs is done by setting the properties of a collection.
+A collection is a bunch (a group, if you will) of groups/filters. Most customization in Star Tabs is done by setting the properties of a collection.
 There is no hard limit on how many collections you can create, but realistically you probably won't be using more than one or two for a project. 
 
 In order to create a filter, run this code, or add it to your .emacs configuration file:
@@ -200,11 +199,11 @@ In order to create a filter, run this code, or add it to your .emacs configurati
 | Property                               | Description                                                                                                                                                                                       |
 |----------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | :name (string)                         | The name of the collection                                                                                                                                                                        |
-| :enable-file-extension-filters (bool)  | If t, add file extension filters to the collection                                                                                                                                                |
-| :file-extension-filter-threshold (int) | If greater than 0, and if :enable-file-extension-filters is ~nil~, add file extension filters to the collection if the total number of real buffers reaches or exceeds the value of the property. |
-| :hide-close-buttons (bool)             | If non-nil, hide the tab close button icons.                                                                                                                                                      |
-| :display-filter-name (bool)            | If non-nil, always display the name of the filter/group left of the tabs in the tab bar. Otherwise, only display the filter/group name temporarily when switching filters/groups                  |
-| :use (bool)                            | If non-nil, switch to the collection upon creation.                                                                                                                                               |
+| :enable-file-extension-filters (bool)  | If ~t~, add file extension filters to the collection                                                                                                                                              |
+| :file-extension-filter-threshold (int) | If greater than ~0~, and if ~:enable-file-extension-filters~ is ~nil~, add file extension filters to the collection if the total number of real buffers reaches or exceeds the value of the property. |
+| :hide-close-buttons (bool)             | If ~non-nil~, hide the tab close button icons.                                                                                                                                                      |
+| :display-filter-name (bool)            | If ~non-nil~, always display the name of the filter/group left of the tabs in the tab bar. Otherwise, only display the filter/group name temporarily when switching filters/groups                  |
+| :use (bool)                            | If ~non-nil~, switch to the collection upon creation.                                                                                                                                               |
 
 ** Filters
 A filter is a list, or multiple lists, of regular expressions used to include or exclude (or both include and exclude) buffers with names that match the regular expressions.
@@ -216,7 +215,7 @@ In case both ~:include~ and ~:exclude~ are set, first include buffers using the 
 | :exclude  (list of regexps)                         | List of regular expressions. Any buffer with a name matched by a regexp in this list will be excluded from the group.                         |
 | :include (list of regexps)                          | List of regular expressions. Any buffer with a name matched by a regexp in this list will be included in the group.                           |
 | :always-include (regexp)                            | Buffers matching this regular expression will always be included in the group, even if they were excluded by the list specified in ~:exclude~ |
-| :collection-name (symbol...TODO: change to string?) | The name of the collection the filter should be added to. If not set, it defaults to (star-tabs-active-filter-collection-name)                |
+| :collection-name (symbol...TODO: change to string?) | The name of the collection the filter should be added to. If not set, it defaults to ~(star-tabs-active-filter-collection-name)~                |
 
 * Questions and Answers
 
@@ -253,12 +252,12 @@ To remove groups for file extensions for the current collection, run the followi
 (star-tabs-set-filter-collection-prop-value :enable-file-extension-filters nil)
 #+END_SRC
 
-
 Alternatively, you can enable file extension filters only when the total number of real buffers reaches or exceeds a certain threshold.
 This can be useful if you want as few groups as possible when you don't have a lot of active buffers, but want to mitigate some of the disorganization
-that might follow a growing number of buffers.  
+that might follow a growing number of buffers. To do this, run the following code or add it to your emacs configuration file:
 #+BEGIN_SRC emacs-lisp
-;; TODO: Code
+(star-tabs-set-filter-collection-prop-value :enable-file-extension-filters nil) ; This must be nil when using threshold.
+(star-tabs-set-filter-collection-prop-value :file-extension-filter-threshold 15)
 #+END_SRC
 
 If you have disabled file extension filters by setting the property ~:enable-file-extension-filters~ to ~nil~, but they are still showing,
@@ -268,6 +267,19 @@ make sure ~:file-extension-filter-threshold~ is set to ~0~ as well.
 No. Although there are other good projects that accomplish similar things, I chose to start from scratch because this is a relatively small project and
 I needed something to familiarize myself more with elisp.
 
+** Is Star Tabs useful for someone with hundreds of open buffers?
+Potentially. Tabs become less efficient and less useful the more there are, so you probably want to minimize the number of tabs and groups.
+Even though you have hundreds of open buffers, you can customize Star Tabs to only show the ones you want, and in which groups you want using filters,
+so you might only end up with one or two groups with just a handful of tabs in each. The possibilities are endless!
+
+That being said, Star Tabs is not a complete solution that is going work efficiently in all cases for everybody.
+
+
+** What's the difference between a filter and a group?
+I use the terms filters and groups somewhat interchangeably when talking about a group of tabs. At the current state of development, all groups
+of tabs are created and defined using filters, and that's why I refer to them both as filters and groups, or groups/filters. In the future,
+the distinction will be more clear (and there should then be no need for this question).
+
 ** How can I contribute to Star Tabs?
 We all customize Emacs to our own needs and preferences. Star Tabs was created mainly for my own personal use in mind and, although care has been taken to ensure compatability with other people's configurations and styles, there are undoubtedly things you would like done differently.
 As such, I'd love to know about any bugs and compatability issues you might find, as well as things - big and small - that could be improved.
@@ -275,5 +287,5 @@ To learn about how you can help improve Star Tabs, please refer to the [[*Contri
 
 * Contribute
 - If you have any ideas or suggestions on how to improve Star Tabs, don't hesitate to let me know (either through email or by raising an issue on Github).
-- If you find a bug, file a report by raising an issue here Github.
+- If you find a bug, file a report by raising an issue on Github.
 - In case you want to contribute with code, please fork the develop branch and create a pull request.

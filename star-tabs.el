@@ -1227,7 +1227,7 @@ This function uses global helper variable star-tabs-last-timer to keep track of 
 	     ;; Update the tab bar when a buffer is saved.
 	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil))))
 
-(star-tabs-tab-bar-mode t)
+;;(star-tabs-tab-bar-mode t)
 
 
 ;;; TODO: Unused functions; remove or fix.
