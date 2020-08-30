@@ -31,10 +31,102 @@ TODO
 | ~star-tabs-find-active-filter~                         | Find and display a filter for the currently active buffer, if such filter exists in the current collection. |
 | ~star-tabs-include-current-buffer-in-current-filter~   | Always display current buffer in the currently active group/filter                                          |
 | ~star-tabs-exclude-current-buffer-from-current-filter~ | Hide current buffer in the currently active group/filter                                                    |
-| ~star-tabs-active-filter-name~                         | Output the active group/filter name as a message                                                       |
+| ~star-tabs-active-filter-name~                         | Output the active group/filter name as a message                                                            |
+| ~star-tabs-clear-cached-buffers~                       | Clear the cached filtered buffers. Use this command after making changes to the global filter. |
 
 
 * CUSTOMIZATION 
+
+** Global Setting
+You can change most visual aspects of Star Tabs by altering these global settings.
+Most functional settings are done on a collection-level scope, but there are still some functional settings that either must or can be set globally.
+Most values shown in the examples below are default values.
+
+*IMPORTANT: These commands should be added to your .emacs configuration file, since you will need to restart Emacs for most of the visual changes to take effect.*
+
+*** Colors  
+#+BEGIN_SRC emacs-lisp
+;; Foreground color for tab bar filter name.
+(setq star-tabs-tab-bar-filter-name-foreground "#ef21b3")
+
+;; Background color for selected tab.
+(setq star-tabs-tab-bar-selected-background "#202020")
+
+;; Foreground color for selected tab.
+(setq star-tabs-tab-bar-selected-foreground "#a3c9e7")
+  
+;; Background color for non-selected tabs.
+(setq star-tabs-tab-bar-non-selected-background "#262626")
+
+;; Foreground color for non-selected tabs.
+(setq star-tabs-tab-bar-non-selected-foreground "#e1e1e1")
+#+END_SRC
+
+*** Size
+#+BEGIN_SRC emacs-lisp
+;; Height of the tab bar.
+(setq star-tabs-tab-bar-height 220)
+
+;; Text height for tabs.
+(setq star-tabs-tab-bar-text-height 150)
+#+END_SRC
+
+*** Dividers 
+#+BEGIN_SRC emacs-lisp
+;; Space used to the left of the tab bar.
+(setq star-tabs-left-margin "  ")
+
+;; Space used to the right of the tab bar. Deprecated?
+(setq star-tabs-right-margin " ")
+
+;; Tab bar divider that separates tabs.
+(setq star-tabs-tab-separator " ")
+
+;; Tab bar divider that separates the buffer number and buffer name in a tab.
+(setq star-tabs-number-name-separator " ")
+
+;; Tab bar divider that separates the buffer name and modified icon in a tab.
+(setq star-tabs-name-modified-icon-separator " ")
+
+;; Tab bar divider that separates the modified icon and close button in a tab.
+(setq star-tabs-modified-icon-close-button-separator " ")
+
+;; Tab bar divider that separates the name of the active filter group and the first tab.
+(setq  star-tabs-filter-name-number-separator "   ")
+#+END_SRC
+
+*** Tab ASCII Icons
+#+BEGIN_SRC emacs-lisp
+;; Tab 'icon' for modified buffers.
+(setq star-tabs-modified-buffer-icon "*")
+
+;; Tab 'icon' for unmodified buffers.
+(setq star-tabs-unmodified-buffer-icon "+")
+  
+;; Tab 'icon' for the tab close button.
+(setq star-tabs-close-buffer-icon "x") 
+#+END_SRC
+
+*** Global Filter Settings
+#+BEGIN_SRC emacs-lisp
+;; List of buffer name prefixes to be included globally. Buffers filtered this way will be cached and ignored
+;; for all future searches. As such, global filtering may increase performance, and
+;; should (and should only!) be applied to buffers that you really don't care about.
+;; Buffers with the space prefix (\" \") are automatically filtered before this filter is applied, and thus cannot  
+;; be included.
+;; This filter is applied before star-tabs-global-exclusion-prefix-filter.
+(setq star-tabs-global-inclusion-prefix-filter nil)
+
+;; List of buffer name prefixes to be excluded globally. Buffers filtered this way will be cached and ignored
+;; for all future searches. As such, global filtering may increase performance, and
+;; should (and should only!) be applied to buffers that you really don't care about.
+;; Buffers with the space prefix (\" \") are automatically filtered before this filter is applied, and thus need not
+;; be added to this list.
+;; This filter is applied after star-tabs-global-inclusion-prefix-filter.
+(setq star-tabs-global-exclusion-prefix-filter '("magit-" "magit:" "*Help" "*WoM")
+#+END_SRC
+
+
 ** Collections
 A collection is a collection of groups and filters. Most customization in Star Tabs is done by setting the properties of a collection.
 There is no hard limit on how many collections you can create, but realistically you probably won't be using more than one or two for a project. 
@@ -42,12 +134,12 @@ There is no hard limit on how many collections you can create, but realistically
 In order to create a filter, run this code, or add it to your .emacs configuration file:
 #+BEGIN_SRC emacs-lisp
 (star-tabs-create-filter-collection
-:name "my-collection"
-:use t
-:enable-file-extension-filters t 
-:file-extension-filter-threshold 0
-:hide-close-buttons t
-:display-filter-name t)
+  :name "my-collection"
+  :use t
+  :enable-file-extension-filters t 
+  :file-extension-filter-threshold 0
+  :hide-close-buttons t
+  :display-filter-name t)
 #+END_SRC
 
 *** Collection Properties
@@ -58,19 +150,15 @@ In order to create a filter, run this code, or add it to your .emacs configurati
 | :file-extension-filter-threshold (int) | If greater than 0, and if :enable-file-extension-filters is ~nil~,                       |
 |                                        | add file extension filters to the collection if the total number of real buffers         |
 |                                        | reaches or exceeds the value of the property.                                            |
-| :hide-close-buttons                    | If non-nil, hide the tab close button icons.                                             |
-| :display-filter-name                   | If non-nil, always display the name of the filter/group left of the tabs in the tab bar. |
+| :hide-close-buttons (bool)             | If non-nil, hide the tab close button icons.                                             |
+| :display-filter-name (bool)            | If non-nil, always display the name of the filter/group left of the tabs in the tab bar. |
 |                                        | Otherwise, only display the filter/group name temporarily when switching filters/groups  |
-| :use                                   | If non-nil, switch to the collection upon creation.                                      |
+| :use (bool)                            | If non-nil, switch to the collection upon creation.                                      |
 
 ** Filters
 TODO
 
 * Questions and Answers
-
-** Is this a fork of an existing project?
-No. Although there are other good projects that accomplish similar things, I chose to start from scratch because this is a relatively small project and
-I needed something to familiarize myself more with elisp.
 
 ** There are unwanted/strange tabs in my tab bar. How do I hide them?
 First, make sure you are in the correct tab group/filter. You can see the name of the currently active filter using command:
@@ -112,6 +200,10 @@ as the number of buffers grow.
 #+BEGIN_SRC emacs-lisp
 ;; TODO: Code
 #+END_SRC
+
+** Is this a fork of an existing project?
+No. Although there are other good projects that accomplish similar things, I chose to start from scratch because this is a relatively small project and
+I needed something to familiarize myself more with elisp.
 
 ** How can I contribute to Star Tabs?
 We all customize Emacs to our own needs and preferences. Star Tabs was created mainly for my own personal use in mind and, although care has been taken to ensure compatability with other people's configurations and styles, there are undoubtedly things you would like done differently.
