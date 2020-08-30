@@ -24,11 +24,45 @@ identify tabs. In the normal case, switching to any buffer is only 2-4 keystroke
 * Usage
 TODO
 ** Commands
-TODO
-* Customization 
-TODO
+| Command                                                | Description                                                                                                 |
+|--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------|
+| ~star-tabs-cycle-filters~                              | Cycle through groups/filters                                                                                |
+| ~star-tabs-switch-to-buffer~                           | Switch to buffer associated with tab N (N is the prefix argument that follows command ~C-u~)                |
+| ~star-tabs-find-active-filter~                         | Find and display a filter for the currently active buffer, if such filter exists in the current collection. |
+| ~star-tabs-include-current-buffer-in-current-filter~   | Always display current buffer in the currently active group/filter                                          |
+| ~star-tabs-exclude-current-buffer-from-current-filter~ | Hide current buffer in the currently active group/filter                                                    |
+| ~star-tabs-active-filter-name~                         | Output the active group/filter name as a message                                                       |
+
+
+* CUSTOMIZATION 
 ** Collections
-TODO
+A collection is a collection of groups and filters. Most customization in Star Tabs is done by setting the properties of a collection.
+There is no hard limit on how many collections you can create, but realistically you probably won't be using more than one or two for a project. 
+
+In order to create a filter, run this code, or add it to your .emacs configuration file:
+#+BEGIN_SRC emacs-lisp
+(star-tabs-create-filter-collection
+:name "my-collection"
+:use t
+:enable-file-extension-filters t 
+:file-extension-filter-threshold 0
+:hide-close-buttons t
+:display-filter-name t)
+#+END_SRC
+
+*** Collection Properties
+| Property                               | Description                                                                              |
+|----------------------------------------+------------------------------------------------------------------------------------------|
+| :name (string)                         | The name of the collection                                                               |
+| :enable-file-extension-filters (bool)  | If t, add file extension filters to the collection                                       |
+| :file-extension-filter-threshold (int) | If greater than 0, and if :enable-file-extension-filters is ~nil~,                       |
+|                                        | add file extension filters to the collection if the total number of real buffers         |
+|                                        | reaches or exceeds the value of the property.                                            |
+| :hide-close-buttons                    | If non-nil, hide the tab close button icons.                                             |
+| :display-filter-name                   | If non-nil, always display the name of the filter/group left of the tabs in the tab bar. |
+|                                        | Otherwise, only display the filter/group name temporarily when switching filters/groups  |
+| :use                                   | If non-nil, switch to the collection upon creation.                                      |
+
 ** Filters
 TODO
 
@@ -40,13 +74,19 @@ I needed something to familiarize myself more with elisp.
 
 ** There are unwanted/strange tabs in my tab bar. How do I hide them?
 First, make sure you are in the correct tab group/filter. You can see the name of the currently active filter using command:
-~M-x star-tabs-active-filter-name~
+#+BEGIN_SRC emacs-lisp
+M-x star-tabs-active-filter-name
+#+END_SRC
 
 If you're in the wrong group/filter, cycle filters using the following command until you find the correct filter:
-~M-x star-tabs-cycle-filters~
+#+BEGIN_SRC emacs-lisp
+M-x star-tabs-cycle-filters
+#+END_SRC
 
 If you're in the correct group/filter and you want to hide a tab, open the buffer of the tab you want to hide and run the command:
-~M-x star-tabs-exclude-current-buffer-from-current-filter~
+#+BEGIN_SRC emacs-lisp
+M-x star-tabs-exclude-current-buffer-from-current-filter
+#+END_SRC
 This will hide the buffer from the current group/filter.
 
 Alternatively you can run the following elisp command, specifying the buffer name and filter name yourself:
@@ -54,8 +94,31 @@ Alternatively you can run the following elisp command, specifying the buffer nam
 (star-tabs-exclude-from-filter (get-buffer buffer-name) filter-name)
 #+END_SRC
 
-** How do I disable groups for file extensions and/or major modes?
-TODO
+** How do I enable/disable groups for file extensions?
+To add groups for file extensions for the current collection, run the following code, or add it to your emacs configuration file:
+#+BEGIN_SRC emacs-lisp
+(star-tabs-set-filter-collection-prop-value :enable-file-extension-filters t)
+#+END_SRC
+
+To remove groups for file extensions for the current collection, run the following code, or add it to your emacs configuration file:
+#+BEGIN_SRC emacs-lisp
+(star-tabs-set-filter-collection-prop-value :enable-file-extension-filters nil)
+#+END_SRC
+
+
+Alternatively, you can enable file extension filters only when the total number of real buffers reaches or exceeds a certain threshold.
+This can be useful if you want as few groups as possible when you don't have a lot of active buffers, but don't want to get disorganized
+as the number of buffers grow. 
+#+BEGIN_SRC emacs-lisp
+;; TODO: Code
+#+END_SRC
+
+** How can I contribute to Star Tabs?
+We all customize Emacs to our own needs and preferences. Star Tabs was created mainly for my own personal use in mind and, although care has been taken to ensure compatability with other people's configurations and styles, there are undoubtedly things you would like done differently.
+As such, I'd love to know about any bugs and compatability issues you might find, as well as things - big and small - that could be improved.
+To learn about how you can help improve Star Tabs, please refer to the Contribute section. 
 
 * Contribute
-
+- If you have any ideas or suggestions on how to improve Star Tabs, don't hesitate to let me know (either through email or by raising an issue on Github).
+- If you find a bug, file a report by raising an issue here Github.
+- In case you want to contribute with code, please fork the develop branch and create a pull request.

@@ -330,10 +330,12 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 	 (enable-file-extension-filters (plist-get collection-props :enable-file-extension-filters))
 	 (hide-close-buttons (plist-get collection-props :hide-close-buttons))
 	 (display-filter-name (plist-get collection-props :display-filter-name))
+	 (file-extension-filter-threshold (or (plist-get collection-props :file-extension-filter-threshold) 0))
 	 (collection-name-prefix (or (plist-get collection-props :collection-name-prefix) "star-tabs-filter-collection-"))
 	 (name (intern (concat collection-name-prefix (plist-get collection-props :name))))
 	 (collection `(,name :enable-file-extension-filters ,enable-file-extension-filters
 			     :display-filter-name ,display-filter-name
+			     :file-extension-filter-threshold ,file-extension-filter-threshold
 			     :collection-name-prefix ,collection-name-prefix
 			     :last-filter nil)))
 
@@ -935,7 +937,8 @@ sometimes returns temporary/unreal buffers."
 	   ;; Activate the file extension filters if the buffer count exceeds a certain number
 	   (when (and (not (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters))
 		      (not (<= star-tabs-file-ext-filter-buffer-threshold 0)))
-	     (star-tabs--auto-activate-file-extension-filters-on-buffer-count star-tabs-file-ext-filter-buffer-threshold))
+	     (star-tabs--auto-activate-file-extension-filters-on-buffer-count (star-tabs-get-filter-collection-prop-value
+									       :file-extension-filter-threshold)))
 	   ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
 	   (if star-tabs-add-file-extension-filters
 	       (star-tabs--update-file-extension-filters)
