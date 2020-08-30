@@ -346,7 +346,7 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 	       ;; Switch to the new collection upon creation if :use is non-nil.
 	       (when use
 		 (while (not (eq (star-tabs-active-filter-collection-name) name))
-		   (star-tabs-cycle-filter-collection t))))
+		   (star-tabs-cycle-filter-collections t))))
       (message "Collection name already exists"))))
 
 (defun star-tabs-filter-collection-names ()
@@ -362,19 +362,20 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
   (if (>= (length star-tabs-filter-collections) 2)
       (let ((prefix (star-tabs-get-filter-collection-prop-value :collection-name-prefix collection-name)))
 	;; makunbound will cause problems if we're removing the currently active collection, so first make another collection active.
-	;; BEWARE: If for some reason in the future, star-tabs-cycle-filter-collection has the ability to skip collections,
+	;; BEWARE: If for some reason in the future, star-tabs-cycle-filter-collections has the ability to skip collections,
 	;; we might inadvertently, despite cycling, end up deleting COLLECTION-NAME when it's currently active. 
 	(when (eq collection-name (star-tabs-active-filter-collection-name))
-	  (star-tabs-cycle-filter-collection))
+	  (star-tabs-cycle-filter-collections))
 	(setq star-tabs-filter-collections (remove
 				     (nth (cl-position collection-name (star-tabs-filter-collection-names)) star-tabs-filter-collections)
 				     star-tabs-filter-collections))
 	(makunbound collection-name))
   (message "Cannot delete last collection. Make another collection before attempting to delete this one.")))
 
-(defun star-tabs-cycle-filter-collection (&optional reverse inhibit-refresh)
+(defun star-tabs-cycle-filter-collections (&optional reverse inhibit-refresh)
   "Cycle (move forward, or backward if REVERSE is non-nil) through filter collections.
 Also refresh tab bar if INHIBIT-REFRESH is non-nil."
+  (interactive)
   (setq star-tabs-filter-collections (star-tabs-cycle-list-car star-tabs-filter-collections reverse))
   (star-tabs-display-tab-bar))
 

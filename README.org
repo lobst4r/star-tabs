@@ -21,8 +21,32 @@ git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.g
 - Emacs 26.1+
 - OPTIONAL: [[https://github.com/domtronn/all-the-icons.el][all-the-icons]]
 
-** Example Configuration and Keybinds
-TODO
+** Example Configuration 
+#+BEGIN_SRC emacs-lisp
+(require 'star-tabs)
+(star-tabs-tab-bar-mode t)
+
+;; Create a collection
+(star-tabs-create-filter-collection
+  :name "my-collection"
+  :use t
+  :enable-file-extension-filters nil 
+  :file-extension-filter-threshold 15
+  :hide-close-buttons t
+  :display-filter-name nil)
+
+;; Add filters
+(star-tabs-add-filter
+  :name 'default
+  :exclude '("^[[:space:]]" "^*.*\\*$" "^magit-" "^magit:")
+  :collection-name 'my-collection)
+
+;; Keybinds
+(define-key evil-normal-state-map (kbd "RET") 'star-tabs-switch-to-buffer)
+(define-key evil-normal-state-map (kbd "`") 'star-tabs-cycle-filters)
+(define-key evil-normal-state-map (kbd ", r") 'star-tabs-include-current-buffer-in-current-filter)
+(define-key evil-normal-state-map (kbd ", t") 'star-tabs-exclude-current-buffer-from-current-filter)
+#+END_SRC
 
 * Introduction
 Star Tabs aims to be a highly customizable and functional tab bar solution for Emacs, with focus on efficient and fast buffer navigation using numbers to
@@ -61,7 +85,8 @@ To switch buffer:
 | ~star-tabs-include-current-buffer-in-current-filter~   | Always display current buffer in the currently active group/filter                                          |
 | ~star-tabs-exclude-current-buffer-from-current-filter~ | Hide current buffer in the currently active group/filter                                                    |
 | ~star-tabs-active-filter-name~                         | Output the active group/filter name as a message                                                            |
-| ~star-tabs-clear-cached-buffers~                       | Clear the cached filtered buffers. Use this command after making changes to the global filter. |
+| ~star-tabs-clear-cached-buffers~                       | Clear the cached filtered buffers. Use this command after making changes to the global filter.              |
+| ~star-tabs-cycle-filter-collections~                   | Cycle through group/filter collections.                                                            |
 
 
 * CUSTOMIZATION 
