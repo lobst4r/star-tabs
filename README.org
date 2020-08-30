@@ -2,10 +2,13 @@
 #+AUTHOR: Robin Westerlund
 
 * Installation
-** Using Git
 1. Clone repository
-  ~git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.git~
-2. Add star-tabs.el to your load path.
+#+BEGIN_SRC 
+git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.git
+#+END_SRC
+
+2. Add star-tabs.el to your Emacs load path.
+
 3. In your .emacs configuration file, add: 
 #+BEGIN_SRC emacs-lisp
 (require 'star-tabs)
@@ -35,8 +38,19 @@ identify tabs. In the normal case, switching to any buffer is only 2-4 keystroke
 - Add and exclude any buffer to/from any group/filter.
 
 * Usage
-TODO
-** Example Usage
+Most navigation in Star Tabs can be done with only two commands: ~star-tabs-cycle-filters~ and ~star-tabs-switch-to-buffer~.
+Thus, it's probably a good idea to bind these two functions to easy-to-access keys, and as few keys as possible in case you use keychords.
+I personally use ~`~ for ~star-tabs-cycle-filters~ and ~RET~ for ~star-tabs-switch-to-buffer~ in evil normal mode.
+
+** Usage Example
+To switch buffer: 
+1. Find the tab that corresponds to the buffer you want to switch to. 
+2. If the buffer is not in the current group, cycle groups/filters using ~star-tabs-cycle-filters~ until you find a group with the buffer. 
+3. Switch buffer: 
+   - For non-evil-mode users, press ~C-u~ followed by the number of the tab, and then the key to which ~star-tabs-switch-to-buffer~ is bound to.
+   - For evil-mode users, type the number of the tab, and then the key to which ~star-tabs-switch-to-buffer~ is bound to.
+4. You have now switched buffer!
+
 
 ** Commands
 | Command                                                | Description                                                                                                 |
@@ -53,7 +67,7 @@ TODO
 * CUSTOMIZATION 
 
 ** Global Settings
-You can change most visual aspects of Star Tabs by altering these global settings.
+You can change the visual aspects of Star Tabs by altering these global settings.
 Most functional settings are done on a collection-level scope, but there are still some functional settings that either must or can be set globally.
 Most values shown in the examples below are default values.
 
