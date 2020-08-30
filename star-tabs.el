@@ -570,6 +570,11 @@ Also remove it from automatic inclusion, if applicable."
   (interactive)
   (star-tabs-exclude-from-filter (star-tabs-current-buffer)))
 
+(defun star-tabs-active-filter-name ()
+  "Output the active filter name."
+  (interactive)
+  (message "Active filter name: %s" (star-tabs-get-active-filter-name)))
+
 
 ;; Get filter data 
 
@@ -591,6 +596,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 
 (defun star-tabs-get-active-filter-name ()
   "Return the active filter's name as a symbol. If there is no active filter, return 'ALL" 
+  (interactive)
   (or (car(star-tabs-get-active-filter))
       'ALL))
 
