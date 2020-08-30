@@ -2,7 +2,17 @@
 #+AUTHOR: Robin Westerlund
 
 * Installation
-TODO
+** Using Git
+1. Clone repository
+  ~git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.git~
+2. Add star-tabs.el to your load path.
+3. In your .emacs configuration file, add: 
+#+BEGIN_SRC emacs-lisp
+(require 'star-tabs)
+
+(star-tabs-tab-bar-mode t)
+#+END_SRC
+
 
 ** Prerequisites
 - Emacs 26.1+
@@ -26,7 +36,8 @@ identify tabs. In the normal case, switching to any buffer is only 2-4 keystroke
 
 * Usage
 TODO
-** Example usage
+** Example Usage
+
 ** Commands
 | Command                                                | Description                                                                                                 |
 |--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------|
@@ -211,6 +222,9 @@ that might follow a growing number of buffers.
 ;; TODO: Code
 #+END_SRC
 
+If you have disabled file extension filters by setting the property ~:enable-file-extension-filters~ to ~nil~, but they are still showing,
+make sure ~:file-extension-filter-threshold~ is set to ~0~ as well.
+
 ** Is this a fork of an existing project?
 No. Although there are other good projects that accomplish similar things, I chose to start from scratch because this is a relatively small project and
 I needed something to familiarize myself more with elisp.
@@ -218,7 +232,7 @@ I needed something to familiarize myself more with elisp.
 ** How can I contribute to Star Tabs?
 We all customize Emacs to our own needs and preferences. Star Tabs was created mainly for my own personal use in mind and, although care has been taken to ensure compatability with other people's configurations and styles, there are undoubtedly things you would like done differently.
 As such, I'd love to know about any bugs and compatability issues you might find, as well as things - big and small - that could be improved.
-To learn about how you can help improve Star Tabs, please refer to the [[*Contribute]] section. 
+To learn about how you can help improve Star Tabs, please refer to the [[*Contribute][Contribute]] section. 
 
 * Contribute
 - If you have any ideas or suggestions on how to improve Star Tabs, don't hesitate to let me know (either through email or by raising an issue on Github).
