@@ -3,14 +3,24 @@
 
 * Installation
 TODO: Installation instructions
+
 ** Prerequisites
 - Emacs 26.1+
 - OPTIONAL: [[https://github.com/domtronn/all-the-icons.el][all-the-icons]]
+
 * Introduction
 Star Tabs aims to be a highly customizable and functional tab bar solution for Emacs, with focus on efficient and fast buffer navigation using numbers to
-identify tabs. In the normal case, switching to any buffer is only 2-4 keystrokes away (its true power is unleashed in evil-mode!), and buffers can easily be arranged and displayed to your needs. 
+identify tabs. In the normal case, switching to any buffer is only 2-4 keystrokes away (its true power is unleashed in evil-mode!), and tabs can easily be arranged and displayed to your needs. 
+
 * Features
-TODO
+- Group and filter buffers however you want using regular expressions (or just use the default configuration).
+- Identify tabs by numbers, and switch buffer to any buffer with ease.
+- Switch between groups/filters easily.
+- Customize the look and feel of the tab bar.
+- Optional icon support using [[https://github.com/domtronn/all-the-icons.el][all-the-icons]].
+- Full mouse support (if you really need it). 
+- Add and exclude any buffer to/from any group/filter.
+
 * Usage
 TODO
 ** Commands
@@ -21,6 +31,31 @@ TODO
 TODO
 ** Filters
 TODO
-* TODO-list
+
+* Questions and Answers
+
+** Is this a fork of an existing project?
+No. Although there are other good projects that accomplish similar things, I chose to start from scratch because this is a relatively small project and
+I needed something to familiarize myself more with elisp.
+
+** There are unwanted/strange tabs in my tab bar. How do I hide them?
+First, make sure you are in the correct tab group/filter. You can see the name of the currently active filter using command:
+~M-x star-tabs-active-filter-name~
+
+If you're in the wrong group/filter, cycle filters using the following command until you find the correct filter:
+~M-x star-tabs-cycle-filters~
+
+If you're in the correct group/filter and you want to hide a tab, open the buffer of the tab you want to hide and run the command:
+~M-x star-tabs-exclude-current-buffer-from-current-filter~
+This will hide the buffer from the current group/filter.
+
+Alternatively you can run the following elisp command, specifying the buffer name and filter name yourself:
+#+BEGIN_SRC emacs-lisp
+(star-tabs-exclude-from-filter (get-buffer buffer-name) filter-name)
+#+END_SRC
+
+** How do I disable groups for file extensions and/or major modes?
 TODO
+
 * Contribute
+
