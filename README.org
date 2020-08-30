@@ -9,7 +9,7 @@
 
 2. Add star-tabs.el to your Emacs load path.
 3. In your .emacs configuration file, add: 
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 (require 'star-tabs)
 
 (star-tabs-tab-bar-mode t)
@@ -21,7 +21,7 @@
 - OPTIONAL: [[https://github.com/domtronn/all-the-icons.el][all-the-icons]]
 
 ** Example Configuration 
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 (require 'star-tabs)
 (star-tabs-tab-bar-mode t)
 
@@ -98,7 +98,7 @@ Most values shown in the examples below are default values.
 *IMPORTANT: These commands should be added to your .emacs configuration file, since you will need to restart Emacs for most of the visual changes to take effect.*
 
 *** Colors  
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 ;; Foreground color for tab bar filter name.
 (setq star-tabs-tab-bar-filter-name-foreground "#ef21b3")
 
@@ -116,7 +116,7 @@ Most values shown in the examples below are default values.
 #+END_SRC
 
 *** Size
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 ;; Height of the tab bar.
 (setq star-tabs-tab-bar-height 220)
 
@@ -125,7 +125,7 @@ Most values shown in the examples below are default values.
 #+END_SRC
 
 *** Dividers 
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 ;; Space used to the left of the tab bar.
 (setq star-tabs-left-margin "  ")
 
@@ -149,7 +149,7 @@ Most values shown in the examples below are default values.
 #+END_SRC
 
 *** Tab ASCII Icons
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 ;; Tab 'icon' for modified buffers.
 (setq star-tabs-modified-buffer-icon "*")
 
@@ -161,7 +161,7 @@ Most values shown in the examples below are default values.
 #+END_SRC
 
 *** Global Filter Settings
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 ;; List of buffer name prefixes to be included globally. Buffers filtered this way will be cached and ignored
 ;; for all future searches. As such, global filtering may increase performance, and
 ;; should (and should only!) be applied to buffers that you really don't care about.
@@ -185,7 +185,7 @@ A collection is a bunch (a group, if you will) of groups/filters. Most customiza
 There is no hard limit on how many collections you can create, but realistically you probably won't be using more than one or two for a project. 
 
 In order to create a filter, run this code, or add it to your .emacs configuration file:
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 (star-tabs-create-filter-collection
   :name "my-collection"
   :use t
@@ -221,41 +221,41 @@ In case both ~:include~ and ~:exclude~ are set, first include buffers using the 
 
 ** There are unwanted/strange tabs in my tab bar. How do I hide them?
 First, make sure you are in the correct tab group/filter. You can see the name of the currently active filter using command:
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 M-x star-tabs-active-filter-name
 #+END_SRC
 
 If you're in the wrong group/filter, cycle filters using the following command until you find the correct filter:
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 M-x star-tabs-cycle-filters
 #+END_SRC
 
 If you're in the correct group/filter and you want to hide a tab, open the buffer of the tab you want to hide and run the command:
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 M-x star-tabs-exclude-current-buffer-from-current-filter
 #+END_SRC
 This will hide the buffer from the current group/filter.
 
 Alternatively you can run the following elisp command, specifying the buffer name and filter name yourself:
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 (star-tabs-exclude-from-filter (get-buffer buffer-name) filter-name)
 #+END_SRC
 
 ** How do I enable/disable groups for file extensions?
 To add groups for file extensions for the current collection, run the following code, or add it to your emacs configuration file:
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 (star-tabs-set-filter-collection-prop-value :enable-file-extension-filters t)
 #+END_SRC
 
 To remove groups for file extensions for the current collection, run the following code, or add it to your emacs configuration file:
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 (star-tabs-set-filter-collection-prop-value :enable-file-extension-filters nil)
 #+END_SRC
 
 Alternatively, you can enable file extension filters only when the total number of real buffers reaches or exceeds a certain threshold.
 This can be useful if you want as few groups as possible when you don't have a lot of active buffers, but want to mitigate some of the disorganization
 that might follow a growing number of buffers. To do this, run the following code or add it to your emacs configuration file:
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle yes
 (star-tabs-set-filter-collection-prop-value :enable-file-extension-filters nil) ; This must be nil when using threshold.
 (star-tabs-set-filter-collection-prop-value :file-extension-filter-threshold 15)
 #+END_SRC
