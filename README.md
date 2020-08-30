@@ -1,52 +1,52 @@
 
 # Table of Contents
 
-1.  [Installation](#org633bfb5)
-    1.  [Prerequisites](#org21a72b7)
-    2.  [Example Configuration](#org6099dfb)
-2.  [Introduction](#org9d8d39b)
-3.  [Features](#orgf872ef1)
-4.  [Usage](#org1bf0069)
-    1.  [Usage Example](#orgfe64b46)
-    2.  [Commands](#orgff0f287)
-5.  [CUSTOMIZATION](#org4e64ccc)
-    1.  [Global Settings](#org834778e)
-        1.  [Colors](#org135ee35)
-        2.  [Size](#org1769221)
-        3.  [Dividers](#org065665e)
-        4.  [Tab ASCII Icons](#orga289db2)
-        5.  [Global Filter Settings](#org5c38919)
-    2.  [Collections](#orge0885b4)
-        1.  [Collection Properties](#orgeb8e030)
-    3.  [Filters](#orgebd2981)
-6.  [Questions and Answers](#orgd17148d)
-    1.  [There are unwanted/strange tabs in my tab bar. How do I hide them?](#orgb12892f)
-    2.  [How do I enable/disable groups for file extensions?](#org8a85c72)
-    3.  [Is this a fork of an existing project?](#org9d7c085)
-    4.  [Is Star Tabs useful for someone with hundreds of open buffers?](#org7e26639)
-    5.  [What's the difference between a filter and a group?](#org2554f3a)
-    6.  [How can I contribute to Star Tabs?](#orga14b97d)
-7.  [Contribute](#orgc741fee)
+1.  [Installation](#org246a96c)
+    1.  [Prerequisites](#org3c77193)
+    2.  [Example Configuration](#org1426fa4)
+2.  [Introduction](#orgc610f5f)
+3.  [Features](#orga326efe)
+4.  [Usage](#org0a3e05e)
+    1.  [Usage Example](#org22b5cd3)
+    2.  [Commands](#org25b29a9)
+5.  [CUSTOMIZATION](#orgeccfc21)
+    1.  [Global Settings](#org19ee1ee)
+        1.  [Colors](#org6e2d7ec)
+        2.  [Size](#orgcabdb48)
+        3.  [Dividers](#org0a9f138)
+        4.  [Tab ASCII Icons](#org94fb238)
+        5.  [Global Filter Settings](#org634b229)
+    2.  [Collections](#org704f8fa)
+        1.  [Collection Properties](#orgcbddc67)
+    3.  [Filters](#org143318c)
+6.  [Questions and Answers](#org175b144)
+    1.  [There are unwanted/strange tabs in my tab bar. How do I hide them?](#org7c28bfe)
+    2.  [How do I enable/disable groups for file extensions?](#orgb8ad31c)
+    3.  [Is this a fork of an existing project?](#orgad82fa4)
+    4.  [Is Star Tabs useful for someone with hundreds of open buffers?](#org3f689d5)
+    5.  [What's the difference between a filter and a group?](#orgd8c98ec)
+    6.  [How can I contribute to Star Tabs?](#orga810743)
+7.  [Contribute](#org8f579eb)
 
 
 
-<a id="org633bfb5"></a>
+<a id="org246a96c"></a>
 
 # Installation
 
-1.  Clone repository:
+-   Clone repository:
 
 `git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.git`
 
-1.  Add star-tabs.el to your Emacs load path.
-2.  In your .emacs configuration file, add:
+-   Add star-tabs.el to your Emacs load path.
+-   In your .emacs configuration file, add:
 
     (require 'star-tabs)
     
     (star-tabs-tab-bar-mode t)
 
 
-<a id="org21a72b7"></a>
+<a id="org3c77193"></a>
 
 ## Prerequisites
 
@@ -54,7 +54,7 @@
 -   OPTIONAL: [all-the-icons](https://github.com/domtronn/all-the-icons.el)
 
 
-<a id="org6099dfb"></a>
+<a id="org1426fa4"></a>
 
 ## Example Configuration
 
@@ -83,7 +83,7 @@
     (define-key evil-normal-state-map (kbd ", t") 'star-tabs-exclude-current-buffer-from-current-filter)
 
 
-<a id="org9d8d39b"></a>
+<a id="orgc610f5f"></a>
 
 # Introduction
 
@@ -91,7 +91,7 @@ Star Tabs aims to be a highly customizable and functional tab bar solution for E
 identify tabs. In the normal case, switching to any buffer is only 2-4 keystrokes away (its true power is unleashed in evil-mode!), and tabs can easily be arranged and displayed to your needs. 
 
 
-<a id="orgf872ef1"></a>
+<a id="orga326efe"></a>
 
 # Features
 
@@ -104,7 +104,7 @@ identify tabs. In the normal case, switching to any buffer is only 2-4 keystroke
 -   Add and exclude any buffer to/from any group/filter.
 
 
-<a id="org1bf0069"></a>
+<a id="org0a3e05e"></a>
 
 # Usage
 
@@ -113,7 +113,7 @@ Thus, it's probably a good idea to bind these two functions to easy-to-access ke
 I personally use `` ` `` for `star-tabs-cycle-filters` and `RET` for `star-tabs-switch-to-buffer` in evil normal mode.
 
 
-<a id="orgfe64b46"></a>
+<a id="org22b5cd3"></a>
 
 ## Usage Example
 
@@ -127,7 +127,7 @@ To switch buffer:
 4.  You have now switched buffer!
 
 
-<a id="orgff0f287"></a>
+<a id="org25b29a9"></a>
 
 ## Commands
 
@@ -197,12 +197,12 @@ To switch buffer:
 </table>
 
 
-<a id="org4e64ccc"></a>
+<a id="orgeccfc21"></a>
 
 # CUSTOMIZATION
 
 
-<a id="org834778e"></a>
+<a id="org19ee1ee"></a>
 
 ## Global Settings
 
@@ -213,7 +213,7 @@ Most values shown in the examples below are default values.
 **IMPORTANT: These commands should be added to your .emacs configuration file, since you will need to restart Emacs for most of the visual changes to take effect.**
 
 
-<a id="org135ee35"></a>
+<a id="org6e2d7ec"></a>
 
 ### Colors
 
@@ -233,7 +233,7 @@ Most values shown in the examples below are default values.
     (setq star-tabs-tab-bar-non-selected-foreground "#e1e1e1")
 
 
-<a id="org1769221"></a>
+<a id="orgcabdb48"></a>
 
 ### Size
 
@@ -244,7 +244,7 @@ Most values shown in the examples below are default values.
     (setq star-tabs-tab-bar-text-height 150)
 
 
-<a id="org065665e"></a>
+<a id="org0a9f138"></a>
 
 ### Dividers
 
@@ -270,7 +270,7 @@ Most values shown in the examples below are default values.
     (setq  star-tabs-filter-name-number-separator "   ")
 
 
-<a id="orga289db2"></a>
+<a id="org94fb238"></a>
 
 ### Tab ASCII Icons
 
@@ -284,7 +284,7 @@ Most values shown in the examples below are default values.
     (setq star-tabs-close-buffer-icon "x") 
 
 
-<a id="org5c38919"></a>
+<a id="org634b229"></a>
 
 ### Global Filter Settings
 
@@ -305,7 +305,7 @@ Most values shown in the examples below are default values.
     (setq star-tabs-global-exclusion-prefix-filter '("magit-" "magit:" "*Help" "*WoM")
 
 
-<a id="orge0885b4"></a>
+<a id="org704f8fa"></a>
 
 ## Collections
 
@@ -323,7 +323,7 @@ In order to create a filter, run this code, or add it to your .emacs configurati
       :display-filter-name t)
 
 
-<a id="orgeb8e030"></a>
+<a id="orgcbddc67"></a>
 
 ### Collection Properties
 
@@ -381,7 +381,7 @@ In order to create a filter, run this code, or add it to your .emacs configurati
 </table>
 
 
-<a id="orgebd2981"></a>
+<a id="org143318c"></a>
 
 ## Filters
 
@@ -436,12 +436,12 @@ In case both `:include` and `:exclude` are set, first include buffers using the 
 </table>
 
 
-<a id="orgd17148d"></a>
+<a id="org175b144"></a>
 
 # Questions and Answers
 
 
-<a id="orgb12892f"></a>
+<a id="org7c28bfe"></a>
 
 ## There are unwanted/strange tabs in my tab bar. How do I hide them?
 
@@ -464,7 +464,7 @@ Alternatively you can run the following elisp command, specifying the buffer nam
     (star-tabs-exclude-from-filter (get-buffer buffer-name) filter-name)
 
 
-<a id="org8a85c72"></a>
+<a id="orgb8ad31c"></a>
 
 ## How do I enable/disable groups for file extensions?
 
@@ -487,7 +487,7 @@ If you have disabled file extension filters by setting the property `:enable-fil
 make sure `:file-extension-filter-threshold` is set to `0` as well.
 
 
-<a id="org9d7c085"></a>
+<a id="orgad82fa4"></a>
 
 ## Is this a fork of an existing project?
 
@@ -495,7 +495,7 @@ No. Although there are other good projects that accomplish similar things, I cho
 I needed something to familiarize myself more with elisp.
 
 
-<a id="org7e26639"></a>
+<a id="org3f689d5"></a>
 
 ## Is Star Tabs useful for someone with hundreds of open buffers?
 
@@ -506,7 +506,7 @@ so you might only end up with one or two groups with just a handful of tabs in e
 That being said, Star Tabs is not a complete solution that is going work efficiently in all cases for everybody.
 
 
-<a id="org2554f3a"></a>
+<a id="orgd8c98ec"></a>
 
 ## What's the difference between a filter and a group?
 
@@ -515,16 +515,16 @@ of tabs are created and defined using filters, and that's why I refer to them bo
 the distinction will be more clear (and there should then be no need for this question).
 
 
-<a id="orga14b97d"></a>
+<a id="orga810743"></a>
 
 ## How can I contribute to Star Tabs?
 
 We all customize Emacs to our own needs and preferences. Star Tabs was created mainly for my own personal use in mind and, although care has been taken to ensure compatability with other people's configurations and styles, there are undoubtedly things you would like done differently.
 As such, I'd love to know about any bugs and compatability issues you might find, as well as things - big and small - that could be improved.
-To learn about how you can help improve Star Tabs, please refer to the [Contribute](#orgc741fee) section. 
+To learn about how you can help improve Star Tabs, please refer to the [Contribute](#org8f579eb) section. 
 
 
-<a id="orgc741fee"></a>
+<a id="org8f579eb"></a>
 
 # Contribute
 

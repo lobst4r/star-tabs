@@ -3,12 +3,12 @@
 
 * Installation
 
-1. Clone repository:
+- Clone repository:
 
 ~git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.git~
 
-2. Add star-tabs.el to your Emacs load path.
-3. In your .emacs configuration file, add: 
+- Add star-tabs.el to your Emacs load path.
+- In your .emacs configuration file, add: 
 #+BEGIN_SRC emacs-lisp :tangle yes
 (require 'star-tabs)
 
