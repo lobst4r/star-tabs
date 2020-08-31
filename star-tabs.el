@@ -314,10 +314,21 @@ Optionally run function FUNCTION with arguments ARGS after DURATION. Return time
   "Return the width in pixels of string STRING."
   (save-window-excursion
     (with-temp-buffer
-      (set-window-buffer (selected-window) (current-buffer) t)
-      (erase-buffer)
-      (insert string)
-      (car (window-text-pixel-size nil nil 20000 20000)))))
+      (let ((window (display-buffer (current-buffer))))
+	(erase-buffer)
+	(insert string)
+	(car (window-text-pixel-size window nil nil 20000 20000))))))
+
+  ;;(star-tabs-string-pixel-width "H")
+  ;; (let*((window (display-buffer buffer '((side . left)))))
+  ;;   (setq bn-side-window window)))
+
+  ;; (save-window-excursion
+  ;;   (with-temp-buffer
+  ;;     (set-window-buffer (selected-window) (current-buffer) t)
+  ;;     (erase-buffer)
+  ;;     (insert string)
+  ;;     (car (window-text-pixel-size nil nil 20000 20000)))))
 
 
 ;; TODO Display collection name in tab bar temporarily when switched.
