@@ -2,11 +2,50 @@
 #+AUTHOR: Robin Westerlund
 
 * Installation
-TODO: Installation instructions
+
+1. Clone repository:
+
+~git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.git~
+
+2. Add star-tabs.el to your Emacs load path.
+3. In your .emacs configuration file, add: 
+#+BEGIN_SRC emacs-lisp :tangle yes
+(require 'star-tabs)
+
+(star-tabs-tab-bar-mode t)
+#+END_SRC
+
 
 ** Prerequisites
 - Emacs 26.1+
 - OPTIONAL: [[https://github.com/domtronn/all-the-icons.el][all-the-icons]]
+
+** Example Configuration 
+#+BEGIN_SRC emacs-lisp :tangle yes
+(require 'star-tabs)
+(star-tabs-tab-bar-mode t)
+
+;; Create a collection
+(star-tabs-create-filter-collection
+  :name "my-collection"
+  :use t
+  :enable-file-extension-filters nil 
+  :file-extension-filter-threshold 15
+  :hide-close-buttons t
+  :display-filter-name nil)
+
+;; Add filters
+(star-tabs-add-filter
+  :name 'default
+  :exclude '("^[[:space:]]" "^*.*\\*$" "^magit-" "^magit:")
+  :collection-name 'my-collection)
+
+;; Keybinds
+(define-key evil-normal-state-map (kbd "RET") 'star-tabs-switch-to-buffer)
+(define-key evil-normal-state-map (kbd "`") 'star-tabs-cycle-filters)
+(define-key evil-normal-state-map (kbd ", r") 'star-tabs-include-current-buffer-in-current-filter)
+(define-key evil-normal-state-map (kbd ", t") 'star-tabs-exclude-current-buffer-from-current-filter)
+#+END_SRC
 
 * Introduction
 Star Tabs aims to be a highly customizable and functional tab bar solution for Emacs, with focus on efficient and fast buffer navigation using numbers to
@@ -22,40 +61,231 @@ identify tabs. In the normal case, switching to any buffer is only 2-4 keystroke
 - Add and exclude any buffer to/from any group/filter.
 
 * Usage
-TODO
+Most navigation in Star Tabs can be done with only two commands: ~star-tabs-cycle-filters~ and ~star-tabs-switch-to-buffer~.
+Thus, it's probably a good idea to bind these two functions to easy-to-access keys, and as few keys as possible in case you use keychords.
+I personally use ~`~ for ~star-tabs-cycle-filters~ and ~RET~ for ~star-tabs-switch-to-buffer~ in evil normal mode.
+
+** Usage Example
+To switch buffer: 
+1. Find the tab that corresponds to the buffer you want to switch to. 
+2. If the buffer is not in the current group, cycle groups/filters using ~star-tabs-cycle-filters~ until you find a group with the buffer. 
+3. Switch buffer: 
+   - For non-evil-mode users, press ~C-u~ followed by the number of the tab, and then the key to which ~star-tabs-switch-to-buffer~ is bound to.
+   - For evil-mode users, type the number of the tab, and then the key to which ~star-tabs-switch-to-buffer~ is bound to.
+4. You have now switched buffer!
+
+
 ** Commands
-TODO
+| Command                                                | Description                                                                                                 |
+|--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------|
+| ~star-tabs-cycle-filters~                              | Cycle through groups/filters                                                                                |
+| ~star-tabs-switch-to-buffer~                           | Switch to buffer associated with tab N (N is the prefix argument that follows command ~C-u~)                |
+| ~star-tabs-find-active-filter~                         | Find and display a filter for the currently active buffer, if such filter exists in the current collection. |
+| ~star-tabs-include-current-buffer-in-current-filter~   | Always display current buffer in the currently active group/filter                                          |
+| ~star-tabs-exclude-current-buffer-from-current-filter~ | Hide current buffer in the currently active group/filter                                                    |
+| ~star-tabs-active-filter-name~                         | Output the active group/filter name as a message                                                            |
+| ~star-tabs-clear-cached-buffers~                       | Clear the cached filtered buffers. Use this command after making changes to the global filter.              |
+| ~star-tabs-cycle-filter-collections~                   | Cycle through group/filter collections.                                                            |
+
+
 * Customization 
-TODO
+
+** Global Settings
+You can change the visual aspects of Star Tabs by altering these global settings.
+Most functional settings are done on a collection-level scope, but there are still some functional settings that either must or can be set globally.
+Most values shown in the examples below are default values.
+
+*IMPORTANT: These commands should be added to your .emacs configuration file, since you will need to restart Emacs for most of the visual changes to take effect.*
+
+*** Colors  
+#+BEGIN_SRC emacs-lisp :tangle yes
+;; Foreground color for tab bar filter name.
+(setq star-tabs-tab-bar-filter-name-foreground "#ef21b3")
+
+;; Background color for selected tab.
+(setq star-tabs-tab-bar-selected-background "#202020")
+
+;; Foreground color for selected tab.
+(setq star-tabs-tab-bar-selected-foreground "#a3c9e7")
+  
+;; Background color for non-selected tabs.
+(setq star-tabs-tab-bar-non-selected-background "#262626")
+
+;; Foreground color for non-selected tabs.
+(setq star-tabs-tab-bar-non-selected-foreground "#e1e1e1")
+#+END_SRC
+
+*** Size
+#+BEGIN_SRC emacs-lisp :tangle yes
+;; Height of the tab bar.
+(setq star-tabs-tab-bar-height 220)
+
+;; Text height for tabs.
+(setq star-tabs-tab-bar-text-height 150)
+#+END_SRC
+
+*** Dividers 
+#+BEGIN_SRC emacs-lisp :tangle yes
+;; Space used to the left of the tab bar.
+(setq star-tabs-left-margin "  ")
+
+;; Space used to the right of the tab bar. Deprecated?
+(setq star-tabs-right-margin " ")
+
+;; Tab bar divider that separates tabs.
+(setq star-tabs-tab-separator " ")
+
+;; Tab bar divider that separates the buffer number and buffer name in a tab.
+(setq star-tabs-number-name-separator " ")
+
+;; Tab bar divider that separates the buffer name and modified icon in a tab.
+(setq star-tabs-name-modified-icon-separator " ")
+
+;; Tab bar divider that separates the modified icon and close button in a tab.
+(setq star-tabs-modified-icon-close-button-separator " ")
+
+;; Tab bar divider that separates the name of the active filter group and the first tab.
+(setq  star-tabs-filter-name-number-separator "   ")
+#+END_SRC
+
+*** Tab ASCII Icons
+#+BEGIN_SRC emacs-lisp :tangle yes
+;; Tab 'icon' for modified buffers.
+(setq star-tabs-modified-buffer-icon "*")
+
+;; Tab 'icon' for unmodified buffers.
+(setq star-tabs-unmodified-buffer-icon "+")
+  
+;; Tab 'icon' for the tab close button.
+(setq star-tabs-close-buffer-icon "x") 
+#+END_SRC
+
+*** Global Filter Settings
+#+BEGIN_SRC emacs-lisp :tangle yes
+;; List of buffer name prefixes to be included globally. Buffers filtered this way will be cached and ignored
+;; for all future searches. As such, global filtering may increase performance, and
+;; should (and should only!) be applied to buffers that you really don't care about.
+;; Buffers with the space prefix (\" \") are automatically filtered before this filter is applied, and thus cannot  
+;; be included.
+;; This filter is applied before star-tabs-global-exclusion-prefix-filter.
+(setq star-tabs-global-inclusion-prefix-filter nil)
+
+;; List of buffer name prefixes to be excluded globally. Buffers filtered this way will be cached and ignored
+;; for all future searches. As such, global filtering may increase performance, and
+;; should (and should only!) be applied to buffers that you really don't care about.
+;; Buffers with the space prefix (\" \") are automatically filtered before this filter is applied, and thus need not
+;; be added to this list.
+;; This filter is applied after star-tabs-global-inclusion-prefix-filter.
+(setq star-tabs-global-exclusion-prefix-filter '("magit-" "magit:" "*Help" "*WoM")
+#+END_SRC
+
+
 ** Collections
-TODO
+A collection is a bunch (a group, if you will) of groups/filters. Most customization in Star Tabs is done by setting the properties of a collection.
+There is no hard limit on how many collections you can create, but realistically you probably won't be using more than one or two for a project. 
+
+In order to create a filter, run this code, or add it to your .emacs configuration file:
+#+BEGIN_SRC emacs-lisp :tangle yes
+(star-tabs-create-filter-collection
+  :name "my-collection"
+  :use t
+  :enable-file-extension-filters t 
+  :file-extension-filter-threshold 0
+  :hide-close-buttons t
+  :display-filter-name t)
+#+END_SRC
+
+*** Collection Properties
+| Property                               | Description                                                                                                                                                                                       |
+|----------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ~:name (string)~                        | The name of the collection                                                                                                                                                                        |
+| ~:enable-file-extension-filters (bool)~  | If ~t~, add file extension filters to the collection                                                                                                                                              |
+| ~:file-extension-filter-threshold (int)~ | If greater than ~0~, and if ~:enable-file-extension-filters~ is ~nil~, add file extension filters to the collection if the total number of real buffers reaches or exceeds the value of the property. |
+| ~:hide-close-buttons (bool)~             | If ~non-nil~, hide the tab close button icons.                                                                                                                                                      |
+| ~:display-filter-name (bool)~           | If ~non-nil~, always display the name of the filter/group left of the tabs in the tab bar. Otherwise, only display the filter/group name temporarily when switching filters/groups                  |
+| ~:use (bool)~                           | If ~non-nil~, switch to the collection upon creation.                                                                                                                                               |
+
 ** Filters
-TODO
+A filter is a list, or multiple lists, of regular expressions used to include or exclude (or both include and exclude) buffers with names that match the regular expressions.
+In case both ~:include~ and ~:exclude~ are set, first include buffers using the regular expressions from ~:include~, then from those buffers, exclude buffers using the list from ~:exclude~
+
+| Property                                            | Description                                                                                                                                   |
+|-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------|
+| ~:name (symbol...TODO: change to string?)~            | Name of the filter.                                                                                                                           |
+| ~:exclude  (list of regexps)~                         | List of regular expressions. Any buffer with a name matched by a regexp in this list will be excluded from the group.                         |
+| ~:include (list of regexps)~                          | List of regular expressions. Any buffer with a name matched by a regexp in this list will be included in the group.                           |
+| ~:always-include (regexp)~                            | Buffers matching this regular expression will always be included in the group, even if they were excluded by the list specified in ~:exclude~ |
+| ~:collection-name (symbol...TODO: change to string?)~ | The name of the collection the filter should be added to. If not set, it defaults to ~(star-tabs-active-filter-collection-name)~                |
 
 * Questions and Answers
+
+** There are unwanted/strange tabs in my tab bar. How do I hide them?
+First, make sure you are in the correct tab group/filter. You can see the name of the currently active filter using command:
+#+BEGIN_SRC emacs-lisp :tangle yes
+M-x star-tabs-active-filter-name
+#+END_SRC
+
+If you're in the wrong group/filter, cycle filters using the following command until you find the correct filter:
+#+BEGIN_SRC emacs-lisp :tangle yes
+M-x star-tabs-cycle-filters
+#+END_SRC
+
+If you're in the correct group/filter and you want to hide a tab, open the buffer of the tab you want to hide and run the command:
+#+BEGIN_SRC emacs-lisp :tangle yes
+M-x star-tabs-exclude-current-buffer-from-current-filter
+#+END_SRC
+This will hide the buffer from the current group/filter.
+
+Alternatively you can run the following elisp command, specifying the buffer name and filter name yourself:
+#+BEGIN_SRC emacs-lisp :tangle yes
+(star-tabs-exclude-from-filter (get-buffer buffer-name) filter-name)
+#+END_SRC
+
+** How do I enable/disable groups for file extensions?
+To add groups for file extensions for the current collection, run the following code, or add it to your emacs configuration file:
+#+BEGIN_SRC emacs-lisp :tangle yes
+(star-tabs-set-filter-collection-prop-value :enable-file-extension-filters t)
+#+END_SRC
+
+To remove groups for file extensions for the current collection, run the following code, or add it to your emacs configuration file:
+#+BEGIN_SRC emacs-lisp :tangle yes
+(star-tabs-set-filter-collection-prop-value :enable-file-extension-filters nil)
+#+END_SRC
+
+Alternatively, you can enable file extension filters only when the total number of real buffers reaches or exceeds a certain threshold.
+This can be useful if you want as few groups as possible when you don't have a lot of active buffers, but want to mitigate some of the disorganization
+that might follow a growing number of buffers. To do this, run the following code or add it to your emacs configuration file:
+#+BEGIN_SRC emacs-lisp :tangle yes
+(star-tabs-set-filter-collection-prop-value :enable-file-extension-filters nil) ; This must be nil when using threshold.
+(star-tabs-set-filter-collection-prop-value :file-extension-filter-threshold 15)
+#+END_SRC
+
+If you have disabled file extension filters by setting the property ~:enable-file-extension-filters~ to ~nil~, but they are still showing,
+make sure ~:file-extension-filter-threshold~ is set to ~0~ as well.
 
 ** Is this a fork of an existing project?
 No. Although there are other good projects that accomplish similar things, I chose to start from scratch because this is a relatively small project and
 I needed something to familiarize myself more with elisp.
 
-** There are unwanted/strange tabs in my tab bar. How do I hide them?
-First, make sure you are in the correct tab group/filter. You can see the name of the currently active filter using command:
-~M-x star-tabs-active-filter-name~
+** Is Star Tabs useful for someone with hundreds of open buffers?
+Potentially. Tabs become less efficient and less useful the more there are, so you probably want to minimize the number of tabs and groups.
+Even though you have hundreds of open buffers, you can customize Star Tabs to only show the ones you want, and in which groups you want using filters,
+so you might only end up with one or two groups with just a handful of tabs in each. The possibilities are endless!
 
-If you're in the wrong group/filter, cycle filters using the following command until you find the correct filter:
-~M-x star-tabs-cycle-filters~
+That being said, Star Tabs is not a complete solution that is going work efficiently in all cases for everybody.
 
-If you're in the correct group/filter and you want to hide a tab, open the buffer of the tab you want to hide and run the command:
-~M-x star-tabs-exclude-current-buffer-from-current-filter~
-This will hide the buffer from the current group/filter.
 
-Alternatively you can run the following elisp command, specifying the buffer name and filter name yourself:
-#+BEGIN_SRC emacs-lisp
-(star-tabs-exclude-from-filter (get-buffer buffer-name) filter-name)
-#+END_SRC
+** What's the difference between a filter and a group?
+I use the terms filters and groups somewhat interchangeably when talking about a group of tabs. At the current state of development, all groups
+of tabs are created and defined using filters, and that's why I refer to them both as filters and groups, or groups/filters. In the future,
+the distinction will be more clear (and there should then be no need for this question).
 
-** How do I disable groups for file extensions and/or major modes?
-TODO
+** How can I contribute to Star Tabs?
+We all customize Emacs to our own needs and preferences. Star Tabs was created mainly for my own personal use in mind and, although care has been taken to ensure compatability with other people's configurations and styles, there are undoubtedly things you would like done differently.
+As such, I'd love to know about any bugs and compatability issues you might find, as well as things - big and small - that could be improved.
+To learn about how you can help improve Star Tabs, please refer to the [[*Contribute][Contribute]] section. 
 
 * Contribute
-
+- If you have any ideas or suggestions on how to improve Star Tabs, don't hesitate to let me know (either through email or by raising an issue on Github).
+- If you find a bug, file a report by raising an issue on Github.
+- In case you want to contribute with code, please fork the develop branch and create a pull request.
