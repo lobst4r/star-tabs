@@ -3,7 +3,6 @@
 (require 'cl-lib)
 (require 'all-the-icons)
 
-
 ;;; Global Variables and Constants
 ;;
 ;;
@@ -15,13 +14,12 @@
 (defvar star-tabs-header-line 'header-line
   "Header line where tabs are displayed.")
 
-
 ;; Tab bar dividers 
 
-(defvar star-tabs-left-margin "  " 
+(defvar star-tabs-left-margin "" 
   "Space used to the left of the tab bar.")
 
-(defvar star-tabs-right-margin " "
+(defvar star-tabs-right-margin ""
   "Space used to the right of the tab bar.")
 
 (defvar star-tabs-tab-separator " "
@@ -82,7 +80,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
 (defvar star-tabs-last-timer nil
   "The last used timer, set automatically by (star-tabs--display-filter-name-temporarily).")
 
-(defvar star-tabs-debug-messages nil
+(defvar star-tabs-debug-messages t
   "If set to non-nil, debug messages will be displayed."
   ;; TODO: Remove this, and all debug messages.
 )
@@ -161,10 +159,10 @@ Key is filter name, value is an enumerated list of buffers.")
 
 ;;; Visuals
 
-(defvar star-tabs-tab-bar-height 220
+(defvar star-tabs-tab-bar-height 320
   "Height of the tab bar.")
 
-(defvar star-tabs-tab-bar-text-height 150
+(defvar star-tabs-tab-bar-text-height 250
   "Text height for tabs.")
 
 (defvar star-tabs-tab-bar-filter-name-foreground "#ef21b3"
@@ -311,6 +309,15 @@ Optionally run function FUNCTION with arguments ARGS after DURATION. Return time
 		 (when func-after 
 		     (apply func-after args)))
 	       symbol value-after func-after args))
+
+(defun star-tabs-string-pixel-width (string)
+  "Return the width in pixels of string STRING."
+  (save-window-excursion
+    (with-temp-buffer
+      (set-window-buffer (selected-window) (current-buffer) t)
+      (erase-buffer)
+      (insert string)
+      (car (window-text-pixel-size nil nil 20000 20000)))))
 
 
 ;; TODO Display collection name in tab bar temporarily when switched.
@@ -777,7 +784,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 	       (setq star-tabs-file-extension-filter-names (delete filter-name star-tabs-file-extension-filter-names))
 	       ;; Make sure we're still in a non-empty filter
 	       (if (not (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
-		   (star-tabs-cycle-filters t))))
+		   (star-tabs-cycle-filters t t))))
   nil)
 
 (defun star-tabs--remove-file-extension-filters (&optional collection-name)
@@ -807,7 +814,6 @@ Deactivate this feature by setting this variable to 0."
 
 
 ;;; Buffers
-
 (defun star-tabs-buffer-read-only-p (buffer-or-name)
   "Return t if buffer BUFFER-OR-NAME is read-only; otherwise return nil."
   (not (with-current-buffer buffer-or-name (null buffer-read-only))))
@@ -815,7 +821,8 @@ Deactivate this feature by setting this variable to 0."
 (defun star-tabs--modified-state-changed-p (buffer)
   "Return t if the state of (buffer-modified-p) changed for buffer BUFFER since the last time this function was called.
 Otherwise, return nil. This should only be used inside function (star-tabs--buffer-list)."
-  (if (equal (buffer-modified-p buffer) (gethash buffer star-tabs-modified-state-changed-buffer-table "not set"))
+  (if (or (equal (buffer-modified-p buffer) (gethash buffer star-tabs-modified-state-changed-buffer-table "not set"))
+	  (not (star-tabs-buffer-read-only-p buffer)))
       nil
     (progn
       (puthash buffer (buffer-modified-p buffer) star-tabs-modified-state-changed-buffer-table)
@@ -923,12 +930,13 @@ sometimes returns temporary/unreal buffers."
 	     force-refresh)
 	 (progn 
 	   (when star-tabs-debug-messages
-	     (message "Blist updated: %s\nModStateChanged: %s\nFilterChanged: %s\nBufferSwtched: %s\nForce: %s"
+	     (message "Blist updated: %s\nModStateChanged: %s\nFilterChanged: %s\nBufferSwtched: %s\nForce: %s\nBuffer: %s"
 		      buffer-list-updated-p
 		      modified-state-changed-p
 		      filter-changed-p
 		      buffer-switched-p
-		      force-refresh))
+		      force-refresh
+		      (current-buffer)))
 	   ;; Add file extension filters on one of the two conditions:
 	   ;; 1. The currently active filter collection has the property :enable-file-extension-filters set to non-nil
 	   ;; 2. The currently active filter collection has the property :enable-file-extension-filters set to nil,
@@ -995,7 +1003,8 @@ sometimes returns temporary/unreal buffers."
 This function should only be used in one place, inside (star-tabs--buffer-list)."
   ;; Make sure it's a real buffer.
   (when (and (get-buffer-window (current-buffer))
-	     (not (string-prefix-p " " (buffer-name (current-buffer)))))
+	     (not (string-prefix-p " " (buffer-name (current-buffer))))
+	     (member (current-buffer) star-tabs-active-buffers))
     (if (not (equal star-tabs-current-buffer (current-buffer)))
 	(progn
 	  (when star-tabs-tab-bar-filter-name
@@ -1003,7 +1012,6 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	  (setq star-tabs-current-buffer (current-buffer))
 	  t)
       nil)))
-
 
 ;;; Display
 
@@ -1029,15 +1037,17 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 						     star-tabs-filter-name-number-separator))))
 					'face 'star-tabs-filter-name)
 			    ;; Display tabs:
-			    (let (tab-line  ; This will be returned from the let function and concat'd with the rest of the string.
+			    (let ((tab-line "")  ; This will be returned from the let function and concat'd with the rest of the string.
 				  (counter 1)) ; Give each tab a unique, incrementing number.
 			      (dolist (buffer buffers tab-line)
 				(let ((name (buffer-name (cdr buffer))))
-				  (setq tab-line
-					(concat tab-line (star-tabs--tab name counter)))
+				  (unless (star-tabs--string-truncated-p tab-line) ; Don't add tabs that won't fit in the tab bar.
+				    (setq tab-line
+					  (concat tab-line (star-tabs--tab name counter))))
 				  (setq counter (1+ counter))))))))
       ;; Add a fill to the unused area of the tab bar.
-      (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
+      ;;(setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))
+      ))
   (force-mode-line-update t)
   nil)
 
@@ -1154,6 +1164,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	    close-button
 	    tab-divider)))
 
+
 (defun star-tabs--select-icon (buffer)
   (with-current-buffer buffer
    (all-the-icons-icon-for-mode major-mode :v-adjust 0.001 :height 0.8)))
@@ -1189,6 +1200,18 @@ This function uses global helper variable star-tabs-last-timer to keep track of 
 							#'star-tabs-display-tab-bar
 							t)))
 
+(defun star-tabs--string-truncated-p (string)
+  "Return t if the width of the tab bar is greater than the width of the current window.
+Otherwise, return the number of truncated pixels."
+  (let ((tab-bar-width (star-tabs-string-pixel-width string))
+	(window-width (window-pixel-width)))
+    (if (>
+	 tab-bar-width
+	 (1+ window-width))
+	(- tab-bar-width window-width)
+      nil)))
+
+;;(star-tabs--string-truncated-p header-line-format) 
 
 ;;; Functions to run with hooks
 
@@ -1276,3 +1299,14 @@ exists in filter, return buffer star-tabs-current-buffer instead."
 
 
 (provide 'star-tabs)
+
+
+
+;; (window-text-pixel-size (get-buffer-window) 1000 1000 nil 1000 'header-line)
+;; (string-width header-line-format)
+;; (window-total-width)
+;; (line-number-display-width)
+;; (window-lines-pixel-dimensions)
+
+;; (/ (window-pixel-width)(window-font-width nil 'star-tabs-selected-tab))
+;; header-line-format
