@@ -956,8 +956,8 @@ sometimes returns temporary/unreal buffers."
 	     (when star-tabs-file-extension-filter-names
 	       (star-tabs--remove-file-extension-filters)))
 	   ;; Find and display a filter for the current buffer if we just switched buffer, and a filter exists for it.
-	   (when buffer-switched-p
-	     (star-tabs-find-active-filter))
+	   ;; (when buffer-switched-p
+	   ;;   (star-tabs-find-active-filter))
 	   ;; Apply all filters
 	   (let ((filters (star-tabs-get-filter-names))
 		 (buffer-lists nil)
