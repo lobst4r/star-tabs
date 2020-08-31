@@ -1052,9 +1052,9 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 				  (counter 1)) ; Give each tab a unique, incrementing number.
 			      (dolist (buffer buffers tab-line)
 				(let ((name (buffer-name (cdr buffer))))
-				  (unless (star-tabs--string-truncated-p tab-line) ; Don't add tabs that won't fit in the tab bar.
+	;			  (unless (star-tabs--string-truncated-p tab-line) ; Don't add tabs that won't fit in the tab bar.
 				    (setq tab-line
-					  (concat tab-line (star-tabs--tab name counter))))
+					  (concat tab-line (star-tabs--tab name counter)))
 				  (setq counter (1+ counter))))))))
       ;; Add a fill to the unused area of the tab bar.
       ;;(setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))
