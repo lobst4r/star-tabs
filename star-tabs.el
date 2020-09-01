@@ -815,6 +815,8 @@ Deactivate this feature by setting this variable to 0."
 
 ;;; Buffers
 
+;; Buffer killing
+
 (defun star-tabs-kill-all-buffers-in-filter (&optional filter-name)
   "Kill all buffers in the filter group FILTER-NAME (defaults to the currently active filter)."
   (interactive)
@@ -858,12 +860,12 @@ FILTER-NAME defaults to the currently active filter."
 				    buffers))))
    (star-tabs--kill-buffers buffers)))
 
-
-
 (defun star-tabs--kill-buffers (buffers)
   "Kill buffers BUFFERS."
   (dolist (buffer buffers)
     (kill-buffer buffer)))
+
+;; Helper functions
 
 (defun star-tabs-buffer-read-only-p (buffer-or-name)
   "Return t if buffer BUFFER-OR-NAME is read-only; otherwise return nil."
@@ -1068,7 +1070,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 ;;; Display
 
 
-;; Display interactions
+;; Scrolling
 
 (defun star-tabs-scroll-tab-bar (&optional backward count)
   "Horizontally scroll the tab bar to the right (left if BACKWARD is non-nil), COUNT (default 3) times."
@@ -1105,6 +1107,9 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
   (interactive "P") 
   (or count (setq count 2))
   (star-tabs-scroll-tab-bar t count))
+
+
+;; Reordering 
 
 (defun star-tabs-move-tab (&optional backward)
   "Move the currently active tab one step to the right (or left, if BACKWARD is non-nil).
@@ -1358,6 +1363,15 @@ Or, return 0 if there are no tabs."
 			 'buffer-number header-line-format)
       0))
 
+(defun star-tabs--current-buffer-number ()
+  "Return the tab number of the current buffer.
+If the current buffer is not in the active filter group, return 0."
+  (1+ (or (cl-position (star-tabs-current-buffer)
+	       (star-tabs-filter-buffers
+		(star-tabs-get-active-filter-name) star-tabs-active-buffers))
+      -1)))
+
+
 
 ;;; Functions to run with hooks
 
@@ -1370,8 +1384,8 @@ Or, return 0 if there are no tabs."
 (defun star-tabs-when-buffer-first-saved ()
    "Run when a buffer goes from a modified state to an unmodified state."
    (when (member (current-buffer) star-tabs-active-buffers)
-   (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
-   (star-tabs-display-tab-bar t)))
+     (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
+     (star-tabs-display-tab-bar t)))
 
 (defun star-tabs-display-tab-bar (&optional force-refresh)
   "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met."
