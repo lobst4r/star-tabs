@@ -580,7 +580,7 @@ Also remove it from automatic inclusion, if applicable."
   (interactive)
   (star-tabs-exclude-from-filter (star-tabs-current-buffer)))
 
-(defun star-tabs-active-filter-name ()
+(defun star-tabs-print-active-filter-name ()
   "Output the active filter name."
   (interactive)
   (message "Active filter name: %s" (star-tabs-get-active-filter-name)))
@@ -1105,6 +1105,35 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
   (interactive "P") 
   (or count (setq count 2))
   (star-tabs-scroll-tab-bar t count))
+
+(defun star-tabs-move-tab (&optional backward)
+  "Move the currently active tab one step to the right (or left, if BACKWARD is non-nil).
+Note that this might also change the tab's position in other filter groups."
+  (when (> (length star-tabs-active-filtered-buffers-enum) 1) ; No need to move the tab if there is just 1 or less tabs.
+    (let* ((active-tab-buffer (star-tabs-current-buffer))
+	   (adjacent-tab-buffer (star-tabs-left-of-elt
+				 (if backward
+				     (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers)
+				   (reverse (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers)))
+				 active-tab-buffer))
+	   (adjacent-tab-buffer-pos (cl-position adjacent-tab-buffer star-tabs-active-buffers)))
+      (when adjacent-tab-buffer
+	(setq star-tabs-active-buffers(star-tabs-insert-at-nth (remove active-tab-buffer star-tabs-active-buffers)
+							       active-tab-buffer
+							       adjacent-tab-buffer-pos)))))
+  (star-tabs-display-tab-bar t))
+
+(defun star-tabs-move-tab-right ()
+  "Move the currently active tab one step to the right in the tab bar.
+This only works if the active buffer is part of the active filter group."
+  (interactive)
+  (star-tabs-move-tab))
+
+(defun star-tabs-move-tab-left ()
+  "Move the currently active tab to the left in the tab bar.
+This only works if the active buffer is part of the active filter group."
+  (interactive)
+  (star-tabs-move-tab t))
 
 
 ;; Set display
