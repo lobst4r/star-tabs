@@ -43,8 +43,12 @@
 ;; Keybinds
 (define-key evil-normal-state-map (kbd "RET") 'star-tabs-switch-to-buffer)
 (define-key evil-normal-state-map (kbd "`") 'star-tabs-cycle-filters)
-(define-key evil-normal-state-map (kbd ", r") 'star-tabs-include-current-buffer-in-current-filter)
-(define-key evil-normal-state-map (kbd ", t") 'star-tabs-exclude-current-buffer-from-current-filter)
+(define-key evil-normal-state-map (kbd "C-a C-r") 'star-tabs-include-current-buffer-in-current-filter)
+(define-key evil-normal-state-map (kbd "C-a C-t") 'star-tabs-exclude-current-buffer-from-current-filter)
+(define-key evil-normal-state-map (kbd "C-a C-j") 'star-tabs-scroll-tab-bar-backward)
+(define-key evil-normal-state-map (kbd "C-a C-k") 'star-tabs-scroll-tab-bar-forward)
+(define-key evil-normal-state-map (kbd "C-a C-h") 'star-tabs-move-tab-left)
+(define-key evil-normal-state-map (kbd "C-a C-l") 'star-tabs-move-tab-right)
 #+END_SRC
 
 * Introduction
@@ -79,7 +83,7 @@ I personally use ~`~ for ~star-tabs-cycle-filters~ and ~RET~ for ~star-tabs-swit
 *** Change the order of tabs 
 Do you want a tab to be next to another tab, or perhaps simply wish it had a different number? Then it sounds like you want to change the ordering.
 Here's one way to do it:
-1. Switch to the buffer whose tab you want to move.
+1. Switch to the buffer corresponding to tab you want to move.
 2. Make sure you are in the tab bar in which you would like to change its position
    - Note that changing the position of a tab in one group might currently affect its position in other groups;
      this is due to how the ordering of the buffers works at the present.
@@ -108,9 +112,7 @@ Here's one way to do it:
 | ~star-tabs-move-tab-right~                                 | Move the current tab one step to the right in the tab bar.                                            |
 | ~star-tabs-move-tab-left~                                  | Move the current tab one step to the left in the tab bar.                                        |
 
-
 * Customization 
-
 ** Global Settings
 You can change the visual aspects of Star Tabs by altering these global settings.
 Most functional settings are done on a collection-level scope, but there are still some functional settings that either must or can be set globally.
@@ -199,7 +201,6 @@ Most values shown in the examples below are default values.
 ;; This filter is applied after star-tabs-global-inclusion-prefix-filter.
 (setq star-tabs-global-exclusion-prefix-filter '("magit-" "magit:" "*Help" "*WoM")
 #+END_SRC
-
 
 ** Collections
 A collection is a bunch (a group, if you will) of groups/filters. Most customization in Star Tabs is done by setting the properties of a collection.
