@@ -815,17 +815,6 @@ Deactivate this feature by setting this variable to 0."
 
 ;;; Buffers
 
-(defun star-tabs-kill-all-buffers-in-filter (&optional filter-name)
-  "Kill all buffers in the active filter group FILTER-NAME, which defaults to the currently active filter."
-  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
-  (let ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers)))
-    (star-tabs--kill-buffers buffers)))
-
-(defun star-tabs--kill-buffers (buffers)
-  "Kill buffers BUFFERS."
-  (dolist (buffer buffers)
-    (kill-buffer buffer)))
-
 (defun star-tabs-buffer-read-only-p (buffer-or-name)
   "Return t if buffer BUFFER-OR-NAME is read-only; otherwise return nil."
   (not (with-current-buffer buffer-or-name (null buffer-read-only))))
@@ -986,6 +975,7 @@ sometimes returns temporary/unreal buffers."
 	     (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists))))
        nil)))
 
+ 
 
 ;; Buffer Switching
 
