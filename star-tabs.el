@@ -816,14 +816,15 @@ Deactivate this feature by setting this variable to 0."
 ;;; Buffers
 
 (defun star-tabs-kill-all-buffers-in-filter (&optional filter-name)
-  "Kill all buffers in the active filter group FILTER-NAME (defaults to the currently active filter)."
+  "Kill all buffers in the filter group FILTER-NAME (defaults to the currently active filter)."
   (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (let ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers)))
     (star-tabs--kill-buffers buffers)))
 
 (defun star-tabs-kill-all-unmodified-buffers-in-filter (&optional filter-name)
-  "Kill all unmodified buffers in the active filter group FILTER-NAME (defaults to the currently active filter)."
+  "Kill all unmodified buffers in the filter group FILTER-NAME (defaults to the currently active filter)."
+  (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
 	 (buffers (delq nil (mapcar (lambda (buffer)
@@ -831,6 +832,32 @@ Deactivate this feature by setting this variable to 0."
 					buffer))
 				    buffers))))
     (star-tabs--kill-buffers buffers)))
+
+(defun star-tabs-kill-all-inactive-buffers-in-filter (&optional filter-name)
+  "Kill all buffers that are not shown in a window in the filter group FILTER-NAME.
+FILTER-NAME defaults to the currently active filter."
+  (interactive)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
+	 (buffers (delq nil (mapcar (lambda (buffer)
+				      (unless (get-buffer-window buffer)
+					buffer))
+				    buffers))))
+   (star-tabs--kill-buffers buffers)))
+
+(defun star-tabs-kill-all-unmodified-inactive-buffers-in-filter (&optional filter-name)
+  "Kill all unmodified buffers that are not shown in a window in the filter group FILTER-NAME.
+FILTER-NAME defaults to the currently active filter."
+  (interactive)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
+	 (buffers (delq nil (mapcar (lambda (buffer)
+				      (unless (or (get-buffer-window buffer)
+						   (buffer-modified-p buffer))
+					buffer))
+				    buffers))))
+   (star-tabs--kill-buffers buffers)))
+
 
 
 (defun star-tabs--kill-buffers (buffers)
