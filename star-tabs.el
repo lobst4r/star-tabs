@@ -815,6 +815,17 @@ Deactivate this feature by setting this variable to 0."
 
 ;;; Buffers
 
+(defun star-tabs-kill-all-buffers-in-filter (&optional filter-name)
+  "Kill all buffers in the active filter group FILTER-NAME, which defaults to the currently active filter."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (let ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers)))
+    (star-tabs--kill-buffers buffers)))
+
+(defun star-tabs--kill-buffers (buffers)
+  "Kill buffers BUFFERS."
+  (dolist (buffer buffers)
+    (kill-buffer buffer)))
+
 (defun star-tabs-buffer-read-only-p (buffer-or-name)
   "Return t if buffer BUFFER-OR-NAME is read-only; otherwise return nil."
   (not (with-current-buffer buffer-or-name (null buffer-read-only))))
@@ -956,8 +967,8 @@ sometimes returns temporary/unreal buffers."
 	     (when star-tabs-file-extension-filter-names
 	       (star-tabs--remove-file-extension-filters)))
 	   ;; Find and display a filter for the current buffer if we just switched buffer, and a filter exists for it.
-	   ;; (when buffer-switched-p
-	   ;;   (star-tabs-find-active-filter))
+	   (when buffer-switched-p
+	     (star-tabs-find-active-filter))
 	   ;; Apply all filters
 	   (let ((filters (star-tabs-get-filter-names))
 		 (buffer-lists nil)
@@ -1304,7 +1315,7 @@ Or, return 0 if there are no tabs."
 
 (define-minor-mode star-tabs-tab-bar-mode
   "...desc..."
-  :lighter " ST"
+  ;;:lighter " ST"
   :global t
 
   (if star-tabs-tab-bar-mode
