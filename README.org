@@ -65,30 +65,48 @@ Most navigation in Star Tabs can be done with only two commands: ~star-tabs-cycl
 Thus, it's probably a good idea to bind these two functions to easy-to-access keys, and as few keys as possible in case you use keychords.
 I personally use ~`~ for ~star-tabs-cycle-filters~ and ~RET~ for ~star-tabs-switch-to-buffer~ in evil normal mode.
 
-** Usage Example
-To switch buffer: 
+** Usage Examples
+
+*** Switch buffer the Star Tabs way
 1. Find the tab that corresponds to the buffer you want to switch to.
    - If the buffer is in the tab bar, but not visible, scroll the tab bar using ~star-tabs-scroll-tab-bar-forward~ or ~star-tabs-scroll-tab-bar-backward~.
    - If the buffer is not in the current group, cycle groups/filters using ~star-tabs-cycle-filters~ until you find a group with the buffer. 
 2. Switch buffer: 
-   - For non-evil-mode users, press ~C-u~ followed by the number of the tab, and then the key to which ~star-tabs-switch-to-buffer~ is bound to.
+   - For non-evil-mode users, press ~C-u~ or ~M-~ followed by the number of the tab, and then the key to which ~star-tabs-switch-to-buffer~ is bound to.
    - For evil-mode users, type the number of the tab, and then the key to which ~star-tabs-switch-to-buffer~ is bound to.
 3. You have now switched buffer!
 
+*** Change the order of tabs 
+Do you want a tab to be next to another tab, or perhaps simply wish it had a different number? Then it sounds like you want to change the ordering.
+Here's one way to do it:
+1. Switch to the buffer whose tab you want to move.
+2. Make sure you are in the tab bar in which you would like to change its position
+   - Note that changing the position of a tab in one group might currently affect its position in other groups;
+     this is due to how the ordering of the buffers works at the present.
+3. Move the tab right or left in the tab bar using the functions ~star-tabs-move-tab-right~ and ~star-tabs-move-tab-left~ respectively. 
+   - Moving the last tab in the tab bar to the right will move it back to the beginning, like a cycle.
+   - Similarily, moving the first tab in the tab bar to the left will move it to the end.
+
 
 ** Commands
-| Command                                                | Description                                                                                                 |
-|--------------------------------------------------------+-------------------------------------------------------------------------------------------------------------|
-| ~star-tabs-cycle-filters~                              | Cycle through groups/filters                                                                                |
-| ~star-tabs-switch-to-buffer~                           | Switch to buffer associated with tab N (N is the prefix argument that follows command ~C-u~)                |
-| ~star-tabs-find-active-filter~                         | Find and display a filter for the currently active buffer, if such filter exists in the current collection. |
-| ~star-tabs-include-current-buffer-in-current-filter~   | Always display current buffer in the currently active group/filter                                          |
-| ~star-tabs-exclude-current-buffer-from-current-filter~ | Hide current buffer in the currently active group/filter                                                    |
-| ~star-tabs-active-filter-name~                         | Output the active group/filter name as a message                                                            |
-| ~star-tabs-clear-cached-buffers~                       | Clear the cached filtered buffers. Use this command after making changes to the global filter.              |
-| ~star-tabs-cycle-filter-collections~                   | Cycle through group/filter collections.                                                                     |
-| ~star-tabs-scroll-tab-bar-forward~                     | Scroll tab bar forward (2 tabs at a time by default)                                                        |
-| ~star-tabs-scroll-tab-bar-backward~                    | Scroll tab bar backward (2 tabs at a time by default)                                                  |
+| Command                                                    | Description                                                                                                 |
+|------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------|
+| ~star-tabs-cycle-filters~                                  | Cycle through groups/filters                                                                                |
+| ~star-tabs-switch-to-buffer~                               | Switch to buffer associated with tab N (N is the prefix argument that follows command ~C-u~).               |
+| ~star-tabs-find-active-filter~                             | Find and display a filter for the currently active buffer, if such filter exists in the current collection. |
+| ~star-tabs-include-current-buffer-in-current-filter~       | Always display current buffer in the currently active group/filter.                                         |
+| ~star-tabs-exclude-current-buffer-from-current-filter~     | Hide current buffer in the currently active group/filter.                                                   |
+| ~star-tabs-active-filter-name~                             | Output the active group/filter name as a message.                                                           |
+| ~star-tabs-clear-cached-buffers~                           | Clear the cached filtered buffers. Use this command after making changes to the global filter.              |
+| ~star-tabs-cycle-filter-collections~                       | Cycle through group/filter collections.                                                                     |
+| ~star-tabs-scroll-tab-bar-forward~                         | Scroll tab bar forward (2 tabs at a time by default).                                                       |
+| ~star-tabs-scroll-tab-bar-backward~                        | Scroll tab bar backward (2 tabs at a time by default).                                                      |
+| ~star-tabs-kill-all-buffers-in-filter~                     | Kill all buffers in the active filter group.                                                                |
+| ~star-tabs-kill-all-unmodified-buffers-in-filter~          | Kill all unmodified buffers in the active filter group.                                                     |
+| ~star-tabs-kill-all-inactive-buffers-in-filter~            | Kill all buffers in the active filter group that aren't shown in a window.                                  |
+| ~star-tabs-kill-all-unmodified-inactive-buffers-in-filter~ | Kill all unmodifed buffers in the active filter group that aren't shown in a window.                        |
+| ~star-tabs-move-tab-right~                                 | Move the current tab one step to the right in the tab bar.                                            |
+| ~star-tabs-move-tab-left~                                  | Move the current tab one step to the left in the tab bar.                                        |
 
 
 * Customization 
