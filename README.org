@@ -100,7 +100,7 @@ Here's one way to do it:
 | ~star-tabs-find-active-filter~                             | Find and display a filter for the currently active buffer, if such filter exists in the current collection. |
 | ~star-tabs-include-current-buffer-in-current-filter~       | Always display current buffer in the currently active group/filter.                                         |
 | ~star-tabs-exclude-current-buffer-from-current-filter~     | Hide current buffer in the currently active group/filter.                                                   |
-| ~star-tabs-active-filter-name~                             | Output the active group/filter name as a message.                                                           |
+| ~star-tabs-print-active-filter-name~                       | Output the active group/filter name as a message.                                                           |
 | ~star-tabs-clear-cached-buffers~                           | Clear the cached filtered buffers. Use this command after making changes to the global filter.              |
 | ~star-tabs-cycle-filter-collections~                       | Cycle through group/filter collections.                                                                     |
 | ~star-tabs-scroll-tab-bar-forward~                         | Scroll tab bar forward (2 tabs at a time by default).                                                       |
