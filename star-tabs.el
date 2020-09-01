@@ -312,23 +312,13 @@ Optionally run function FUNCTION with arguments ARGS after DURATION. Return time
 
 (defun star-tabs-string-pixel-width (string)
   "Return the width in pixels of string STRING."
+  ;; REVIEW: Make just one dedicated window instead of creating new windows all the time?
   (save-window-excursion
     (with-temp-buffer
       (let ((window (display-buffer (current-buffer))))
 	(erase-buffer)
 	(insert string)
 	(car (window-text-pixel-size window nil nil 20000 20000))))))
-
-  ;;(star-tabs-string-pixel-width "H")
-  ;; (let*((window (display-buffer buffer '((side . left)))))
-  ;;   (setq bn-side-window window)))
-
-  ;; (save-window-excursion
-  ;;   (with-temp-buffer
-  ;;     (set-window-buffer (selected-window) (current-buffer) t)
-  ;;     (erase-buffer)
-  ;;     (insert string)
-  ;;     (car (window-text-pixel-size nil nil 20000 20000)))))
 
 
 ;; TODO Display collection name in tab bar temporarily when switched.
@@ -825,6 +815,7 @@ Deactivate this feature by setting this variable to 0."
 
 
 ;;; Buffers
+
 (defun star-tabs-buffer-read-only-p (buffer-or-name)
   "Return t if buffer BUFFER-OR-NAME is read-only; otherwise return nil."
   (not (with-current-buffer buffer-or-name (null buffer-read-only))))
@@ -1023,11 +1014,39 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	  t)
       nil)))
 
-;;; Display
 
-(defun star-tabs--set-header-line (buffers)
-  "Set the tab bar to list buffers BUFFERS as tabs."
+;;; Display
+(defun star-tabs-scroll-tab-bar (&optional backward count)
+  "Horizontally scroll the tab bar to the right (left if BACKWARD is non-nil), COUNT (default 3) times."
+  (interactive)
+  ;; REVIEW: Scrolling in reverse won't work if we only go by truncation probably.
+  ;; FIXME: when reading text property, take into account filter name and left margin
+  ;; FIXME: scrolling before filter name has disappeared will reset scrolling
+  ;; FIXME: Decide when to maintain scrolling and when to reset. (get prop of first tab bar to get value of scrolling)
+  (or count (setq count 3))
+  (let* ((first-tab-number (or(get-text-property 0 'buffer-number header-line-format)
+			      0))
+	 (count (if backward
+		    (- (- first-tab-number 1) count)
+		  (+ (- first-tab-number 1) count)))) 
+  ;; Only scroll forward (right) if the tab bar is truncated, otherwise there's really no need to scroll forward. 
+  
+  (when (star-tabs--string-truncated-p star-tabs-header-line-format)
+    ;; Make sure we don't scroll past the last buffer.
+    (setq count (min
+		 (1- (length star-tabs-active-filtered-buffers-enum))
+		 count))
+    (length star-tabs-active-filtered-buffers-enum)
+    (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))
+  (when (and (>= first-tab-number 2)
+	     backward)
+    (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))))
+
+(defun star-tabs--set-header-line (buffers &optional scroll truncatedp)
+  "Set the tab bar to list buffers BUFFERS as tabs.
+If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP is non-nil."
   ;; If there are no buffers in any group in the current collection, display a message. 
+  (or scroll (setq scroll 0))
   (if (and (not buffers)
 	   (not star-tabs-active-filtered-buffers-enum))
       (setq star-tabs-header-line-format "   No buffers in any group in current collection.")
@@ -1051,7 +1070,9 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 				  (counter 1)) ; Give each tab a unique, incrementing number.
 			      (dolist (buffer buffers tab-line)
 				(let ((name (buffer-name (cdr buffer))))
-				  (unless (star-tabs--string-truncated-p tab-line) ; Don't add tabs that won't fit in the tab bar.
+				  ;; FIXME: tab-line is actually not the entire tab bar
+				  (unless (or (star-tabs--string-truncated-p tab-line)
+					       (< (1- counter) scroll)) ; Don't add tabs that won't fit in the tab bar.
 				    (setq tab-line
 					  (concat tab-line (star-tabs--tab name counter))))
 				  (setq counter (1+ counter))))))))
@@ -1060,6 +1081,11 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
       ))
   (force-mode-line-update t)
   nil)
+
+;; (star-tabs-scroll-tab-bar nil 11)
+
+;; (star-tabs-scroll-tab-bar t 1)
+
 
 (defun star-tabs--tab (buffer-name number)
   "Return a propertized string that represents a tab for buffer BUFFER-NAME (string)."
@@ -1309,7 +1335,6 @@ exists in filter, return buffer star-tabs-current-buffer instead."
 
 
 (provide 'star-tabs)
-
 
 
 ;; (window-text-pixel-size (get-buffer-window) 1000 1000 nil 1000 'header-line)
