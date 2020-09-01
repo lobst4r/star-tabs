@@ -816,10 +816,22 @@ Deactivate this feature by setting this variable to 0."
 ;;; Buffers
 
 (defun star-tabs-kill-all-buffers-in-filter (&optional filter-name)
-  "Kill all buffers in the active filter group FILTER-NAME, which defaults to the currently active filter."
+  "Kill all buffers in the active filter group FILTER-NAME (defaults to the currently active filter)."
+  (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (let ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers)))
     (star-tabs--kill-buffers buffers)))
+
+(defun star-tabs-kill-all-unmodified-buffers-in-filter (&optional filter-name)
+  "Kill all unmodified buffers in the active filter group FILTER-NAME (defaults to the currently active filter)."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
+	 (buffers (delq nil (mapcar (lambda (buffer)
+				      (unless (buffer-modified-p buffer)
+					buffer))
+				    buffers))))
+    (star-tabs--kill-buffers buffers)))
+
 
 (defun star-tabs--kill-buffers (buffers)
   "Kill buffers BUFFERS."
