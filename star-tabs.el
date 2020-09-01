@@ -1140,6 +1140,16 @@ This only works if the active buffer is part of the active filter group."
   (interactive)
   (star-tabs-move-tab t))
 
+(defun star-tabs-move-current-tab-to-first ()
+  "Move the current buffer so that it becomes the first in the tab bar."
+  (interactive)
+  (let ((buffer (star-tabs-current-buffer)))
+    (setq star-tabs-active-buffers
+	  (star-tabs-insert-at-nth (remove buffer star-tabs-active-buffers)
+			     buffer
+			     0)))
+  (star-tabs-display-tab-bar t))
+
 
 ;; Set display
 

@@ -109,8 +109,10 @@ Here's one way to do it:
 | ~star-tabs-kill-all-unmodified-buffers-in-filter~          | Kill all unmodified buffers in the active filter group.                                                     |
 | ~star-tabs-kill-all-inactive-buffers-in-filter~            | Kill all buffers in the active filter group that aren't shown in a window.                                  |
 | ~star-tabs-kill-all-unmodified-inactive-buffers-in-filter~ | Kill all unmodifed buffers in the active filter group that aren't shown in a window.                        |
-| ~star-tabs-move-tab-right~                                 | Move the current tab one step to the right in the tab bar.                                            |
-| ~star-tabs-move-tab-left~                                  | Move the current tab one step to the left in the tab bar.                                        |
+| ~star-tabs-move-tab-right~                                 | Move the current tab one step to the right in the tab bar.                                                  |
+| ~star-tabs-move-tab-left~                                  | Move the current tab one step to the left in the tab bar.                                                   |
+| ~star-tabs-move-current-tab-to-first~                      | Move the current buffer to the first tab in the tab bar.                                                    |
+|                                                            |                                                                                                             |
 
 * Customization 
 ** Global Settings
