@@ -67,12 +67,13 @@ I personally use ~`~ for ~star-tabs-cycle-filters~ and ~RET~ for ~star-tabs-swit
 
 ** Usage Example
 To switch buffer: 
-1. Find the tab that corresponds to the buffer you want to switch to. 
-2. If the buffer is not in the current group, cycle groups/filters using ~star-tabs-cycle-filters~ until you find a group with the buffer. 
-3. Switch buffer: 
+1. Find the tab that corresponds to the buffer you want to switch to.
+   - If the buffer is in the tab bar, but not visible, scroll the tab bar using ~star-tabs-scroll-tab-bar-forward~ or ~star-tabs-scroll-tab-bar-backward~.
+   - If the buffer is not in the current group, cycle groups/filters using ~star-tabs-cycle-filters~ until you find a group with the buffer. 
+2. Switch buffer: 
    - For non-evil-mode users, press ~C-u~ followed by the number of the tab, and then the key to which ~star-tabs-switch-to-buffer~ is bound to.
    - For evil-mode users, type the number of the tab, and then the key to which ~star-tabs-switch-to-buffer~ is bound to.
-4. You have now switched buffer!
+3. You have now switched buffer!
 
 
 ** Commands
@@ -85,7 +86,9 @@ To switch buffer:
 | ~star-tabs-exclude-current-buffer-from-current-filter~ | Hide current buffer in the currently active group/filter                                                    |
 | ~star-tabs-active-filter-name~                         | Output the active group/filter name as a message                                                            |
 | ~star-tabs-clear-cached-buffers~                       | Clear the cached filtered buffers. Use this command after making changes to the global filter.              |
-| ~star-tabs-cycle-filter-collections~                   | Cycle through group/filter collections.                                                            |
+| ~star-tabs-cycle-filter-collections~                   | Cycle through group/filter collections.                                                                     |
+| ~star-tabs-scroll-tab-bar-forward~                     | Scroll tab bar forward (2 tabs at a time by default)                                                        |
+| ~star-tabs-scroll-tab-bar-backward~                    | Scroll tab bar backward (2 tabs at a time by default)                                                  |
 
 
 * Customization 
@@ -274,7 +277,37 @@ so you might only end up with one or two groups with just a handful of tabs in e
 
 That being said, Star Tabs is not a complete solution that is going work efficiently in all cases for everybody.
 
+** Star Tabs is slowing down Emacs. Why?
+In case you are experiencing slow-downs, it is likely because of conflicts or poor interactions with other extensions. 
+More specifically, Star Tabs is set to update or refresh on certain triggers. Among those triggers are switching between, and creating, buffers.
+It's common for extensions to use their own buffers to do things in the background, and they are usually of no interest to the user.
+Although I've done my best to identify and tell Star Tabs to ignore these unreal buffers, some extension won't follow the normal naming conventions, 
+which means the buffers have to be manually identified.
 
+There may of course be other reasons for the slow-down, but it will likely still have something to do with excessive refreshing of the tab bar 
+(countless of hours spent debugging has taught me this...). To help bring more clarity into what may be the root of the problem, one good place
+to start is by activating the debug messages:
+
+#+BEGIN_SRC emacs-lisp
+(setq star-tabs-debug-messages t)   ; Set to nil to deactivate debug messages
+#+END_SRC
+
+A message will be displayed every time the tab bar refreshes, explaining what caused the refresh, along with the name of the buffer the refresh
+took place in.
+
+If you notice an odd buffer name here, chances are that it is the cause. What you want to do now is tell Star Tabs to ignore it, which
+is done by adding the name (or a prefix by which you can identify it) to the global exclusion list:
+
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'star-tabs-global-exclusion-prefix-filter "magit" t)
+(star-tabs-clear-cached-buffers) ; Clear cache just to be safe
+#+END_SRC
+
+In the above example, we told Star Tabs to ignore all buffers with a name starting with "magit".
+
+If you identify extensions causing problems with Star Tabs, please leave a bug report.
+
+  
 ** What's the difference between a filter and a group?
 I use the terms filters and groups somewhat interchangeably when talking about a group of tabs. At the current state of development, all groups
 of tabs are created and defined using filters, and that's why I refer to them both as filters and groups, or groups/filters. In the future,

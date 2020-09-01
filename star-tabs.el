@@ -3,7 +3,6 @@
 (require 'cl-lib)
 (require 'all-the-icons)
 
-
 ;;; Global Variables and Constants
 ;;
 ;;
@@ -15,13 +14,12 @@
 (defvar star-tabs-header-line 'header-line
   "Header line where tabs are displayed.")
 
-
 ;; Tab bar dividers 
 
 (defvar star-tabs-left-margin "  " 
   "Space used to the left of the tab bar.")
 
-(defvar star-tabs-right-margin " "
+(defvar star-tabs-right-margin ""
   "Space used to the right of the tab bar.")
 
 (defvar star-tabs-tab-separator " "
@@ -82,11 +80,10 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
 (defvar star-tabs-last-timer nil
   "The last used timer, set automatically by (star-tabs--display-filter-name-temporarily).")
 
-(defvar star-tabs-debug-messages nil
+(defvar star-tabs-debug-messages t
   "If set to non-nil, debug messages will be displayed."
   ;; TODO: Remove this, and all debug messages.
 )
-
 
 ;; Collections
 
@@ -161,10 +158,10 @@ Key is filter name, value is an enumerated list of buffers.")
 
 ;;; Visuals
 
-(defvar star-tabs-tab-bar-height 220
+(defvar star-tabs-tab-bar-height 210
   "Height of the tab bar.")
 
-(defvar star-tabs-tab-bar-text-height 150
+(defvar star-tabs-tab-bar-text-height 155
   "Text height for tabs.")
 
 (defvar star-tabs-tab-bar-filter-name-foreground "#ef21b3"
@@ -311,6 +308,16 @@ Optionally run function FUNCTION with arguments ARGS after DURATION. Return time
 		 (when func-after 
 		     (apply func-after args)))
 	       symbol value-after func-after args))
+
+(defun star-tabs-string-pixel-width (string)
+  "Return the width in pixels of string STRING."
+  ;; REVIEW: Make just one dedicated window instead of creating new windows all the time?
+  (save-window-excursion
+    (with-temp-buffer
+      (let ((window (display-buffer (current-buffer))))
+	(erase-buffer)
+	(insert string)
+	(car (window-text-pixel-size window nil nil 20000 20000))))))
 
 
 ;; TODO Display collection name in tab bar temporarily when switched.
@@ -777,7 +784,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 	       (setq star-tabs-file-extension-filter-names (delete filter-name star-tabs-file-extension-filter-names))
 	       ;; Make sure we're still in a non-empty filter
 	       (if (not (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
-		   (star-tabs-cycle-filters t))))
+		   (star-tabs-cycle-filters t t))))
   nil)
 
 (defun star-tabs--remove-file-extension-filters (&optional collection-name)
@@ -923,12 +930,13 @@ sometimes returns temporary/unreal buffers."
 	     force-refresh)
 	 (progn 
 	   (when star-tabs-debug-messages
-	     (message "Blist updated: %s\nModStateChanged: %s\nFilterChanged: %s\nBufferSwtched: %s\nForce: %s"
+	     (message "Blist updated: %s\nModStateChanged: %s\nFilterChanged: %s\nBufferSwtched: %s\nForce: %s\nBuffer: %s"
 		      buffer-list-updated-p
 		      modified-state-changed-p
 		      filter-changed-p
 		      buffer-switched-p
-		      force-refresh))
+		      force-refresh
+		      (current-buffer)))
 	   ;; Add file extension filters on one of the two conditions:
 	   ;; 1. The currently active filter collection has the property :enable-file-extension-filters set to non-nil
 	   ;; 2. The currently active filter collection has the property :enable-file-extension-filters set to nil,
@@ -967,6 +975,7 @@ sometimes returns temporary/unreal buffers."
 	     (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists))))
        nil)))
 
+ 
 
 ;; Buffer Switching
 
@@ -995,7 +1004,8 @@ sometimes returns temporary/unreal buffers."
 This function should only be used in one place, inside (star-tabs--buffer-list)."
   ;; Make sure it's a real buffer.
   (when (and (get-buffer-window (current-buffer))
-	     (not (string-prefix-p " " (buffer-name (current-buffer)))))
+	     (not (string-prefix-p " " (buffer-name (current-buffer))))
+	     (member (current-buffer) star-tabs-active-buffers))
     (if (not (equal star-tabs-current-buffer (current-buffer)))
 	(progn
 	  (when star-tabs-tab-bar-filter-name
@@ -1007,35 +1017,83 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 
 ;;; Display
 
-(defun star-tabs--set-header-line (buffers)
-  "Set the tab bar to list buffers BUFFERS as tabs."
+
+;; Display interactions
+
+(defun star-tabs-scroll-tab-bar (&optional backward count)
+  "Horizontally scroll the tab bar to the right (left if BACKWARD is non-nil), COUNT (default 3) times."
+  (interactive)
+  ;; FIXME: scrolling before filter name has disappeared will reset scrolling
+  ;; FIXME: Decide when to maintain scrolling and when to reset. (get prop of first tab bar to get value of scrolling)
+  ;; TODO: Cache header-line-format (maybe not necessary)
+  (or count (setq count 3))
+  (let* ((first-tab-number (star-tabs--first-number-in-tab-bar))
+	 (count (if backward
+		    (- (- first-tab-number 1) count)
+		  (+ (- first-tab-number 1) count)))) 
+  ;; Only scroll forward (right) if the tab bar is truncated, otherwise there's really no need to scroll forward. 
+  (when (star-tabs--string-truncated-p star-tabs-header-line-format)
+    ;; Make sure we don't scroll past the last buffer.
+    (setq count (min
+		 (1- (length star-tabs-active-filtered-buffers-enum))
+		 count))
+    (length star-tabs-active-filtered-buffers-enum)
+    (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))
+  ;; When going backward:
+  (when (and (>= first-tab-number 2)
+	     backward)
+    (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))))
+
+(defun star-tabs-scroll-tab-bar-forward (&optional count)
+  "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
+  (interactive "P") 
+  (or count (setq count 2))
+  (star-tabs-scroll-tab-bar nil count))
+
+(defun star-tabs-scroll-tab-bar-backward (&optional count)
+  "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
+  (interactive "P") 
+  (or count (setq count 2))
+  (star-tabs-scroll-tab-bar t count))
+
+
+;; Set display
+
+(defun star-tabs--set-header-line (buffers &optional scroll truncatedp)
+  "Set the tab bar to list buffers BUFFERS as tabs.
+If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP is non-nil."
   ;; If there are no buffers in any group in the current collection, display a message. 
+  (or scroll (setq scroll 0))
   (if (and (not buffers)
 	   (not star-tabs-active-filtered-buffers-enum))
       (setq star-tabs-header-line-format "   No buffers in any group in current collection.")
     ;; Build the tab bar using propertized strings.
     (when (and buffers
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
-      (setq star-tabs-header-line-format
-	    ;; It's all just one giant string...start with the margin:
-	    (concat (propertize star-tabs-left-margin
-				'face 'star-tabs-tab-bar-left-margin)
-		    ;; Display the name of the active filter:
-		    (concat (propertize (concat 
-					 (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
-						    star-tabs-tab-bar-filter-name)
-					   (let ((filter-name star-tabs-tab-bar-filter-name))
-					     (concat (upcase (symbol-name filter-name))
-						     star-tabs-filter-name-number-separator))))
-					'face 'star-tabs-filter-name)
-			    ;; Display tabs:
-			    (let (tab-line  ; This will be returned from the let function and concat'd with the rest of the string.
-				  (counter 1)) ; Give each tab a unique, incrementing number.
-			      (dolist (buffer buffers tab-line)
-				(let ((name (buffer-name (cdr buffer))))
-				  (setq tab-line
-					(concat tab-line (star-tabs--tab name counter)))
-				  (setq counter (1+ counter))))))))
+      (let ((tab-bar-left-margin ""))
+	(setq tab-bar-left-margin
+	      ;; It's all just one giant string...start with the margin:
+	      (concat (propertize star-tabs-left-margin
+				  'face 'star-tabs-tab-bar-left-margin)
+		      ;; Display the name of the active filter:
+		      (concat (propertize (concat 
+					   (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
+						      star-tabs-tab-bar-filter-name)
+					     (let ((filter-name star-tabs-tab-bar-filter-name))
+					       (concat (upcase (symbol-name filter-name))
+						       star-tabs-filter-name-number-separator))))
+					  'face 'star-tabs-filter-name))))
+	(setq star-tabs-header-line-format
+	      (concat tab-bar-left-margin
+		      ;; Display tabs:
+		      (let ((tab-line "")  ; This will be returned from the let function and concat'd with the rest of the string.
+			    (counter 1)) ; Give each tab a unique, incrementing number.
+			(dolist (buffer buffers tab-line)
+			  (let ((name (buffer-name (cdr buffer))))
+			    (unless (< (1- counter) scroll) 
+			      (setq tab-line
+				    (concat tab-line (star-tabs--tab name counter))))
+			    (setq counter (1+ counter))))))))
       ;; Add a fill to the unused area of the tab bar.
       (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
   (force-mode-line-update t)
@@ -1158,19 +1216,14 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
   (with-current-buffer buffer
    (all-the-icons-icon-for-mode major-mode :v-adjust 0.001 :height 0.8)))
 
-(defun star-tabs--header-line-remaining-space()
-  "Return the number of characters between the end of the last tab and the right edge of the window."
-  ;; FIXME: Make more accurate calculation of empty space in tab bar.
-  (- (window-total-width) (length star-tabs-header-line-format)))
-
 (defun star-tabs--header-line-white-space ()
   "Return white space to fill out the unoccupied part, if any, of tab bar."
-  (let ((empty-space (star-tabs--header-line-remaining-space))
+  (let ((empty-space (/ (star-tabs--header-line-remaining-space)
+			(window-font-width nil 'star-tabs-non-selected-tab)))
 	(white-space ""))
     (while (> empty-space 0)
       (setq white-space (concat " " white-space))
       (setq empty-space (1- empty-space)))
-    ;; REVIEW: Is the face appropriate?
     (propertize white-space
 		'face 'star-tabs-non-selected-tab))) 
 
@@ -1188,6 +1241,43 @@ This function uses global helper variable star-tabs-last-timer to keep track of 
 							nil
 							#'star-tabs-display-tab-bar
 							t)))
+
+
+;; Display helper functions
+
+(defun star-tabs--string-truncated-p (string)
+  "Return t if the width of the tab bar is greater than the width of the current window.
+Otherwise, return the number of truncated pixels."
+  (let ((tab-bar-width (star-tabs-string-pixel-width string))
+	(window-width (window-pixel-width)))
+    (if (>
+	 tab-bar-width
+	 (1+ window-width))
+	(- tab-bar-width window-width)
+      nil)))
+
+(defun star-tabs--header-line-remaining-space()
+  "Return the width in pixels between the end of the last tab and the right edge of the window."
+  ;; FIXME: Make more accurate calculation of empty space in tab bar.
+  (- (window-pixel-width) (star-tabs-string-pixel-width star-tabs-header-line-format)))
+
+(defun star-tabs--tab-bar-left-margin-width ()
+  "Return the column width of the left margin of the tab bar.
+If set, also include the column width of the filter name. In other words,
+return the column width of all characters left of the beginning of the first tab."
+  (+ 
+   (length star-tabs-left-margin)
+   (if star-tabs-tab-bar-filter-name
+       (+ (length star-tabs-filter-name-number-separator)
+	  (length (symbol-name star-tabs-tab-bar-filter-name)))
+     0)))
+
+(defun star-tabs--first-number-in-tab-bar ()
+  "Return the tab number of the first visible tab in the tab bar.
+Or, return 0 if there are no tabs."
+  (or (get-text-property (star-tabs--tab-bar-left-margin-width)
+			 'buffer-number header-line-format)
+      0))
 
 
 ;;; Functions to run with hooks
@@ -1215,7 +1305,7 @@ This function uses global helper variable star-tabs-last-timer to keep track of 
 
 (define-minor-mode star-tabs-tab-bar-mode
   "...desc..."
-  :lighter " ST"
+  ;;:lighter " ST"
   :global t
 
   (if star-tabs-tab-bar-mode
@@ -1227,7 +1317,6 @@ This function uses global helper variable star-tabs-last-timer to keep track of 
 	     ;; Update the tab bar when a buffer is saved.
 	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil))))
 
-;;(star-tabs-tab-bar-mode t)
 
 
 ;;; TODO: Unused functions; remove or fix.
@@ -1276,3 +1365,4 @@ exists in filter, return buffer star-tabs-current-buffer instead."
 
 
 (provide 'star-tabs)
+
