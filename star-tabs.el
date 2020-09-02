@@ -353,12 +353,14 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 	 (hide-close-buttons (plist-get collection-props :hide-close-buttons))
 	 (display-filter-name (plist-get collection-props :display-filter-name))
 	 (file-extension-filter-threshold (or (plist-get collection-props :file-extension-filter-threshold) 0))
+	 (disable-scroll-to-filter (plist-get collection-props :disable-scroll-to-filter))
 	 (collection-name-prefix (or (plist-get collection-props :collection-name-prefix) "star-tabs-filter-collection-"))
 	 (name-no-prefix (plist-get collection-props :name))
 	 (name (intern (concat collection-name-prefix (plist-get collection-props :name))))
 	 (collection `(,name :enable-file-extension-filters ,enable-file-extension-filters
 			     :display-filter-name ,display-filter-name
 			     :file-extension-filter-threshold ,file-extension-filter-threshold
+			     :disable-scroll-to-filter ,disable-scroll-to-filter
 			     :collection-name-prefix ,collection-name-prefix
 			     :collection-name-no-prefix ,name-no-prefix
 			     :last-filter nil)))
@@ -1160,30 +1162,39 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	 (count (if backward
 		    (- (- first-tab-number 1) count)
 		  (+ (- first-tab-number 1) count)))) 
-  ;; Only scroll forward (right) if the tab bar is truncated, otherwise there's really no need to scroll forward. 
-  (when (star-tabs--string-truncated-p star-tabs-header-line-format)
-    ;; Make sure we don't scroll past the last buffer.
-    (setq count (min
-		 (1- (length star-tabs-active-filtered-buffers-enum))
-		 count))
-    (length star-tabs-active-filtered-buffers-enum)
-    (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))
-  ;; When going backward:
-  (when (and (>= first-tab-number 2)
-	     backward)
-    (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))))
+    ;; Only scroll forward (right) if the tab bar is truncated, otherwise there's really no need to scroll forward. 
+    (when (star-tabs--string-truncated-p star-tabs-header-line-format)
+      ;; Make sure we don't scroll past the last buffer.
+      (setq count (min
+		   (1- (length star-tabs-active-filtered-buffers-enum))
+		   count))
+      (length star-tabs-active-filtered-buffers-enum)
+      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))
+    ;; When going backward:
+    (when (and (>= first-tab-number 2)
+	       backward)
+      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))))
 
 (defun star-tabs-scroll-tab-bar-forward (&optional count)
   "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
   (interactive "P") 
   (or count (setq count 2))
-  (star-tabs-scroll-tab-bar nil count))
+  (if (and (not (star-tabs--string-truncated-p star-tabs-header-line-format))
+	   (not (star-tabs-get-filter-collection-prop-value :disable-scroll-to-filter)))
+      ;; Move to next filter group if scrolled all the way to the right in the current group.
+      (star-tabs-cycle-filters)
+    (star-tabs-scroll-tab-bar nil count)))
 
 (defun star-tabs-scroll-tab-bar-backward (&optional count)
   "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
   (interactive "P") 
   (or count (setq count 2))
-  (star-tabs-scroll-tab-bar t count))
+  (if (and (equal (star-tabs--first-number-in-tab-bar) 1)
+	   (not (star-tabs-get-filter-collection-prop-value :disable-scroll-to-filter)))
+      ;; Move to the end of the previous filter group if scrolled all the way to the left in the current group.
+      (progn (star-tabs-cycle-filters t)
+	     (star-tabs-scroll-tab-bar nil 1000000))
+    (star-tabs-scroll-tab-bar t count)))
 
 
 ;; Reordering 
