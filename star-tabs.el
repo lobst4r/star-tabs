@@ -77,8 +77,11 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
 (defvar star-tabs-modified-state-changed-buffer-table (make-hash-table :test #'equal)
   "Store whether a buffer has been modified.")
 
-(defvar star-tabs-last-timer nil
-  "The last used timer, set automatically by (star-tabs--display-filter-name-temporarily).")
+(defvar star-tabs-filter-name-timer nil
+  "The last used timer set automatically by (star-tabs--display-filter-name-temporarily).")
+
+(defvar star-tabs-collection-name-timer nil
+  "The last used timer set automatically by (star-tabs--display-collection-name-temporarily).")
 
 (defvar star-tabs-debug-messages t
   "If set to non-nil, debug messages will be displayed.")
@@ -113,6 +116,9 @@ This filter is applied after star-tabs-global-inclusion-prefix-filter.")
 
 (defvar star-tabs-tab-bar-filter-name nil
   "Filter name to be displayed in the tab bar; automatically set by other functions.")
+
+(defvar star-tabs-tab-bar-collection-name nil
+  "Collection name to be displayed in the tab bar; automatically set by other functions.")
 
 (defvar star-tabs-cached-filtered-buffers (make-hash-table :test #'equal)
   "Cache globally filtered buffers to improve performance.")
@@ -165,6 +171,9 @@ Key is filter name, value is an enumerated list of buffers.")
 (defvar star-tabs-tab-bar-filter-name-foreground "#ef21b3"
   "Foreground color for tab bar filter name.")
 
+(defvar star-tabs-tab-bar-collection-name-foreground "#7cd164"
+  "Foreground color for tab bar collection name.")
+
 (defvar star-tabs-tab-bar-selected-background "#202020"
   "Background color for selected tab.")
 
@@ -194,6 +203,14 @@ Key is filter name, value is an enumerated list of buffers.")
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
   "Face for displaying filter-name in the tab bar.")
+
+(defface star-tabs-collection-name
+  `((t
+     (
+      :background ,star-tabs-tab-bar-non-selected-background
+      :foreground ,star-tabs-tab-bar-collection-name-foreground
+      :height ,star-tabs-tab-bar-text-height)))
+  "Face for displaying collection name in the tab bar.")
 
 (defface star-tabs-tab-divider-mouse-selected
   `((t
@@ -337,13 +354,14 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 	 (display-filter-name (plist-get collection-props :display-filter-name))
 	 (file-extension-filter-threshold (or (plist-get collection-props :file-extension-filter-threshold) 0))
 	 (collection-name-prefix (or (plist-get collection-props :collection-name-prefix) "star-tabs-filter-collection-"))
+	 (name-no-prefix (plist-get collection-props :name))
 	 (name (intern (concat collection-name-prefix (plist-get collection-props :name))))
 	 (collection `(,name :enable-file-extension-filters ,enable-file-extension-filters
 			     :display-filter-name ,display-filter-name
 			     :file-extension-filter-threshold ,file-extension-filter-threshold
 			     :collection-name-prefix ,collection-name-prefix
+			     :collection-name-no-prefix ,name-no-prefix
 			     :last-filter nil)))
-
     (if (not (member name (star-tabs-filter-collection-names)))
 	(progn (set name nil) 
 	       (setq star-tabs-filter-collections
@@ -383,11 +401,15 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 Also refresh tab bar if INHIBIT-REFRESH is non-nil."
   (interactive)
   (setq star-tabs-filter-collections (star-tabs-cycle-list-car star-tabs-filter-collections reverse))
-  (star-tabs-display-tab-bar))
+  (unless inhibit-refresh
+    (star-tabs--display-collection-name-temporarily)
+    (star-tabs-display-tab-bar)))
 
-(defun star-tabs-active-filter-collection-name ()
+(defun star-tabs-active-filter-collection-name (&optional no-prefix)
   "Return the name of the active filter collection."
-  (car (car star-tabs-filter-collections)))
+  (if no-prefix
+      (intern (star-tabs-get-filter-collection-prop-value :collection-name-no-prefix))
+    (car (car star-tabs-filter-collections))))
 
 (defun star-tabs-get-filter-collection-prop-value (prop &optional collection-name)
 "Return the value of property PROP in filter collection COLLECTION-NAME. 
@@ -402,8 +424,9 @@ COLLECTION-NAME defaults to the currently active filter collection."
   (plist-put (star-tabs-filter-collection-props collection-name) prop value)
   (star-tabs-display-tab-bar))
 
-(defun star-tabs-filter-collection-props (collection-name)
+(defun star-tabs-filter-collection-props (&optional collection-name)
   "Return the properties of filter collection COLLECTION-NAME."
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (alist-get collection-name star-tabs-filter-collections))
 
 (defun star-tabs-active-filter-collection-props ()
@@ -485,7 +508,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 (defun star-tabs-init-filters ()
   "Initialize default collection and filters."
   (star-tabs-create-filter-collection
-   :name "default-collection"
+   :name "default-collection2"
    :use t
    :enable-file-extension-filters t 
    :display-filter-name t)
@@ -1223,6 +1246,13 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 	      ;; It's all just one giant string...start with the margin:
 	      (concat (propertize star-tabs-left-margin
 				  'face 'star-tabs-tab-bar-left-margin)
+		      ;; Display the name of the active collection:
+		      (propertize (concat 
+					   (when star-tabs-tab-bar-collection-name 
+					     (let ((collection-name star-tabs-tab-bar-collection-name))
+					       (concat (upcase (symbol-name collection-name))
+						       star-tabs-filter-name-number-separator))))
+					  'face 'star-tabs-collection-name)
 		      ;; Display the name of the active filter:
 		      (concat (propertize (concat 
 					   (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
@@ -1378,13 +1408,28 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 (defun star-tabs--display-filter-name-temporarily (&optional filter-name)
   "Return filter name FILTER-NAME for temporary display in tab bar. 
 Unless set, FILTER-NAME defaults to the currently active filter name.
-This function uses global helper variable star-tabs-last-timer to keep track of the timer."
+This function uses global helper variable star-tabs-filter-name-timer to keep track of the timer."
   ;; Force cancel on any other active timers set with this function.
-  (when star-tabs-last-timer
-    (cancel-timer star-tabs-last-timer)
-    star-tabs-last-timer nil)
-  (setq star-tabs-last-timer (star-tabs-set-temporarily 'star-tabs-tab-bar-filter-name
+  (when star-tabs-filter-name-timer
+    (cancel-timer star-tabs-filter-name-timer)
+    star-tabs-filter-name-timer nil)
+  (setq star-tabs-filter-name-timer (star-tabs-set-temporarily 'star-tabs-tab-bar-filter-name
 							(star-tabs-get-active-filter-name)
+							"1 sec"
+							nil
+							#'star-tabs-display-tab-bar
+							t)))
+
+(defun star-tabs--display-collection-name-temporarily (&optional collection-name)
+  "Return collection name COLLECTION-NAME for temporary display in tab bar. 
+Unless set, COLLECTION-NAME defaults to the active collection name.
+This function uses global helper variable star-tabs-collection-name-timer to keep track of the timer."
+  ;; Force cancel on any other active timers set with this function.
+  (when star-tabs-collection-name-timer
+    (cancel-timer star-tabs-collection-name-timer)
+    star-tabs-collection-name-timer nil)
+  (setq star-tabs-collection-name-timer (star-tabs-set-temporarily 'star-tabs-tab-bar-collection-name
+							(star-tabs-active-filter-collection-name t)
 							"1 sec"
 							nil
 							#'star-tabs-display-tab-bar
@@ -1418,6 +1463,10 @@ return the column width of all characters left of the beginning of the first tab
    (if star-tabs-tab-bar-filter-name
        (+ (length star-tabs-filter-name-number-separator)
 	  (length (symbol-name star-tabs-tab-bar-filter-name)))
+     0)
+   (if star-tabs-tab-bar-collection-name
+       (+ (length star-tabs-filter-name-number-separator)
+	  (length (symbol-name star-tabs-tab-bar-collection-name)))
      0)))
 
 (defun star-tabs--first-number-in-tab-bar ()
