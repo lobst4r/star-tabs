@@ -220,14 +220,16 @@ In order to create a filter, run this code, or add it to your .emacs configurati
 #+END_SRC
 
 *** Collection Properties
-| Property                               | Description                                                                                                                                                                                       |
-|----------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| ~:name (string)~                        | The name of the collection                                                                                                                                                                        |
-| ~:enable-file-extension-filters (bool)~  | If ~t~, add file extension filters to the collection                                                                                                                                              |
+| Property                                 | Description                                                                                                                                                                                           |
+|------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ~:name (string)~                         | The name of the collection                                                                                                                                                                            |
+| ~:enable-file-extension-filters (bool)~  | If ~t~, add file extension filters to the collection                                                                                                                                                  |
 | ~:file-extension-filter-threshold (int)~ | If greater than ~0~, and if ~:enable-file-extension-filters~ is ~nil~, add file extension filters to the collection if the total number of real buffers reaches or exceeds the value of the property. |
-| ~:hide-close-buttons (bool)~             | If ~non-nil~, hide the tab close button icons.                                                                                                                                                      |
-| ~:display-filter-name (bool)~           | If ~non-nil~, always display the name of the filter/group left of the tabs in the tab bar. Otherwise, only display the filter/group name temporarily when switching filters/groups                  |
-| ~:use (bool)~                           | If ~non-nil~, switch to the collection upon creation.                                                                                                                                               |
+| ~:hide-close-buttons (bool)~             | If ~non-nil~, hide the tab close button icons.                                                                                                                                                        |
+| ~:display-filter-name (bool)~            | If ~non-nil~, always display the name of the filter/group left of the tabs in the tab bar. Otherwise, only display the filter/group name temporarily when switching filters/groups                    |
+| ~:use (bool)~                            | If ~non-nil~, switch to the collection upon creation.                                                                                                                                                 |
+| ~:disable-scroll-to-filter (bool)~       | If ~nil~ (default), go to beginning of next group, or end of previous group in the tab bar "scrolling past the edge".                                                                              |
+|                                          |                                                                                                                                                                                                       |
 
 ** Filters
 A filter is a list, or multiple lists, of regular expressions used to include or exclude (or both include and exclude) buffers with names that match the regular expressions.
