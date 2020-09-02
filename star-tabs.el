@@ -16,7 +16,7 @@
 
 ;; Tab bar dividers 
 
-(defvar star-tabs-left-margin "  " 
+(defvar star-tabs-left-margin "   " 
   "Space used to the left of the tab bar.")
 
 (defvar star-tabs-right-margin ""
@@ -427,7 +427,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 COLLECTION-NAME defaults to the currently active filter collection."
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (plist-put (star-tabs-filter-collection-props collection-name) prop value)
-  (star-tabs-display-tab-bar))
+  (star-tabs-display-tab-bar nil 'keep-scroll))
 
 (defun star-tabs-filter-collection-props (&optional collection-name)
   "Return the properties of filter collection COLLECTION-NAME."
@@ -485,7 +485,7 @@ will be excluded from those matching the regexp in :include.
 		 (set collection-name (append (eval collection-name) (list filter))))
 	       (star-tabs-set-filter-collection-prop-value :last-filter name collection-name))
       (message "Filter name already exists")))
-  (star-tabs-display-tab-bar))
+  (star-tabs-display-tab-bar nil 'keep-scroll))
 
 (defun star-tabs-remove-filter (filter-name &optional collection-name)
   "Remove filter FILTER-NAME from filter collection COLLECTION-NAME.
@@ -499,7 +499,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 						       (star-tabs-get-filter-names collection-name)
 						       filter-name)))
   (set collection-name (assq-delete-all filter-name (eval collection-name)))
-  (star-tabs-display-tab-bar))
+  (star-tabs-display-tab-bar nil 'keep-scroll))
 
 (defun star-tabs-remove-all-filters (&optional collection-name)
   "Delete all filters in filter collection COLLECTION-NAME.
@@ -553,7 +553,7 @@ Refresh tab bar if INHIBIT-REFRESH is nil."
   ;; Refresh tab bar unless explicitly told not to.
   (unless inhibit-refresh
     (star-tabs--display-filter-name-temporarily)
-    (star-tabs-display-tab-bar)))
+    (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)))
 
 (defun star-tabs-find-active-filter () 
   "Find and display a filter for the currently active buffer, if such filter exists in the current collection."
@@ -565,7 +565,7 @@ Refresh tab bar if INHIBIT-REFRESH is nil."
 		(>= filter-count 0))
       (star-tabs-cycle-filters nil t)  ; If buffer is not in filter group, move cycle index once.
       (setq filter-count (1- filter-count))) ; Prevent infinite loop in case there is no match.
-    (star-tabs-display-tab-bar)
+    (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)
     (star-tabs-get-active-filter-name))) 
 
 (defun star-tabs-add-to-always-include-in-filter (buffer &optional filter-name collection-name)
@@ -580,7 +580,7 @@ Refresh tab bar if INHIBIT-REFRESH is nil."
     (when always-include
       (plist-put (alist-get filter-name (eval collection-name))
 		 :always-include always-include)))
-  (star-tabs-display-tab-bar t))
+  (star-tabs-display-tab-bar t 'keep-scroll))
 
 (defun star-tabs-exclude-from-filter (buffer &optional filter-name collection-name)
   "Exclude buffer BUFFER from filter FILTER-NAME of collection COLLECTION-NAME.
@@ -599,7 +599,7 @@ Also remove it from automatic inclusion, if applicable."
     (when exclude
       (plist-put (alist-get filter-name (eval collection-name))
 		 :exclude exclude))
-    (star-tabs-display-tab-bar t)))
+    (star-tabs-display-tab-bar t 'keep-scroll)))
 
 (defun star-tabs-include-current-buffer-in-current-filter ()
   "Include current buffer in the currently active filter."
@@ -646,7 +646,7 @@ The last (right-most) tab will thus be the buffer to last be revisited/reopened.
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (plist-put (star-tabs-get-filter-props filter-name collection-name) prop value)
-  (star-tabs-display-tab-bar))
+  (star-tabs-display-tab-bar nil 'keep-scroll))
 
 
 ;; Get filter data 
@@ -1177,11 +1177,11 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 		   (1- (length star-tabs-active-filtered-buffers-enum))
 		   count))
       (length star-tabs-active-filtered-buffers-enum)
-      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))
+      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count))
     ;; When going backward:
     (when (and (>= first-tab-number 2)
 	       backward)
-      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count t))))
+      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count))))
 
 (defun star-tabs-scroll-tab-bar-forward (&optional count)
   "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
@@ -1222,7 +1222,7 @@ Note that this might also change the tab's position in other filter groups."
 	(setq star-tabs-active-buffers(star-tabs-insert-at-nth (remove active-tab-buffer star-tabs-active-buffers)
 							       active-tab-buffer
 							       adjacent-tab-buffer-pos)))))
-  (star-tabs-display-tab-bar t))
+  (star-tabs-display-tab-bar t 'keep-scroll))
 
 (defun star-tabs-move-tab-right ()
   "Move the currently active tab one step to the right in the tab bar.
@@ -1244,22 +1244,28 @@ This only works if the active buffer is part of the active filter group."
 	  (star-tabs-insert-at-nth (remove buffer star-tabs-active-buffers)
 			     buffer
 			     0)))
-  (star-tabs-display-tab-bar t))
+  (star-tabs-display-tab-bar t 'scroll-to-current-buffer))
+
 
 
 ;; Set display
 
-(defun star-tabs--set-header-line (buffers &optional scroll truncatedp)
+(defun star-tabs--set-header-line (buffers &optional scroll)
   "Set the tab bar to list buffers BUFFERS as tabs.
 If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP is non-nil."
-  ;; If there are no buffers in any group in the current collection, display a message. 
-  (or scroll (setq scroll 0))
   (if (and (not buffers)
 	   (not star-tabs-active-filtered-buffers-enum))
+      ;;If there are no buffers in any group in the current collection, display a message. 
       (setq star-tabs-header-line-format "   No buffers in any group in current collection.")
     ;; Build the tab bar using propertized strings.
     (when (and buffers
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
+      ;; Determine how much to, and if we should scroll.
+      (or scroll (setq scroll 0))
+      (unless (integerp scroll)
+	(setq scroll (cond ((equal scroll 'keep-scroll) (1- (star-tabs--first-number-in-tab-bar)))
+			   ((equal scroll 'scroll-to-current-buffer) (- (star-tabs-get-buffer-tab-number (star-tabs-current-buffer))
+									2)))))
       (let ((tab-bar-left-margin ""))
 	(setq tab-bar-left-margin
 	      ;; It's all just one giant string...start with the margin:
@@ -1267,11 +1273,11 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 				  'face 'star-tabs-tab-bar-left-margin)
 		      ;; Display the name of the active collection:
 		      (propertize (concat 
-					   (when star-tabs-tab-bar-collection-name 
-					     (let ((collection-name star-tabs-tab-bar-collection-name))
-					       (concat (upcase (symbol-name collection-name))
-						       star-tabs-filter-name-number-separator))))
-					  'face 'star-tabs-collection-name)
+				   (when star-tabs-tab-bar-collection-name 
+				     (let ((collection-name star-tabs-tab-bar-collection-name))
+				       (concat (upcase (symbol-name collection-name))
+					       star-tabs-filter-name-number-separator))))
+				  'face 'star-tabs-collection-name)
 		      ;; Display the name of the active filter:
 		      (concat (propertize (concat 
 					   (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
@@ -1437,7 +1443,8 @@ This function uses global helper variable star-tabs-filter-name-timer to keep tr
 							"1 sec"
 							nil
 							#'star-tabs-display-tab-bar
-							t)))
+							t
+							'keep-scroll)))
 
 (defun star-tabs--display-collection-name-temporarily (&optional collection-name)
   "Return collection name COLLECTION-NAME for temporary display in tab bar. 
@@ -1452,7 +1459,8 @@ This function uses global helper variable star-tabs-collection-name-timer to kee
 							"1 sec"
 							nil
 							#'star-tabs-display-tab-bar
-							t)))
+							t
+							'keep-scroll)))
 
 
 ;; Display helper functions
@@ -1474,26 +1482,26 @@ Otherwise, return the number of truncated pixels."
   (- (window-pixel-width) (star-tabs-string-pixel-width star-tabs-header-line-format)))
 
 (defun star-tabs--tab-bar-left-margin-width ()
-  "Return the column width of the left margin of the tab bar.
-If set, also include the column width of the filter name. In other words,
-return the column width of all characters left of the beginning of the first tab."
-  (+ 
-   (length star-tabs-left-margin)
-   (if star-tabs-tab-bar-filter-name
-       (+ (length star-tabs-filter-name-number-separator)
-	  (length (symbol-name star-tabs-tab-bar-filter-name)))
-     0)
-   (if star-tabs-tab-bar-collection-name
-       (+ (length star-tabs-filter-name-number-separator)
-	  (length (symbol-name star-tabs-tab-bar-collection-name)))
-     0)))
+  "Return the column width of all characters left of the beginning of the first tab.
+If there are no tabs, return 0."
+  (let ((tab-bar-left-margin-width 0)
+	(tab-bar-length (length star-tabs-header-line-format)))
+    (while (and (< tab-bar-left-margin-width tab-bar-length)
+		(eq 0 (or (get-text-property tab-bar-left-margin-width 'buffer-number star-tabs-header-line-format)
+			  0)))
+      (setq tab-bar-left-margin-width (1+ tab-bar-left-margin-width)))
+    (if (>= tab-bar-left-margin-width tab-bar-length)
+	0
+      tab-bar-left-margin-width)))
 
 (defun star-tabs--first-number-in-tab-bar ()
   "Return the tab number of the first visible tab in the tab bar.
 Or, return 0 if there are no tabs."
-  (or (get-text-property (star-tabs--tab-bar-left-margin-width)
-			 'buffer-number header-line-format)
-      0))
+  (if (> (length star-tabs-header-line-format) 0)
+      (or (get-text-property (star-tabs--tab-bar-left-margin-width)
+			     'buffer-number star-tabs-header-line-format)
+	  0)
+    0))
 
 (defun star-tabs--current-buffer-number ()
   "Return the tab number of the current buffer.
@@ -1505,24 +1513,30 @@ If the current buffer is not in the active filter group, return 0."
 
 
 
+
 ;;; Functions to run with hooks
 
 (defun star-tabs-when-buffer-first-modified ()
   "Run when a buffer goes from an unmodified state to a modified state."
   (if (member (current-buffer) star-tabs-active-buffers)
       (progn (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should be.
-	     (star-tabs-display-tab-bar  t))))
+	     (star-tabs-display-tab-bar t 'keep-scroll))))
 
 (defun star-tabs-when-buffer-first-saved ()
    "Run when a buffer goes from a modified state to an unmodified state."
    (when (member (current-buffer) star-tabs-active-buffers)
      (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
-     (star-tabs-display-tab-bar t)))
+     (star-tabs-display-tab-bar t 'keep-scroll)))
 
-(defun star-tabs-display-tab-bar (&optional force-refresh)
-  "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met."
+(defun star-tabs-display-tab-bar (&optional force-refresh scroll)
+  "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met.
+If SCROLL is a number, scroll the tab bar SCROLL number of tabs (default 0). 
+Otherwise, if SCROLL is one of the following symbols, scroll the tab bar according to the corresponding behavior:
+'keep-scroll: Keep the current scroll position.
+'scroll-to-current-buffer: Scroll to the current buffer tab, if it is in the filter group."
   (unless (window-dedicated-p) ; Only show the tab bar in non-dedicated windows
-    (star-tabs--set-header-line (star-tabs--buffer-list force-refresh)))
+    (or scroll (setq scroll -3))
+    (star-tabs--set-header-line (star-tabs--buffer-list force-refresh) scroll))
     nil)
 
 
