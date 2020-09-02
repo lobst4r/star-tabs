@@ -649,7 +649,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
   "Return the value of the property PROP of filter FILTER-NAME in collection COLLECTION-NAME."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
-  (let ((props (star-tabs--get-filter-props filter-name collection-name)))
+  (let ((props (star-tabs-get-filter-props filter-name collection-name)))
     (plist-get props prop)))
 
 (defun star-tabs-get-filter-props (&optional filter-name collection-name)
@@ -1472,7 +1472,10 @@ If the current buffer is not in the active filter group, return 0."
 	     ;; Functions to run when a buffer goes from an unmodified to a modified state.
 	     (add-hook 'first-change-hook #'star-tabs-when-buffer-first-modified nil nil)
 	     ;; Update the tab bar when a buffer is saved.
-	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil))))
+	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil)
+	     ;; Make sure that emacs finds a filter group with tabs (if there is one) when activating star-tabs-tab-bar-mode.
+	     (unless star-tabs-active-filtered-buffers-enum
+	       (star-tabs-cycle-filters)))))
 
 
 
