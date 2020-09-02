@@ -81,9 +81,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
   "The last used timer, set automatically by (star-tabs--display-filter-name-temporarily).")
 
 (defvar star-tabs-debug-messages t
-  "If set to non-nil, debug messages will be displayed."
-  ;; TODO: Remove this, and all debug messages.
-)
+  "If set to non-nil, debug messages will be displayed.")
 
 ;; Collections
 
@@ -363,6 +361,7 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 ;; FIXME currently creating collection while the list is rotated causes the collections to be in the wrong order
 ;; Solve this by rotating the list back to the beginning (store first added list, move to second if the first is deleted etc)
 ;; Or just keeping track of last added..?
+;; Or just ignore ??
 
 (defun star-tabs-remove-filter-collection (collection-name)
   "Delete filter collection COLLECTION-NAME."
@@ -580,7 +579,7 @@ Also remove it from automatic inclusion, if applicable."
   (interactive)
   (star-tabs-exclude-from-filter (star-tabs-current-buffer)))
 
-(defun star-tabs-active-filter-name ()
+(defun star-tabs-print-active-filter-name ()
   "Output the active filter name."
   (interactive)
   (message "Active filter name: %s" (star-tabs-get-active-filter-name)))
@@ -815,6 +814,59 @@ Deactivate this feature by setting this variable to 0."
 
 ;;; Buffers
 
+;; Buffer killing
+
+(defun star-tabs-kill-all-buffers-in-filter (&optional filter-name)
+  "Kill all buffers in the filter group FILTER-NAME (defaults to the currently active filter)."
+  (interactive)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (let ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers)))
+    (star-tabs--kill-buffers buffers)))
+
+(defun star-tabs-kill-all-unmodified-buffers-in-filter (&optional filter-name)
+  "Kill all unmodified buffers in the filter group FILTER-NAME (defaults to the currently active filter)."
+  (interactive)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
+	 (buffers (delq nil (mapcar (lambda (buffer)
+				      (unless (buffer-modified-p buffer)
+					buffer))
+				    buffers))))
+    (star-tabs--kill-buffers buffers)))
+
+(defun star-tabs-kill-all-inactive-buffers-in-filter (&optional filter-name)
+  "Kill all buffers that are not shown in a window in the filter group FILTER-NAME.
+FILTER-NAME defaults to the currently active filter."
+  (interactive)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
+	 (buffers (delq nil (mapcar (lambda (buffer)
+				      (unless (get-buffer-window buffer)
+					buffer))
+				    buffers))))
+   (star-tabs--kill-buffers buffers)))
+
+(defun star-tabs-kill-all-unmodified-inactive-buffers-in-filter (&optional filter-name)
+  "Kill all unmodified buffers that are not shown in a window in the filter group FILTER-NAME.
+FILTER-NAME defaults to the currently active filter."
+  (interactive)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
+	 (buffers (delq nil (mapcar (lambda (buffer)
+				      (unless (or (get-buffer-window buffer)
+						   (buffer-modified-p buffer))
+					buffer))
+				    buffers))))
+   (star-tabs--kill-buffers buffers)))
+
+(defun star-tabs--kill-buffers (buffers)
+  "Kill buffers BUFFERS."
+  (dolist (buffer buffers)
+    (kill-buffer buffer)))
+
+
+;; Helper functions
+
 (defun star-tabs-buffer-read-only-p (buffer-or-name)
   "Return t if buffer BUFFER-OR-NAME is read-only; otherwise return nil."
   (not (with-current-buffer buffer-or-name (null buffer-read-only))))
@@ -1018,7 +1070,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 ;;; Display
 
 
-;; Display interactions
+;; Scrolling
 
 (defun star-tabs-scroll-tab-bar (&optional backward count)
   "Horizontally scroll the tab bar to the right (left if BACKWARD is non-nil), COUNT (default 3) times."
@@ -1055,6 +1107,48 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
   (interactive "P") 
   (or count (setq count 2))
   (star-tabs-scroll-tab-bar t count))
+
+
+;; Reordering 
+
+(defun star-tabs-move-tab (&optional backward)
+  "Move the currently active tab one step to the right (or left, if BACKWARD is non-nil).
+Note that this might also change the tab's position in other filter groups."
+  (when (> (length star-tabs-active-filtered-buffers-enum) 1) ; No need to move the tab if there is just 1 or less tabs.
+    (let* ((active-tab-buffer (star-tabs-current-buffer))
+	   (adjacent-tab-buffer (star-tabs-left-of-elt
+				 (if backward
+				     (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers)
+				   (reverse (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers)))
+				 active-tab-buffer))
+	   (adjacent-tab-buffer-pos (cl-position adjacent-tab-buffer star-tabs-active-buffers)))
+      (when adjacent-tab-buffer
+	(setq star-tabs-active-buffers(star-tabs-insert-at-nth (remove active-tab-buffer star-tabs-active-buffers)
+							       active-tab-buffer
+							       adjacent-tab-buffer-pos)))))
+  (star-tabs-display-tab-bar t))
+
+(defun star-tabs-move-tab-right ()
+  "Move the currently active tab one step to the right in the tab bar.
+This only works if the active buffer is part of the active filter group."
+  (interactive)
+  (star-tabs-move-tab))
+
+(defun star-tabs-move-tab-left ()
+  "Move the currently active tab to the left in the tab bar.
+This only works if the active buffer is part of the active filter group."
+  (interactive)
+  (star-tabs-move-tab t))
+
+(defun star-tabs-move-current-tab-to-first ()
+  "Move the current buffer so that it becomes the first in the tab bar."
+  (interactive)
+  (let ((buffer (star-tabs-current-buffer)))
+    (setq star-tabs-active-buffers
+	  (star-tabs-insert-at-nth (remove buffer star-tabs-active-buffers)
+			     buffer
+			     0)))
+  (star-tabs-display-tab-bar t))
 
 
 ;; Set display
@@ -1279,6 +1373,15 @@ Or, return 0 if there are no tabs."
 			 'buffer-number header-line-format)
       0))
 
+(defun star-tabs--current-buffer-number ()
+  "Return the tab number of the current buffer.
+If the current buffer is not in the active filter group, return 0."
+  (1+ (or (cl-position (star-tabs-current-buffer)
+	       (star-tabs-filter-buffers
+		(star-tabs-get-active-filter-name) star-tabs-active-buffers))
+      -1)))
+
+
 
 ;;; Functions to run with hooks
 
@@ -1291,8 +1394,8 @@ Or, return 0 if there are no tabs."
 (defun star-tabs-when-buffer-first-saved ()
    "Run when a buffer goes from a modified state to an unmodified state."
    (when (member (current-buffer) star-tabs-active-buffers)
-   (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
-   (star-tabs-display-tab-bar t)))
+     (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
+     (star-tabs-display-tab-bar t)))
 
 (defun star-tabs-display-tab-bar (&optional force-refresh)
   "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met."
