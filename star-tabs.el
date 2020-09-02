@@ -1222,7 +1222,7 @@ Note that this might also change the tab's position in other filter groups."
 	(setq star-tabs-active-buffers(star-tabs-insert-at-nth (remove active-tab-buffer star-tabs-active-buffers)
 							       active-tab-buffer
 							       adjacent-tab-buffer-pos)))))
-  (star-tabs-display-tab-bar t 'keep-scroll))
+  (star-tabs-display-tab-bar t 'scroll-to-current-buffer))
 
 (defun star-tabs-move-tab-right ()
   "Move the currently active tab one step to the right in the tab bar.
@@ -1512,8 +1512,6 @@ If the current buffer is not in the active filter group, return 0."
       -1)))
 
 
-
-
 ;;; Functions to run with hooks
 
 (defun star-tabs-when-buffer-first-modified ()
@@ -1530,12 +1528,12 @@ If the current buffer is not in the active filter group, return 0."
 
 (defun star-tabs-display-tab-bar (&optional force-refresh scroll)
   "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met.
-If SCROLL is a number, scroll the tab bar SCROLL number of tabs (default 0). 
+If SCROLL is a number, scroll the tab bar SCROLL number of tabs (default 'keep-scroll). 
 Otherwise, if SCROLL is one of the following symbols, scroll the tab bar according to the corresponding behavior:
 'keep-scroll: Keep the current scroll position.
 'scroll-to-current-buffer: Scroll to the current buffer tab, if it is in the filter group."
   (unless (window-dedicated-p) ; Only show the tab bar in non-dedicated windows
-    (or scroll (setq scroll -3))
+    (or scroll (setq scroll 'keep-scroll))
     (star-tabs--set-header-line (star-tabs--buffer-list force-refresh) scroll))
     nil)
 
