@@ -151,6 +151,9 @@ This is a helper variable for the automatic file extension filters")
 (defvar star-tabs-active-filtered-buffers-enum nil
   "Enumerated list of buffers after all filters have been applied.")
 
+(defvar star-tabs-active-filtered-buffers nil
+  "List of buffers after all filters have been applied.")
+
 (defvar star-tabs-active-buffers nil
   "List of all currently active/'real' buffers.
 A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/temporary or otherwise deemed unimportant.")
@@ -684,8 +687,6 @@ COLLECTION-NAME defaults to the currently active filter collection."
   (alist-get filter-name (eval collection-name)))
 
 
-
-
 ;; Apply filters
 
 (defun star-tabs-filter-buffers (filter-name buffer-list)
@@ -977,6 +978,12 @@ sometimes returns temporary/unreal buffers."
   "Return the name of the current buffer."
     (buffer-name (star-tabs-current-buffer)))
 
+(defun star-tabs-get-buffer-tab-number (&optional buffer)
+  "Return the tab number of buffer BUFFER.
+Return 0 if BUFFER is not in the active filter group."
+  (1+ (or (cl-position (current-buffer) star-tabs-active-filtered-buffers)
+      -1)))
+
 
 ;; Buffer list
 
@@ -1104,6 +1111,7 @@ sometimes returns temporary/unreal buffers."
 		 (setq counter (1+ counter)))
 	       (setq buffer-lists (push `(,filter . ,(reverse filtered-buffers-enum)) buffer-lists)))
 	     (setq star-tabs-buffers-enum (reverse buffer-lists))
+	     (setq star-tabs-active-filtered-buffers (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
 	     (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists))))
        nil)))
  
