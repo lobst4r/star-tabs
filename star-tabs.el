@@ -81,9 +81,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
   "The last used timer, set automatically by (star-tabs--display-filter-name-temporarily).")
 
 (defvar star-tabs-debug-messages t
-  "If set to non-nil, debug messages will be displayed."
-  ;; TODO: Remove this, and all debug messages.
-)
+  "If set to non-nil, debug messages will be displayed.")
 
 ;; Collections
 
@@ -363,6 +361,7 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 ;; FIXME currently creating collection while the list is rotated causes the collections to be in the wrong order
 ;; Solve this by rotating the list back to the beginning (store first added list, move to second if the first is deleted etc)
 ;; Or just keeping track of last added..?
+;; Or just ignore ??
 
 (defun star-tabs-remove-filter-collection (collection-name)
   "Delete filter collection COLLECTION-NAME."
@@ -864,6 +863,7 @@ FILTER-NAME defaults to the currently active filter."
   "Kill buffers BUFFERS."
   (dolist (buffer buffers)
     (kill-buffer buffer)))
+
 
 ;; Helper functions
 
