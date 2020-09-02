@@ -233,13 +233,48 @@ In order to create a filter, run this code, or add it to your .emacs configurati
 A filter is a list, or multiple lists, of regular expressions used to include or exclude (or both include and exclude) buffers with names that match the regular expressions.
 In case both ~:include~ and ~:exclude~ are set, first include buffers using the regular expressions from ~:include~, then from those buffers, exclude buffers using the list from ~:exclude~
 
-| Property                                            | Description                                                                                                                                   |
-|-----------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------|
+| Property                                              | Description                                                                                                                                   |
+|-------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------|
 | ~:name (symbol...TODO: change to string?)~            | Name of the filter.                                                                                                                           |
 | ~:exclude  (list of regexps)~                         | List of regular expressions. Any buffer with a name matched by a regexp in this list will be excluded from the group.                         |
 | ~:include (list of regexps)~                          | List of regular expressions. Any buffer with a name matched by a regexp in this list will be included in the group.                           |
 | ~:always-include (regexp)~                            | Buffers matching this regular expression will always be included in the group, even if they were excluded by the list specified in ~:exclude~ |
-| ~:collection-name (symbol...TODO: change to string?)~ | The name of the collection the filter should be added to. If not set, it defaults to ~(star-tabs-active-filter-collection-name)~                |
+| ~:collection-name (symbol...TODO: change to string?)~ | The name of the collection the filter should be added to. If not set, it defaults to ~(star-tabs-active-filter-collection-name)~              |
+| ~:auto-sort (symbol)~                                 | Automatically sort the filter group. For more info about the available sorting methods, refer to the section on sorting                       |
+|                                                       |                                                                                                                                               |
+
+** Sorting/Reordering tabs
+Automatic sorting of tabs can be done by setting the ~:auto-sort~ option in the filter group. By default, automatic sorting is diabled
+(tabs will reflect the order in which the buffers were created, however).
+*Note that currently, reordering of tabs in one group might affect ordering in other groups if the same buffers are in multiple groups.*
+
+The available sorting methods are as follows:
+
+| Sorting Method | Description                                                                                                                                                                                                    |
+|----------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 'recent-first  | The most recent (current) buffer will be the first (left-most) tab. The second most recent will be the second tab, and so on. The last (right-most) tab will thus be the buffer to last be revisited/reopened. |
+| nil            | No sorting will be applied, but any sorting done previously will remain in effect.                                                                                                             |
+
+*** Enable/Disable automatic sorting/Change sorting method 
+To enable automatic sorting in the active filter group, or to change sorting method, use the following command:
+#+BEGIN_SRC emacs-lisp
+(star-tabs-set-filter-prop-value :auto-sort 'sorting-method) ; change "sorting-method" to the name of the sorting method you would like to use.
+#+END_SRC
+
+Automatic sorting can also be enabled when creating a filter group:
+#+BEGIN_SRC emacs-lisp
+(star-tabs-add-filter
+  :name 'my-filter
+  :exclude '("^[[:space:]]" "^*.*\\*$") 
+  :auto-sort 'recent-first) ; :auto-sort is nil by default
+#+END_SRC
+
+To disable automatic sorting in the active filter group, use the following command:
+#+BEGIN_SRC emacs-lisp
+(star-tabs-set-filter-prop-value :auto-sort nil) 
+#+END_SRC
+
+
 
 * Questions and Answers
 

@@ -435,12 +435,16 @@ will be excluded from those matching the regexp in :include.
 -if only :include is set, only the buffers matching the regexp in :include will be displayed.
 -if only :exclude is set, all buffers except the ones matching the regexp in :exclude will be displayed.
 -The filter will be added to filter collection :collection-name, which defaults to the currently active filter collection."
+
+  ;; TODO add auto-sort expl. to readme
   (let* ((name (plist-get filter-props :name))
 	 (exclude (plist-get filter-props :exclude))
 	 (include (plist-get filter-props :include))
 	 (collection-name (or (plist-get filter-props :collection) (star-tabs-active-filter-collection-name)))
+	 (auto-sort (or (plist-get filter-props :auto-sort) nil))
 	 (filter `(,name :exclude ,exclude
-			 :include ,include))
+			 :include ,include
+			 :auto-sort ,auto-sort))
 	 last-filter-pos)
     (if (not (member name (star-tabs-get-filter-names)))
 	;; Add the filter to the "right" of the last added filter, in order to maintain order.
@@ -584,6 +588,38 @@ Also remove it from automatic inclusion, if applicable."
   (interactive)
   (message "Active filter name: %s" (star-tabs-get-active-filter-name)))
 
+(defun star-tabs-auto-sort (&optional filter-name collection-name sort-method)
+  "Automatically sort filter group FILTER-NAME in collection COLLECTION-NAME.
+FILTER-NAME defaults to the active filter group.
+COLLECTION-NAME defaults to the active filter collection.
+SORT-METHOD defaults to the filter property :auto-sort of FILTER-NAME.
+If filter property :auto-sort is non-nil and SORT-METHOD is not specified, nothing will be sorted.\n
+The following will explain the different options for SORT-METHOD:
+- 'recent-first - The most recent (current) buffer will be the first (left-most) tab. The second most recent will be the second tab, and so on. 
+The last (right-most) tab will thus be the buffer to last be revisited/reopened." 
+;; TODO: Add the following sorting methods:
+;; - 'last-first (to be implemented) - The opposite of 'recent-first. That is, the most recent buffer will be last in the tab bar. 
+;; - 'alpha-desc (to be implemented) - Tabs will be sorted alphabetically, in a descending order; buffers with names starting with 'a' will appear 
+;; left of those starting with 'z', for example.
+;; - 'alpha-asc (to be implemented) - The same as 'alpha-desc, except that tabs will be sorted in an ascending alphabetical order.
+;; - 'extension-desc (to be implemented) - Sort tabs by their file extensions alphabetically in a descending order. 
+;; - 'extension-asc (to be implemented) - The same as 'extension-desc, except that the ordering will be in an ascending order.
+;; TODO Add :auto-sort as a collection property as well. If it's not set on filter-level, it will default to the collection property (if set), 
+;; otherwise nil
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (or sort-method (setq sort-method (star-tabs-get-filter-prop-value :auto-sort filter-name collection-name)))
+  (when sort-method
+    (cond ((equal sort-method 'recent-first)
+	   (star-tabs-move-current-tab-to-first)))))
+
+(defun star-tabs-set-filter-prop-value (prop value &optional filter-name collection-name)
+  "Set property PROP of filter FILTER-NAME in collection COLLECTION-NAME to value VALUE."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (plist-put (star-tabs-get-filter-props filter-name collection-name) prop value)
+  (star-tabs-display-tab-bar))
+
 
 ;; Get filter data 
 
@@ -608,6 +644,21 @@ COLLECTION-NAME defaults to the currently active filter collection."
   (interactive)
   (or (car(star-tabs-get-active-filter))
       'ALL))
+
+(defun star-tabs-get-filter-prop-value (prop &optional filter-name collection-name)
+  "Return the value of the property PROP of filter FILTER-NAME in collection COLLECTION-NAME."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (let ((props (star-tabs--get-filter-props filter-name collection-name)))
+    (plist-get props prop)))
+
+(defun star-tabs-get-filter-props (&optional filter-name collection-name)
+  "Return the properties of filter FILTER-NAME in collection COLLECTION-NAME."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (alist-get filter-name (eval collection-name)))
+
+
 
 
 ;; Apply filters
@@ -1009,7 +1060,11 @@ sometimes returns temporary/unreal buffers."
 	       (star-tabs--remove-file-extension-filters)))
 	   ;; Find and display a filter for the current buffer if we just switched buffer, and a filter exists for it.
 	   (when buffer-switched-p
-	     (star-tabs-find-active-filter))
+	     (star-tabs-find-active-filter)
+	     (when (equal
+	     	    (star-tabs-get-filter-prop-value :auto-sort)
+	     	    'recent-first)
+	       (star-tabs-auto-sort)))
 	   ;; Apply all filters
 	   (let ((filters (star-tabs-get-filter-names))
 		 (buffer-lists nil)
@@ -1026,7 +1081,6 @@ sometimes returns temporary/unreal buffers."
 	     (setq star-tabs-buffers-enum (reverse buffer-lists))
 	     (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists))))
        nil)))
-
  
 
 ;; Buffer Switching
