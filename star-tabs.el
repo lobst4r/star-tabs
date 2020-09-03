@@ -50,6 +50,39 @@
   "Tab 'icon' for the tab close button.")
 
 
+;; Hooks
+
+(defvar star-tabs-buffer-switch-hook nil
+  "Functions to run when the current (real) buffer switches.")
+
+(defvar star-tabs-buffer-list-update-hook nil
+  "Functions to run when the Star Tabs-curated list of real buffers is updated.")
+
+(defvar star-tabs-filter-change-hook nil
+  "Functions to run when the active filter group changes.")
+
+(defvar star-tabs-collection-change-hook nil
+  "Functions to run when the active filter collection changes.")
+
+(defvar star-tabs-timer-start-hook nil
+  "Functions to run when a Star Tabs timer starts.")
+
+(defvar star-tabs-timer-end-hook nil
+  "Functions to run when a Star Tabs timer ends.")
+
+(defvar star-tabs-init-hook nil
+  "Functions to run when Star Tabs first loads.")
+
+(defvar star-tabs-disable-hook nil
+  "Functions to run when Star Tabs goes from enabled to disabled.")
+
+(defvar star-tabs-scroll-tab-hook nil
+  "Functions to run when scrolling the tab bar.")
+
+(defvar star-tabs-move-tab-hook nil
+  "Functions to run when moving a tab in the tab bar.")
+
+
 ;; Keymaps
 
 (defvar star-tabs-map-select-tab
@@ -104,7 +137,7 @@ be included.
 
 This filter is applied before star-tabs-global-exclusion-prefix-filter.")
 
-(defvar star-tabs-global-exclusion-prefix-filter '("magit-" "magit:" "*Help" "*WoM")
+(defvar star-tabs-global-exclusion-prefix-filter '("*" "magit-" "magit:")
   "List of buffer name prefixes to be excluded globally. Buffers filtered this way will be cached and ignored
 for all future searches. As such, global filtering may increase performance, and
 should (and should only!) be applied to buffers that you really don't care about.
@@ -317,14 +350,16 @@ Return nil if ELT is not in LIST."
 Optionally run function FUNCTION with arguments ARGS after DURATION. Return timer."
   ;; Set to new value when the timer starts.
   (set symbol value)
+  (run-hooks 'star-tabs-timer-start-hook)
   (run-at-time duration
 	       nil
 	       (lambda (symbol value-after func-after args)
-		 ;; Set to nil when the timer ends.
+		 ;; Set to VALUE-AFTER (default nil) when the timer ends.
 		 (set symbol value-after)
 		 ;; If set, run FUNC-AFTER when the timer ends.
 		 (when func-after 
-		     (apply func-after args)))
+		   (apply func-after args)
+		   (run-hooks 'star-tabs-timer-end-hook)))
 	       symbol value-after func-after args))
 
 (defun star-tabs-string-pixel-width (string)
@@ -408,6 +443,7 @@ Also refresh tab bar if INHIBIT-REFRESH is non-nil."
   (setq star-tabs-filter-collections (star-tabs-cycle-list-car star-tabs-filter-collections reverse))
   (unless inhibit-refresh
     (star-tabs--display-collection-name-temporarily)
+    (run-hooks 'star-tabs-collection-change-hook)
     (star-tabs-display-tab-bar)))
 
 (defun star-tabs-active-filter-collection-name (&optional no-prefix)
@@ -553,20 +589,25 @@ Refresh tab bar if INHIBIT-REFRESH is nil."
   ;; Refresh tab bar unless explicitly told not to.
   (unless inhibit-refresh
     (star-tabs--display-filter-name-temporarily)
+    (run-hooks 'star-tabs-filter-change-hook)
     (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)))
 
-(defun star-tabs-find-active-filter () 
-  "Find and display a filter for the currently active buffer, if such filter exists in the current collection."
+(defun star-tabs-find-active-filter (&optional inhibit-refresh) 
+  "Find a filter for the current buffer, if such filter exists in the current collection.
+If INHIBIT-REFRESH is nil (default), refresh the tab bar as well."
   (interactive)
   (let ((current-buffer (star-tabs-current-buffer))
 	(filter-count (length (eval (star-tabs-active-filter-collection-name)))))
     ;; Loop through the list of registered filters once, or until a filter is found.
+    ;; But there is no need to change filter group if the current buffer is already in the active filter group.
     (while (and (not (member current-buffer (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers)))
 		(>= filter-count 0))
       (star-tabs-cycle-filters nil t)  ; If buffer is not in filter group, move cycle index once.
       (setq filter-count (1- filter-count))) ; Prevent infinite loop in case there is no match.
-    (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)
-    (star-tabs-get-active-filter-name))) 
+    (unless inhibit-refresh
+      (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)
+      (run-hooks 'star-tabs-filter-change-hook)
+      (star-tabs-get-active-filter-name))))
 
 (defun star-tabs-add-to-always-include-in-filter (buffer &optional filter-name collection-name)
   "Always include buffer BUFFER in filter FILTER-NAME of collection COLLECTION-NAME."
@@ -1034,6 +1075,7 @@ Return 0 if BUFFER is not in the active filter group."
 		     (setq old-buffers (seq-difference star-tabs-active-buffers buffer-list))
 		     (when old-buffers
 		       (setq star-tabs-active-buffers (seq-difference star-tabs-active-buffers old-buffers))))
+		   (run-hooks 'star-tabs-buffer-list-update-hook)
 		   t)
 	  nil)))))
 
@@ -1150,6 +1192,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	  (when star-tabs-tab-bar-filter-name
 	    (star-tabs--display-filter-name-temporarily))
 	  (setq star-tabs-current-buffer (current-buffer))
+	  (run-hooks 'star-tabs-buffer-list-update-hook)
 	  t)
       nil)))
 
@@ -1261,6 +1304,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
     (when (and buffers
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
       ;; Determine how much to, and if we should scroll.
+      (message "SCROLL: %s" scroll)
       (or scroll (setq scroll 0))
       (unless (integerp scroll)
 	(setq scroll (cond ((equal scroll 'keep-scroll) (1- (star-tabs--first-number-in-tab-bar)))
@@ -1374,7 +1418,6 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 		 (propertize icon
 			     'face `(:inherit ,(get-text-property 0 'face icon)
 					      :background ,icon-background)
-			     
 			      'mouse-face 
 			      (if (equal name (star-tabs-current-buffer-name))
 				  'star-tabs-mouse-selected
@@ -1526,6 +1569,36 @@ If the current buffer is not in the active filter group, return 0."
      (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
      (star-tabs-display-tab-bar t 'keep-scroll)))
 
+(defun star-tabs-on-buffer-switch ()
+  "Run when the current real buffer is switched."
+  ;; Find a filter for the new buffer.
+  (star-tabs-find-active-filter t)
+  ;; Auto Sort
+  (when (equal
+	 (star-tabs-get-filter-prop-value :auto-sort)
+	 'recent-first)
+    (star-tabs-auto-sort))
+  (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)) ; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
+
+(defun star-tabs-on-filter-change ()
+  "Run when the active filter changes."
+  (star-tabs-display-tab-bar t 'scroll-to-current-buffer))
+
+(defun star-tabs-on-collection-change ()
+  "Run when the active filter changes."
+  (star-tabs-display-tab-bar t 'scroll-to-current-buffer))
+
+(defun star-tabs-on-timer-start ()
+  "Run when a Star Tabs timer starts.")
+
+(defun star-tabs-on-timer-end ()
+  "Run when a Star Tabs timer ends.")
+
+(defun star-tabs-on-buffer-list-update ()
+  "Run when the list of real buffers updates."
+  ;; (star-tabs--buffer-list) ; TODO: rename to --make-buffer-lists
+  (star-tabs-display-tab-bar t 'keep-scroll))
+
 (defun star-tabs-display-tab-bar (&optional force-refresh scroll)
   "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met.
 If SCROLL is a number, scroll the tab bar SCROLL number of tabs (default 'keep-scroll). 
@@ -1533,10 +1606,21 @@ Otherwise, if SCROLL is one of the following symbols, scroll the tab bar accordi
 'keep-scroll: Keep the current scroll position.
 'scroll-to-current-buffer: Scroll to the current buffer tab, if it is in the filter group."
   (unless (window-dedicated-p) ; Only show the tab bar in non-dedicated windows
+    ;;(star-tabs--print-hl-format) ; TODO REMOVE 
     (or scroll (setq scroll 'keep-scroll))
     (star-tabs--set-header-line (star-tabs--buffer-list force-refresh) scroll))
     nil)
 
+(defun star-tabs-init ()
+  "Run when Star Tabs first loads")
+
+(defun star-tabs-on-disable ()
+  "Run when Star Tabs goes from enabled to disabled.")
+
+(defun star-tabs-on-raw-buffer-list-update ()
+  (star-tabs--update-buffer-list)
+  (star-tabs--buffer-switched-p) ; TODO: Rename function
+  )
 
 ;;; Modes
 
@@ -1558,8 +1642,22 @@ Otherwise, if SCROLL is one of the following symbols, scroll the tab bar accordi
 	       (star-tabs-cycle-filters)))))
 
 
+;; Hooks
+
+;; (add-hook 'star-tabs-disable-hook #'star-tabs-on-disable)
+;; (add-hook 'star-tabs-init-hook #'star-tabs-init)
+;; (add-hook 'star-tabs-buffer-list-update-hook #'on-buffer-list-update)
+;; (add-hook 'star-tabs-timer-end-hook #'star-tabs-on-timer-end)
+;; (add-hook 'star-tabs-timer-start-hook #'star-tabs-on-timer-start)
+;; (add-hook 'star-tabs-collection-change-hook #'star-tabs-on-collection-change)
+;; (add-hook 'star-tabs-filter-change-hook #'star-tabs-on-filter-change) 
+;; (add-hook 'star-tabs-buffer-list-update-hook #'star-tabs-on-buffer-switch)
 
 ;;; TODO: Unused functions; remove or fix.
+
+(defun star-tabs--print-hl-format ()
+  (message "Current Buffer: %s" (current-buffer))
+  (message "Header Line Format: %s" star-tabs-header-line-format))
 
 (defun star-tabs--switch-to-first-in-new-filter (filter-name)
  "Switch to the first buffer in filter FILTER, or the last buffer before switching filters, as long as the last
@@ -1604,5 +1702,7 @@ exists in filter, return buffer star-tabs-current-buffer instead."
       (car buffers))))
 
 
+
 (provide 'star-tabs)
 
+;;; star-tabs.el ends here
