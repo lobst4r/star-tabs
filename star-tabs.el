@@ -410,7 +410,8 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 	       ;; Switch to the new collection upon creation if :use is non-nil.
 	       (when use
 		 (while (not (eq (star-tabs-active-filter-collection-name) name))
-		   (star-tabs-cycle-filter-collections t))))
+		   (star-tabs-cycle-filter-collections t t))
+		 (run-hooks 'star-tabs-collection-change-hook)))
       (message "Collection name already exists"))))
 
 (defun star-tabs-filter-collection-names ()
@@ -443,9 +444,7 @@ Also refresh tab bar if INHIBIT-REFRESH is non-nil."
   (interactive)
   (setq star-tabs-filter-collections (star-tabs-cycle-list-car star-tabs-filter-collections reverse))
   (unless inhibit-refresh
-    (star-tabs--display-collection-name-temporarily)
-    (run-hooks 'star-tabs-collection-change-hook)
-    (star-tabs-display-tab-bar)))
+    (run-hooks 'star-tabs-collection-change-hook)))
 
 (defun star-tabs-active-filter-collection-name (&optional no-prefix)
   "Return the name of the active filter collection."
@@ -526,8 +525,7 @@ will be excluded from those matching the regexp in :include.
 	       (star-tabs-set-filter-collection-prop-value :last-filter name collection-name))
       (message "Filter name already exists"))
     (unless inhibit-refresh
-      (run-hooks 'star-tabs-collection-property-change-hook)
-      (star-tabs-display-tab-bar nil 'keep-scroll))))
+      (run-hooks 'star-tabs-collection-property-change-hook))))
 
 (defun star-tabs-remove-filter (filter-name &optional inhibit-refresh collection-name)
   "Remove filter FILTER-NAME from filter collection COLLECTION-NAME.
@@ -542,8 +540,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 							      filter-name)))
   (set collection-name (assq-delete-all filter-name (eval collection-name)))
   (unless inhibit-refresh
-    (run-hooks 'star-tabs-collection-property-change-hook)
-    (star-tabs-display-tab-bar nil 'keep-scroll)))
+    (run-hooks 'star-tabs-collection-property-change-hook)))
 
 (defun star-tabs-remove-all-filters (&optional inhibit-refresh collection-name)
   "Delete all filters in filter collection COLLECTION-NAME.
@@ -557,7 +554,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 (defun star-tabs-init-filters ()
   "Initialize default collection and filters."
   (star-tabs-create-filter-collection
-   :name "default-collection2"
+   :name "default-collection9"
    :use t
    :enable-file-extension-filters t 
    :display-filter-name t)
@@ -626,7 +623,6 @@ If INHIBIT-REFRESH is nil (default), refresh the tab bar as well."
 	  (star-tabs-get-active-filter-name)
 	nil))))
 
-
 (defun star-tabs-add-to-always-include-in-filter (buffer &optional filter-name collection-name)
   "Always include buffer BUFFER in filter FILTER-NAME of collection COLLECTION-NAME."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
@@ -640,7 +636,7 @@ If INHIBIT-REFRESH is nil (default), refresh the tab bar as well."
       (star-tabs-set-filter-prop-value :always-include always-include filter-name collection-name)))
   ;; (plist-put (alist-get filter-name (eval collection-name))
   ;; 		 :always-include always-include)))
-  (star-tabs-display-tab-bar t 'keep-scroll))
+  )
 
 (defun star-tabs-exclude-from-filter (buffer &optional filter-name collection-name)
   "Exclude buffer BUFFER from filter FILTER-NAME of collection COLLECTION-NAME.
@@ -658,7 +654,7 @@ Also remove it from automatic inclusion, if applicable."
     (star-tabs-set-filter-prop-value :always-include always-include filter-name collection-name)
     (when exclude
       (star-tabs-set-filter-prop-value :always-include always-include filter-name collection-name))
-    (star-tabs-display-tab-bar t 'keep-scroll)))
+    ))
 
 (defun star-tabs-include-current-buffer-in-current-filter ()
   "Include current buffer in the currently active filter."
@@ -705,8 +701,7 @@ The last (right-most) tab will thus be the buffer to last be revisited/reopened.
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (plist-put (star-tabs-get-filter-props filter-name collection-name) prop value)
-  (run-hooks 'star-tabs-collection-property-change-hook)
-  (star-tabs-display-tab-bar nil 'keep-scroll))
+  (run-hooks 'star-tabs-collection-property-change-hook))
 
 
 ;; Get filter data 
@@ -1243,7 +1238,6 @@ Return 0 if BUFFER is not in the active filter group."
 (defun star-tabs--buffer-switched-p ()
   "Return t if the current buffer has been switched since last time this function was called. Otherwise, return nil.
 This function should only be used in one place, inside (star-tabs--buffer-list)."
-  ;; Make sure it's a real buffer.
   (when (and (get-buffer-window (current-buffer))
 	     (not (string-prefix-p " " (buffer-name (current-buffer))))
 	     (member (current-buffer) star-tabs-active-buffers))
@@ -1549,8 +1543,8 @@ This function uses global helper variable star-tabs-filter-name-timer to keep tr
 							(star-tabs-get-active-filter-name)
 							"1 sec"
 							nil
-							#'star-tabs-display-tab-bar
-							t
+							#'star-tabs--set-header-line
+						        star-tabs-active-filtered-buffers-enum	
 							'keep-scroll)))
 
 (defun star-tabs--display-collection-name-temporarily (&optional collection-name)
@@ -1565,8 +1559,8 @@ This function uses global helper variable star-tabs-collection-name-timer to kee
 							(star-tabs-active-filter-collection-name t)
 							"1 sec"
 							nil
-							#'star-tabs-display-tab-bar
-							t
+							#'star-tabs--set-header-line
+							star-tabs-active-filtered-buffers-enum
 							'keep-scroll)))
 
 
@@ -1625,10 +1619,14 @@ If the current buffer is not in the active filter group, return 0."
   "Run when a buffer goes from an unmodified state to a modified state."
   (if (member (current-buffer) star-tabs-active-buffers)
       (progn (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should be.
+	     (when star-tabs-debug-messages
+	       (message "Buffer Modified"))
 	     (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))))
 
 (defun star-tabs-when-buffer-first-saved ()
    "Run when a buffer goes from a modified state to an unmodified state."
+  (when star-tabs-debug-messages
+    (message "Buffer Saved"))
    (when (member (current-buffer) star-tabs-active-buffers)
      (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll)))
@@ -1636,6 +1634,8 @@ If the current buffer is not in the active filter group, return 0."
 (defun star-tabs-on-buffer-switch ()
   "Run when the current real buffer is switched."
   ;; Find a filter for the new buffer.
+  (when star-tabs-debug-messages
+    (message "Buffer Switched: %s" (buffer-name (current-buffer))))
   (when (star-tabs-find-active-filter t)
     (star-tabs-on-filter-change t))
   ;; Auto Sort
@@ -1649,6 +1649,8 @@ If the current buffer is not in the active filter group, return 0."
   "Run when the active filter changes."
   ;; TODO: Add timer to this function
   ;; Review: Probably not triggered when changing collections (which subsequently will change the active filter)
+  (when star-tabs-debug-messages
+    (message "Filter Changed"))
   (star-tabs--filter-all-buffers)
   (star-tabs--display-filter-name-temporarily)
   (unless inhibit-refresh
@@ -1656,10 +1658,17 @@ If the current buffer is not in the active filter group, return 0."
 
 (defun star-tabs-on-collection-change ()
   "Run when the active filter changes."
-  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffers))
+  ;;(star-tabs--display-collection-name-temporarily)
+  (when star-tabs-debug-messages
+    (message "Collection Changed"))
+  (star-tabs--add-and-remove-file-extension-filters t t)
+  (star-tabs--filter-all-buffers)
+  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffer))
 
 (defun star-tabs-on-collection-property-change ()
   "Run when a collection property changes."
+  (when star-tabs-debug-messages
+    (message "Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
   (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
 
@@ -1686,6 +1695,8 @@ If the current buffer is not in the active filter group, return 0."
 	(setq extensions-updated-p (or (star-tabs--remove-file-extension-filters)
 				       extensions-updated-p))))
     (when extensions-updated-p
+      (when star-tabs-debug-messages
+	(message "File Extension List/Filters Updated"))
       (unless inhibit-hook
 	(run-hooks 'star-tabs-collection-property-change-hook))
       (unless inhibit-refresh
@@ -1693,13 +1704,19 @@ If the current buffer is not in the active filter group, return 0."
     extensions-updated-p))
 
 (defun star-tabs-on-timer-start ()
-  "Run when a Star Tabs timer starts.")
+  "Run when a Star Tabs timer starts."
+  (when star-tabs-debug-messages
+    (message "Star Tabs Timer Started")))
 
 (defun star-tabs-on-timer-end ()
-  "Run when a Star Tabs timer ends.")
+  "Run when a Star Tabs timer ends."
+  (when star-tabs-debug-messages
+    (message "Star Tabs Timer Started")))
 
 (defun star-tabs-on-buffer-list-update ()
   "Run when the list of real buffers updates."
+  (when star-tabs-debug-messages
+    (message "Real buffer list updated"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers) 
   (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
@@ -1708,19 +1725,27 @@ If the current buffer is not in the active filter group, return 0."
   "Run when a tab changes position in the tab bar."
   ;; Currently, moving a tab causes the buffer list to change, which requires that we re-filter the buffers to update.
   ;; TODO: Make buffer lists group-local and remove the need to refilter (and the need to do a lot of other things...)
+  (when star-tabs-debug-messages
+    (message "Tab moved"))
   (star-tabs--filter-all-buffers)
   (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffer))
 
 (defun star-tabs-init ()
-  "Run when Star Tabs first loads")
+  "Run when Star Tabs first loads"
+  (when star-tabs-debug-messages
+    (message "Star Tabs initializing...")))
 
 (defun star-tabs-on-disable-tab-bar ()
-  "Run when Star Tabs goes from enabled to disabled.")
+  "Run when Star Tabs goes from enabled to disabled."
+  (when star-tabs-debug-messages
+    (message "Star Tabs disabled")))
 
 (defun star-tabs-on-raw-buffer-list-update ()
   (star-tabs--update-buffer-list)
   (star-tabs--buffer-switched-p)) ; TODO: Rename function?
-  
+
+
+
 (defun star-tabs-display-tab-bar (&optional force-refresh scroll)
   "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met.
 If SCROLL is a number, scroll the tab bar SCROLL number of tabs (default 'keep-scroll). 
@@ -1731,9 +1756,8 @@ Otherwise, if SCROLL is one of the following symbols, scroll the tab bar accordi
   (unless (window-dedicated-p) ; Only show the tab bar in non-dedicated windows
     ;;(star-tabs--print-hl-format) ; TODO REMOVE 
     (or scroll (setq scroll 'keep-scroll))
-    (star-tabs--set-header-line (star-tabs--buffer-list force-refresh) scroll))
-    nil)
-
+    ;(star-tabs--set-header-line (star-tabs--buffer-list force-refresh) scroll))
+    nil))
 
 ;;; Modes
 
@@ -1764,7 +1788,7 @@ Otherwise, if SCROLL is one of the following symbols, scroll the tab bar accordi
 (add-hook 'star-tabs-buffer-list-update-hook #'star-tabs-on-buffer-list-update)
 ;; (add-hook 'star-tabs-timer-end-hook #'star-tabs-on-timer-end)
 ;; (add-hook 'star-tabs-timer-start-hook #'star-tabs-on-timer-start)
-;; (add-hook 'star-tabs-collection-change-hook #'star-tabs-on-collection-change)
+(add-hook 'star-tabs-collection-change-hook #'star-tabs-on-collection-change)
 (add-hook 'star-tabs-filter-change-hook #'star-tabs-on-filter-change) 
 (add-hook 'star-tabs-buffer-list-update-hook #'star-tabs-on-buffer-switch)
 
