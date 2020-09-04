@@ -1162,7 +1162,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	  (when star-tabs-tab-bar-filter-name
 	    (star-tabs--display-filter-name-temporarily))
 	  (setq star-tabs-current-buffer (current-buffer))
-	  (run-hooks 'star-tabs-buffer-list-update-hook)
+	  (run-hooks 'star-tabs-buffer-switch-hook)
 	  t)
       nil)))
 
@@ -1539,7 +1539,7 @@ If the current buffer is not in the active filter group, return 0."
   "Run when the list of real buffers updates."
   (when star-tabs-debug-messages
     (message "Real buffer list updated"))
-  (star-tabs--add-and-remove-file-extension-filters t t)
+  ;;(star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers) 
   (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
 
@@ -1706,8 +1706,7 @@ If the current buffer is not in the active filter group, return 0."
 ;; (add-hook 'star-tabs-timer-start-hook #'star-tabs-on-timer-start)
 (add-hook 'star-tabs-collection-change-hook #'star-tabs-on-collection-change)
 (add-hook 'star-tabs-filter-change-hook #'star-tabs-on-filter-change) 
-(add-hook 'star-tabs-buffer-list-update-hook #'star-tabs-on-buffer-switch)
-
+(add-hook 'star-tabs-buffer-switch-hook #'star-tabs-on-buffer-switch)
 
 ;;; TODO: DEPRECATED/Unused functions; remove or fix.
 
