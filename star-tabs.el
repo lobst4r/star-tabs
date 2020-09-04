@@ -890,7 +890,8 @@ COLLECTION-NAME defaults to the currently active filter collection."
        :collection collection-name
        :inhibit-refresh t)
       (setq extensions-updated-p t))
-    (let ((file-extensions (mapcar 'intern (star-tabs-get-file-extensions)))
+    (let ((file-extensions '(\.el))
+			   ;;(mapcar 'intern (star-tabs-get-file-extensions)))
 	  (filter-names star-tabs-file-extension-filter-names))
       ;; Add new filters if there are new file extensions among open buffers.
       (dolist (ext file-extensions)
@@ -905,7 +906,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 	  (setq extensions-updated-p (or (star-tabs--remove-file-extension-filter filter t collection-name)
 					 extensions-updated-p)))))
     (unless inhibit-refresh
-      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
+       (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
     extensions-updated-p))
 
 (defun star-tabs--remove-file-extension-filter (filter-name &optional inhibit-refresh collection-name)
@@ -1539,7 +1540,7 @@ If the current buffer is not in the active filter group, return 0."
   "Run when the list of real buffers updates."
   (when star-tabs-debug-messages
     (message "Real buffer list updated"))
-  ;;(star-tabs--add-and-remove-file-extension-filters t t)
+  (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers) 
   (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
 
@@ -1617,13 +1618,13 @@ If the current buffer is not in the active filter group, return 0."
   ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
   (let ((extensions-updated-p nil))
     (if star-tabs-add-file-extension-filters
-	(setq extensions-updated-p (or (star-tabs--update-file-extension-filters)
-				       extensions-updated-p))
+       	(setq extensions-updated-p (or (star-tabs--update-file-extension-filters t)
+       				       extensions-updated-p))
       ;; Remove all automatically set file extension filters in case none of the two conditions described
       ;; above are met.
-      (when star-tabs-file-extension-filter-names
-	(setq extensions-updated-p (or (star-tabs--remove-file-extension-filters)
-				       extensions-updated-p))))
+       (when star-tabs-file-extension-filter-names
+       	(setq extensions-updated-p (or (star-tabs--remove-file-extension-filters) extensions-updated-p)))
+      )
     (when extensions-updated-p
       (when star-tabs-debug-messages
 	(message "File Extension List/Filters Updated"))
