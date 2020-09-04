@@ -1129,6 +1129,19 @@ Return 0 if BUFFER is not in the active filter group."
       (setq star-tabs-active-filtered-buffers (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
       (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists)))))
 
+(defun star-tabs-active-filtered-buffers ())
+
+(defun star-tabs-get-group-buffers (&optional enumerated-list filter-name collection-name)
+  (let ((prop (if enumerated-list
+		  :buffer-list-enum
+		:buffer-list)))
+  (star-tabs-get-filter-prop-value prop filter-name collection-name)))
+
+(defun star-tabs-get-active-group-buffers ()
+  (star-tabs-get-group-buffers nil (star-tabs-get-active-filter-name) (star-tabs-active-filter-collection-name)))
+
+(defun star-tabs-get-active-group-buffers-enum ()
+  (star-tabs-get-group-buffers t (star-tabs-get-active-filter-name) (star-tabs-active-filter-collection-name)))
 
 ;; Buffer Switching
 
@@ -1531,8 +1544,8 @@ If the current buffer is not in the active filter group, return 0."
 ;;; Functions to run with hooks
 
 ;; Functions to run when the buffer list updates, or when switching buffers 
-
 (defun star-tabs-on-raw-buffer-list-update ()
+  "Run with buffer-list-update-hook."
   (star-tabs--update-buffer-list)
   (star-tabs--buffer-switched-p)) ; TODO: Rename function?
 
@@ -1618,7 +1631,7 @@ If the current buffer is not in the active filter group, return 0."
   ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
   (let ((extensions-updated-p nil))
     (if star-tabs-add-file-extension-filters
-       	(setq extensions-updated-p (or (star-tabs--update-file-extension-filters t)
+       	(setq extensions-updated-p (or (star-tabs--update-file-extension-filters inhibit-hook)
        				       extensions-updated-p))
       ;; Remove all automatically set file extension filters in case none of the two conditions described
       ;; above are met.
@@ -1653,7 +1666,6 @@ If the current buffer is not in the active filter group, return 0."
   "Run when Star Tabs goes from enabled to disabled."
   (when star-tabs-debug-messages
     (message "Star Tabs disabled")))
-
 
 ;; Misc. functions to run with hooks
 
