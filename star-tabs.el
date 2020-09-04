@@ -73,14 +73,15 @@
 (defvar star-tabs-init-hook nil
   "Functions to run when Star Tabs first loads.")
 
-(defvar star-tabs-disable-hook nil
+(defvar star-tabs-disable-tab-bar-hook nil
   "Functions to run when Star Tabs goes from enabled to disabled.")
 
-(defvar star-tabs-scroll-tab-hook nil
-  "Functions to run when scrolling the tab bar.")
-
 (defvar star-tabs-move-tab-hook nil
-  "Functions to run when moving a tab in the tab bar.")
+  "Functions to run when a tab changes position in the tab bar.")
+
+(defvar star-tabs-collection-property-change-hook nil
+  "Functions to run when the property of a collection changes.
+Note that only Star Tabs functions will trigger this hook.")
 
 
 ;; Keymaps
@@ -463,6 +464,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 COLLECTION-NAME defaults to the currently active filter collection."
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (plist-put (star-tabs-filter-collection-props collection-name) prop value)
+  (run-hooks 'star-tabs-collection-property-change-hook)
   (star-tabs-display-tab-bar nil 'keep-scroll))
 
 (defun star-tabs-filter-collection-props (&optional collection-name)
@@ -501,11 +503,13 @@ will be excluded from those matching the regexp in :include.
 -The filter will be added to filter collection :collection-name, which defaults to the currently active filter collection."
 
   ;; TODO add auto-sort expl. to readme
+  ;; TODO add expl of :inhibit-refresh
   (let* ((name (plist-get filter-props :name))
 	 (exclude (plist-get filter-props :exclude))
 	 (include (plist-get filter-props :include))
 	 (collection-name (or (plist-get filter-props :collection) (star-tabs-active-filter-collection-name)))
 	 (auto-sort (or (plist-get filter-props :auto-sort) nil))
+	 (inhibit-refresh (or (plist-get filter-props :inhibit-refresh)))
 	 (filter `(,name :exclude ,exclude
 			 :include ,include
 			 :auto-sort ,auto-sort))
@@ -520,10 +524,12 @@ will be excluded from those matching the regexp in :include.
 		   (set collection-name (star-tabs-insert-at-nth (eval collection-name) filter (1+ last-filter-pos)))
 		 (set collection-name (append (eval collection-name) (list filter))))
 	       (star-tabs-set-filter-collection-prop-value :last-filter name collection-name))
-      (message "Filter name already exists")))
-  (star-tabs-display-tab-bar nil 'keep-scroll))
+      (message "Filter name already exists"))
+    (unless inhibit-refresh
+      (run-hooks 'star-tabs-collection-property-change-hook)
+      (star-tabs-display-tab-bar nil 'keep-scroll))))
 
-(defun star-tabs-remove-filter (filter-name &optional collection-name)
+(defun star-tabs-remove-filter (filter-name &optional inhibit-refresh collection-name)
   "Remove filter FILTER-NAME from filter collection COLLECTION-NAME.
 COLLECTION-NAME defaults to the currently active filter collection."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
@@ -532,18 +538,20 @@ COLLECTION-NAME defaults to the currently active filter collection."
   (when (eq (star-tabs-get-filter-collection-prop-value :last-filter collection-name)
 	    filter-name)
     (star-tabs-set-filter-collection-prop-value :last-filter (star-tabs-left-of-elt
-						       (star-tabs-get-filter-names collection-name)
-						       filter-name)))
+							      (star-tabs-get-filter-names collection-name)
+							      filter-name)))
   (set collection-name (assq-delete-all filter-name (eval collection-name)))
-  (star-tabs-display-tab-bar nil 'keep-scroll))
+  (unless inhibit-refresh
+    (run-hooks 'star-tabs-collection-property-change-hook)
+    (star-tabs-display-tab-bar nil 'keep-scroll)))
 
-(defun star-tabs-remove-all-filters (&optional collection-name)
+(defun star-tabs-remove-all-filters (&optional inhibit-refresh collection-name)
   "Delete all filters in filter collection COLLECTION-NAME.
 COLLECTION-NAME defaults to the currently active filter collection."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   (let ((filters (star-tabs-get-filter-names)))
     (dolist (filter filters)
-      (star-tabs-remove-filter filter collection-name))
+      (star-tabs-remove-filter filter inhibit-refresh collection-name))
     (setq star-tabs-file-extension-filter-names nil)))
 
 (defun star-tabs-init-filters ()
@@ -556,15 +564,17 @@ COLLECTION-NAME defaults to the currently active filter collection."
   
   (star-tabs-add-filter
    :name 'default
-   :exclude '("^[[:space:]]" "^*.*\\*$" "^magit-" "^magit:"))
+   :exclude '("^[[:space:]]" "^*.*\\*$" "^magit-" "^magit:")
+   :inhibit-refresh t)
 
   (star-tabs-add-filter
    :name 'system
-   :include `("^*.*\\*$"))
+   :include `("^*.*\\*$")
+   :inhibit-refresh t)
   
   ;; Add file extension filters if customizable variable is set 
   (if (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters)
-      (star-tabs--update-file-extension-filters)))
+      (star-tabs--update-file-extension-filters t)))
 
 
 ;; Filter Interactions 
@@ -606,7 +616,7 @@ If INHIBIT-REFRESH is nil (default), refresh the tab bar as well."
       (setq filter-count (1- filter-count))) ; Prevent infinite loop in case there is no match.
     (unless inhibit-refresh
       (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)
-      (run-hooks 'star-tabs-filter-change-hook)
+      (run-hooks 'star-tabs-filter-change-hook) ; REVIEW: Will this trigger even if we don't actually change filter?
       (star-tabs-get-active-filter-name))))
 
 (defun star-tabs-add-to-always-include-in-filter (buffer &optional filter-name collection-name)
@@ -617,15 +627,17 @@ If INHIBIT-REFRESH is nil (default), refresh the tab bar as well."
 	 (regexp (regexp-quote buffer-name))
 	 (always-include (plist-get (alist-get filter-name (eval collection-name)) :always-include))
 	 (always-include (when (not (member regexp always-include))
-			     (push regexp always-include))))
+			   (push regexp always-include))))
     (when always-include
-      (plist-put (alist-get filter-name (eval collection-name))
-		 :always-include always-include)))
+      (star-tabs-set-filter-prop-value :always-include always-include filter-name collection-name)))
+  ;; (plist-put (alist-get filter-name (eval collection-name))
+  ;; 		 :always-include always-include)))
   (star-tabs-display-tab-bar t 'keep-scroll))
 
 (defun star-tabs-exclude-from-filter (buffer &optional filter-name collection-name)
   "Exclude buffer BUFFER from filter FILTER-NAME of collection COLLECTION-NAME.
 Also remove it from automatic inclusion, if applicable."
+  ;; REVIEW: can regexp match other buffers as well?
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (let* ((buffer-name (buffer-name buffer))
@@ -635,11 +647,9 @@ Also remove it from automatic inclusion, if applicable."
 	 (exclude (plist-get (alist-get filter-name (eval collection-name)) :exclude))
 	 (exclude (when (not (member regexp exclude))
 			     (push regexp exclude))))
-    (plist-put (alist-get filter-name (eval collection-name))
-	       :always-include always-include)
+    (star-tabs-set-filter-prop-value :always-include always-include filter-name collection-name)
     (when exclude
-      (plist-put (alist-get filter-name (eval collection-name))
-		 :exclude exclude))
+      (star-tabs-set-filter-prop-value :always-include always-include filter-name collection-name))
     (star-tabs-display-tab-bar t 'keep-scroll)))
 
 (defun star-tabs-include-current-buffer-in-current-filter ()
@@ -687,6 +697,7 @@ The last (right-most) tab will thus be the buffer to last be revisited/reopened.
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (plist-put (star-tabs-get-filter-props filter-name collection-name) prop value)
+  (run-hooks 'star-tabs-collection-property-change-hook)
   (star-tabs-display-tab-bar nil 'keep-scroll))
 
 
@@ -850,11 +861,12 @@ Otherwise, return a list of buffers that don't match any of the prefixes."
 	(push (match-string 1 buffer) file-extensions))) 
     file-extensions))
 
-(defun star-tabs--add-file-extension-filter (extension-name &optional collection-name)
+(defun star-tabs--add-file-extension-filter (extension-name &optional inhibit-refresh collection-name)
   "Add an inclusive filter for file extension EXTENSION-NAME to filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection."
+COLLECTION-NAME defaults to the currently active filter collection.
+Return non-nil if a filter was added, otherwise return nil."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
-  ;; Only add a filter if doesn not already exist in COLLECTION-NAME.
+  ;; Only add a filter if does not already exist in COLLECTION-NAME.
   (if (or (not (member extension-name star-tabs-file-extension-filter-names))
 	  (and (not (alist-get extension-name (eval collection-name)))
 	       (member extension-name star-tabs-file-extension-filter-names)))
@@ -862,58 +874,73 @@ COLLECTION-NAME defaults to the currently active filter collection."
       (progn (star-tabs-add-filter
 	      :name extension-name
 	      :include (list(concat (symbol-name extension-name) "$"))
-	      :collection collection-name)
+	      :collection collection-name
+	      :inhibit-refresh inhibit-refresh)
 	     (when (not (member extension-name star-tabs-file-extension-filter-names))
-	       (push extension-name star-tabs-file-extension-filter-names)))))
+	       (push extension-name star-tabs-file-extension-filter-names))
+	     t)
+    nil))
 
-(defun star-tabs--update-file-extension-filters (&optional collection-name)
+(defun star-tabs--update-file-extension-filters (&optional inhibit-refresh collection-name)
   "Update automatically added file extension buffer filters in filter collection COLLECTION-NAME.
 COLLECTION-NAME defaults to the currently active filter collection."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   ;; Make sure there is a filter for extensionless files.
-  (when (not (member 'extensionless (star-tabs-get-filter-names)))
-    (star-tabs-add-filter
-     :name 'extensionless
-     :include '("^[a-z0-9A-Z]+$") ;; FIXME: Make better regexp.
-     :collection collection-name))
-  (let ((file-extensions (mapcar 'intern (star-tabs-get-file-extensions)))
-	(filter-names star-tabs-file-extension-filter-names))
-    ;; Add new filters if there are new file extensions among open buffers.
-    (dolist (ext file-extensions)
-      (if (or (not (member ext filter-names))
-	      (and (not (alist-get ext (eval collection-name)))
-		   (member ext filter-names)))
-	  (star-tabs--add-file-extension-filter ext collection-name)))
-    ;; Remove automatically added filters if there no longer are buffers with the corresponding file extension.
-    (dolist (filter filter-names)
-      (if (not (member filter file-extensions))
-	  (star-tabs--remove-file-extension-filter filter collection-name))))
-  nil)
+  (let ((extensions-updated-p nil)) ; Keep track of whether we actually add or remove a filter.
+    (when (not (member 'extensionless (star-tabs-get-filter-names)))
+      (star-tabs-add-filter
+       :name 'extensionless
+       :include '("^[a-z0-9A-Z]+$") ;; FIXME: Make better regexp.
+       :collection collection-name
+       :inhibit-refresh t)
+      (setq extensions-updated-p t))
+    (let ((file-extensions (mapcar 'intern (star-tabs-get-file-extensions)))
+	  (filter-names star-tabs-file-extension-filter-names))
+      ;; Add new filters if there are new file extensions among open buffers.
+      (dolist (ext file-extensions)
+	(when (or (not (member ext filter-names))
+		(and (not (alist-get ext (eval collection-name)))
+		     (member ext filter-names)))
+	  (setq extensions-updated-p (or (star-tabs--add-file-extension-filter ext t collection-name)
+					 extensions-updated-p))))
+      ;; Remove automatically added filters if there no longer are buffers with the corresponding file extension.
+      (dolist (filter filter-names)
+	(when (not (member filter file-extensions))
+	  (setq extensions-updated-p (or (star-tabs--remove-file-extension-filter filter t collection-name)
+					 extensions-updated-p)))))
+    (unless inhibit-refresh
+      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
+    extensions-updated-p))
 
-(defun star-tabs--remove-file-extension-filter (filter-name &optional collection-name)
+(defun star-tabs--remove-file-extension-filter (filter-name &optional inhibit-refresh collection-name)
   "Remove automatically added file extension filter FILTER-NAME from filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection."
+COLLECTION-NAME defaults to the currently active filter collection.
+Return non-nil if a filter was removed, otherwise nil."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   (if (member filter-name star-tabs-file-extension-filter-names) ; Make sure the filter is one of the automatically added filters.
 	;; First remove the filter from the collection...
-	(progn (star-tabs-remove-filter filter-name collection-name)
-	       ;; Then remove the file extension from the list of file extensions.
+	(progn (star-tabs-remove-filter filter-name inhibit-refresh collection-name)
+	       ;; Then remove the file extension from the global list of file extensions.
 	       (setq star-tabs-file-extension-filter-names (delete filter-name star-tabs-file-extension-filter-names))
-	       ;; Make sure we're still in a non-empty filter
+	       ;; Make sure we're still in a non-empty filter group
 	       (if (not (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
-		   (star-tabs-cycle-filters t t))))
-  nil)
+		   (star-tabs-cycle-filters t t))
+	       t)
+    nil))
 
-(defun star-tabs--remove-file-extension-filters (&optional collection-name)
+(defun star-tabs--remove-file-extension-filters (&optional inhibit-refresh collection-name)
   "Remove all automatically added file extension buffer filters from filter collection COLLECTION-NAME.
 COLLECTION-NAME defaults to the currently active filter collection."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
-  (let ((file-extensions star-tabs-file-extension-filter-names))
+  (let ((file-extensions star-tabs-file-extension-filter-names)
+	(extensions-updated-p nil))
     (dolist (ext file-extensions)
-      (star-tabs--remove-file-extension-filter ext collection-name)))
-  ;; Remove the extensionless file filter.
-  (star-tabs-remove-filter 'extensionless collection-name)
-  nil)
+      (setq extensions-updated-p (or (star-tabs--remove-file-extension-filter ext inhibit-refresh collection-name)
+				     extensions-updated-p)))
+    ;; Remove the extensionless file filter.
+    (setq extensions-updated-p (or (star-tabs-remove-filter 'extensionless inhibit-refresh collection-name)
+				   extensions-updated-p))
+    extensions-updated-p))
 
 (defun star-tabs--auto-activate-file-extension-filters-on-buffer-count (threshold)
  "When the total number of buffers after global filters have been applied reaches or exceeds 
@@ -1114,24 +1141,24 @@ Return 0 if BUFFER is not in the active filter group."
 		      buffer-switched-p
 		      force-refresh
 		      (current-buffer)))
-	   ;; Add file extension filters on one of the two conditions:
-	   ;; 1. The currently active filter collection has the property :enable-file-extension-filters set to non-nil
-	   ;; 2. The currently active filter collection has the property :enable-file-extension-filters set to nil,
-	   ;; and a threshold set above 0 and the total number of buffers (after global filters were applied) exceeds that number.
-	   (setq star-tabs-add-file-extension-filters
-		 (or (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters) nil))
-	   ;; Activate the file extension filters if the buffer count exceeds a certain number
-	   (when (and (not (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters))
-		      (not (<= star-tabs-file-ext-filter-buffer-threshold 0)))
-	     (star-tabs--auto-activate-file-extension-filters-on-buffer-count (star-tabs-get-filter-collection-prop-value
-									       :file-extension-filter-threshold)))
-	   ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
-	   (if star-tabs-add-file-extension-filters
-	       (star-tabs--update-file-extension-filters)
-	     ;; Remove all automatically set file extension filters in case none of the two conditions described
-	     ;; above are met.
-	     (when star-tabs-file-extension-filter-names
-	       (star-tabs--remove-file-extension-filters)))
+	   ;; ;; Add file extension filters on one of the two conditions:
+	   ;; ;; 1. The currently active filter collection has the property :enable-file-extension-filters set to non-nil
+	   ;; ;; 2. The currently active filter collection has the property :enable-file-extension-filters set to nil,
+	   ;; ;; and a threshold set above 0 and the total number of buffers (after global filters were applied) exceeds that number.
+	   ;; (setq star-tabs-add-file-extension-filters
+	   ;; 	 (or (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters) nil))
+	   ;; ;; Activate the file extension filters if the buffer count exceeds a certain number
+	   ;; (when (and (not (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters))
+	   ;; 	      (not (<= star-tabs-file-ext-filter-buffer-threshold 0)))
+	   ;;   (star-tabs--auto-activate-file-extension-filters-on-buffer-count (star-tabs-get-filter-collection-prop-value
+	   ;; 								       :file-extension-filter-threshold)))
+	   ;; ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
+	   ;; (if star-tabs-add-file-extension-filters
+	   ;;     (star-tabs--update-file-extension-filters)
+	   ;;   ;; Remove all automatically set file extension filters in case none of the two conditions described
+	   ;;   ;; above are met.
+	   ;;   (when star-tabs-file-extension-filter-names
+	   ;;     (star-tabs--remove-file-extension-filters)))
 	   ;; Find and display a filter for the current buffer if we just switched buffer, and a filter exists for it.
 	   (when buffer-switched-p
 	     (star-tabs-find-active-filter)
@@ -1157,6 +1184,32 @@ Return 0 if BUFFER is not in the active filter group."
 	     (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists))))
        nil)))
  
+
+(defun star-tabs--filter-all-buffers ()
+  "Filter buffers"
+  (let* ((modified-state-changed-p (star-tabs--modified-state-changed-p star-tabs-current-buffer))
+	 (buffers)
+	 (counter 1)
+	 enum-buffer-list)
+    ;; Apply all filters
+    (let ((filters (star-tabs-get-filter-names))
+	  (buffer-lists nil)
+	  (filtered-buffers)
+	  (filtered-buffers-enum)
+	  (counter 1))
+      (dolist (filter filters buffer-lists)
+	(setq filtered-buffers (star-tabs-filter-buffers filter star-tabs-active-buffers))
+	(dolist (buffer filtered-buffers filtered-buffers-enum)
+	  (add-to-list 'filtered-buffers-enum `(,counter . ,buffer))
+	  (setq counter (1+ counter)))
+	(setq buffer-lists (push `(,filter . ,(reverse filtered-buffers-enum)) buffer-lists)))
+      (setq star-tabs-buffers-enum (reverse buffer-lists))
+      (setq star-tabs-active-filtered-buffers (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
+      (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists)))))
+
+;; star-tabs-buffers-enum
+;; star-tabs-active-buffers
+;; (star-tabs--filter-raw-buffer-list)
 
 ;; Buffer Switching
 
@@ -1250,8 +1303,9 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 
 ;; Reordering 
 
-(defun star-tabs-move-tab (&optional backward)
+(defun star-tabs-move-tab (&optional backward inhibit-refresh)
   "Move the currently active tab one step to the right (or left, if BACKWARD is non-nil).
+If INHIBIT-REFRESH is non-nil, don't force a redisplay of the tab bar.
 Note that this might also change the tab's position in other filter groups."
   (when (> (length star-tabs-active-filtered-buffers-enum) 1) ; No need to move the tab if there is just 1 or less tabs.
     (let* ((active-tab-buffer (star-tabs-current-buffer))
@@ -1265,7 +1319,9 @@ Note that this might also change the tab's position in other filter groups."
 	(setq star-tabs-active-buffers(star-tabs-insert-at-nth (remove active-tab-buffer star-tabs-active-buffers)
 							       active-tab-buffer
 							       adjacent-tab-buffer-pos)))))
-  (star-tabs-display-tab-bar t 'scroll-to-current-buffer))
+  (unless inhibit-refresh
+    (run-hooks 'star-tabs-move-tab-hook)))
+  ;;(star-tabs-display-tab-bar t 'scroll-to-current-buffer)
 
 (defun star-tabs-move-tab-right ()
   "Move the currently active tab one step to the right in the tab bar.
@@ -1281,30 +1337,31 @@ This only works if the active buffer is part of the active filter group."
 
 (defun star-tabs-move-current-tab-to-first ()
   "Move the current buffer so that it becomes the first in the tab bar."
+  ;; REVIEW: only run hook when tab ACTUALLY moves?
   (interactive)
   (let ((buffer (star-tabs-current-buffer)))
     (setq star-tabs-active-buffers
 	  (star-tabs-insert-at-nth (remove buffer star-tabs-active-buffers)
 			     buffer
 			     0)))
-  (star-tabs-display-tab-bar t 'scroll-to-current-buffer))
-
+  (run-hooks 'star-tabs-move-tab-hook))
 
 
 ;; Set display
 
-(defun star-tabs--set-header-line (buffers &optional scroll)
-  "Set the tab bar to list buffers BUFFERS as tabs.
+(defun star-tabs--set-header-line (buffer-list-enum &optional scroll)
+  "Set the tab bar to list buffers BUFFER-LIST-ENUM as tabs.
 If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP is non-nil."
-  (if (and (not buffers)
+  (if (and (not buffer-list-enum)
 	   (not star-tabs-active-filtered-buffers-enum))
       ;;If there are no buffers in any group in the current collection, display a message. 
       (setq star-tabs-header-line-format "   No buffers in any group in current collection.")
     ;; Build the tab bar using propertized strings.
-    (when (and buffers
+    (when (and buffer-list-enum
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
       ;; Determine how much to, and if we should scroll.
       (message "SCROLL: %s" scroll)
+      ;; REVIEW: Make sure scroll max (and min?) values are always enforced.
       (or scroll (setq scroll 0))
       (unless (integerp scroll)
 	(setq scroll (cond ((equal scroll 'keep-scroll) (1- (star-tabs--first-number-in-tab-bar)))
@@ -1335,7 +1392,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 		      ;; Display tabs:
 		      (let ((tab-line "")  ; This will be returned from the let function and concat'd with the rest of the string.
 			    (counter 1)) ; Give each tab a unique, incrementing number.
-			(dolist (buffer buffers tab-line)
+			(dolist (buffer buffer-list-enum tab-line)
 			  (let ((name (buffer-name (cdr buffer))))
 			    (unless (< (1- counter) scroll) 
 			      (setq tab-line
@@ -1561,13 +1618,13 @@ If the current buffer is not in the active filter group, return 0."
   "Run when a buffer goes from an unmodified state to a modified state."
   (if (member (current-buffer) star-tabs-active-buffers)
       (progn (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should be.
-	     (star-tabs-display-tab-bar t 'keep-scroll))))
+	     (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))))
 
 (defun star-tabs-when-buffer-first-saved ()
    "Run when a buffer goes from a modified state to an unmodified state."
    (when (member (current-buffer) star-tabs-active-buffers)
      (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
-     (star-tabs-display-tab-bar t 'keep-scroll)))
+     (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll)))
 
 (defun star-tabs-on-buffer-switch ()
   "Run when the current real buffer is switched."
@@ -1578,15 +1635,50 @@ If the current buffer is not in the active filter group, return 0."
 	 (star-tabs-get-filter-prop-value :auto-sort)
 	 'recent-first)
     (star-tabs-auto-sort))
-  (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)) ; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
+  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffers)) ; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
 
 (defun star-tabs-on-filter-change ()
   "Run when the active filter changes."
-  (star-tabs-display-tab-bar t 'scroll-to-current-buffer))
+  ;; TODO: Add timer to this function
+  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffers))
 
 (defun star-tabs-on-collection-change ()
   "Run when the active filter changes."
-  (star-tabs-display-tab-bar t 'scroll-to-current-buffer))
+  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffers))
+
+(defun star-tabs-on-collection-property-change ()
+  "Run when a collection property changes."
+  (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
+  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
+
+(defun star-tabs--add-and-remove-file-extension-filters (&optional inhibit-hook inhibit-refresh)
+  ;; Add file extension filters on one of the two conditions:
+  ;; 1. The currently active filter collection has the property :enable-file-extension-filters set to non-nil
+  ;; 2. The currently active filter collection has the property :enable-file-extension-filters set to nil,
+  ;; and a threshold set above 0 and the total number of buffers (after global filters were applied) exceeds that number.
+  (setq star-tabs-add-file-extension-filters
+	(or (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters) nil))
+  ;; Activate the file extension filters if the buffer count exceeds a certain number
+  (when (and (not (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters))
+	     (not (<= star-tabs-file-ext-filter-buffer-threshold 0)))
+    (star-tabs--auto-activate-file-extension-filters-on-buffer-count (star-tabs-get-filter-collection-prop-value
+								      :file-extension-filter-threshold)))
+  ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
+  (let ((extensions-updated-p nil))
+    (if star-tabs-add-file-extension-filters
+	(setq extensions-updated-p (or (star-tabs--update-file-extension-filters)
+				       extensions-updated-p))
+      ;; Remove all automatically set file extension filters in case none of the two conditions described
+      ;; above are met.
+      (when star-tabs-file-extension-filter-names
+	(setq extensions-updated-p (or (star-tabs--remove-file-extension-filters)
+				       extensions-updated-p))))
+    (when extensions-updated-p
+      (unless inhibit-hook
+	(run-hooks 'star-tabs-collection-property-change-hook))
+      (unless inhibit-refresh
+	(star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll)))
+    extensions-updated-p))
 
 (defun star-tabs-on-timer-start ()
   "Run when a Star Tabs timer starts.")
@@ -1596,31 +1688,40 @@ If the current buffer is not in the active filter group, return 0."
 
 (defun star-tabs-on-buffer-list-update ()
   "Run when the list of real buffers updates."
-  ;; (star-tabs--buffer-list) ; TODO: rename to --make-buffer-lists
-  (star-tabs-display-tab-bar t 'keep-scroll))
+  (star-tabs--add-and-remove-file-extension-filters t t)
+  ;;(star-tabs--filter-all-buffers) 
+  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
 
+(defun star-tabs-on-tab-move ()
+  "Run when a tab changes position in the tab bar."
+  ;; Currently, moving a tab causes the buffer list to change, which requires that we re-filter the buffers to update.
+  ;; TODO: Make buffer lists group-local and remove the need to refilter (and the need to do a lot of other things...)
+  (star-tabs--filter-all-buffers)
+  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffer))
+
+(defun star-tabs-init ()
+  "Run when Star Tabs first loads")
+
+(defun star-tabs-on-disable-tab-bar ()
+  "Run when Star Tabs goes from enabled to disabled.")
+
+(defun star-tabs-on-raw-buffer-list-update ()
+  (star-tabs--update-buffer-list)
+  (star-tabs--buffer-switched-p)) ; TODO: Rename function?
+  
 (defun star-tabs-display-tab-bar (&optional force-refresh scroll)
   "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met.
 If SCROLL is a number, scroll the tab bar SCROLL number of tabs (default 'keep-scroll). 
 Otherwise, if SCROLL is one of the following symbols, scroll the tab bar according to the corresponding behavior:
 'keep-scroll: Keep the current scroll position.
 'scroll-to-current-buffer: Scroll to the current buffer tab, if it is in the filter group."
+  ;; REVIEW: Deprecated?
   (unless (window-dedicated-p) ; Only show the tab bar in non-dedicated windows
     ;;(star-tabs--print-hl-format) ; TODO REMOVE 
     (or scroll (setq scroll 'keep-scroll))
     (star-tabs--set-header-line (star-tabs--buffer-list force-refresh) scroll))
     nil)
 
-(defun star-tabs-init ()
-  "Run when Star Tabs first loads")
-
-(defun star-tabs-on-disable ()
-  "Run when Star Tabs goes from enabled to disabled.")
-
-(defun star-tabs-on-raw-buffer-list-update ()
-  (star-tabs--update-buffer-list)
-  (star-tabs--buffer-switched-p) ; TODO: Rename function
-  )
 
 ;;; Modes
 
@@ -1644,9 +1745,11 @@ Otherwise, if SCROLL is one of the following symbols, scroll the tab bar accordi
 
 ;; Hooks
 
-;; (add-hook 'star-tabs-disable-hook #'star-tabs-on-disable)
+(add-hook 'star-tabs-move-tab-hook #'star-tabs-on-tab-move)
+(add-hook 'star-tabs-collection-property-change-hook #'star-tabs-on-collection-property-change)
+;; (add-hook 'star-tabs-disable-hook #'star-tabs-on-disable-tab-bar)
 ;; (add-hook 'star-tabs-init-hook #'star-tabs-init)
-;; (add-hook 'star-tabs-buffer-list-update-hook #'on-buffer-list-update)
+(add-hook 'star-tabs-buffer-list-update-hook #'star-tabs-on-buffer-list-update)
 ;; (add-hook 'star-tabs-timer-end-hook #'star-tabs-on-timer-end)
 ;; (add-hook 'star-tabs-timer-start-hook #'star-tabs-on-timer-start)
 ;; (add-hook 'star-tabs-collection-change-hook #'star-tabs-on-collection-change)
@@ -1675,20 +1778,20 @@ was also a filter switch command."
        (setq star-tabs-current-buffer (buffer-name (current-buffer))))
      (switch-to-buffer (star-tabs-get-first-buffer-in-filter filter-name)))))
 
-(defun star-tabs--add-file-extension-filters (&optional collection-name)
-  "DEPRECATED: (?) Automatically add filters for each file type among all open buffers to filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection."
-  (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
-  ;; Get all file extensions and turn them into filters.
-  (let ((file-extensions (mapcar 'intern (star-tabs-get-file-extensions))))
-    (dolist (ext file-extensions)
-      (star-tabs--add-file-extension-filter ext collection-name)))
-  ;; Add a filter for extensionless files too.
-  (star-tabs-add-filter
-   :name 'extensionless
-   :include '("^[a-z0-9A-Z]+$")
-   :collection collection-name)
-  nil)
+;; (defun star-tabs--add-file-extension-filters (&optional collection-name)
+;;   "DEPRECATED: (?) Automatically add filters for each file type among all open buffers to filter collection COLLECTION-NAME.
+;; COLLECTION-NAME defaults to the currently active filter collection."
+;;   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
+;;   ;; Get all file extensions and turn them into filters.
+;;   (let ((file-extensions (mapcar 'intern (star-tabs-get-file-extensions))))
+;;     (dolist (ext file-extensions)
+;;       (star-tabs--add-file-extension-filter ext collection-name)))
+;;   ;; Add a filter for extensionless files too.
+;;   (star-tabs-add-filter
+;;    :name 'extensionless
+;;    :include '("^[a-z0-9A-Z]+$")
+;;    :collection collection-name)
+;;   nil)
 
 (defun star-tabs-get-first-buffer-in-filter (filter-name) ; FIXME: can cause infinite loops probably
   "Return the first buffer found in filter FILTER-NAME. If buffer star-tabs-current-buffer
@@ -1706,3 +1809,5 @@ exists in filter, return buffer star-tabs-current-buffer instead."
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
+
+
