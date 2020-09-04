@@ -598,9 +598,9 @@ Refresh tab bar if INHIBIT-REFRESH is nil."
       (setq filter-count (1- filter-count)))) ;Prevent infinite loop in case all groups are empty
   ;; Refresh tab bar unless explicitly told not to.
   (unless inhibit-refresh
-    (star-tabs--display-filter-name-temporarily)
-    (run-hooks 'star-tabs-filter-change-hook)
-    (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)))
+    ;;(star-tabs--display-filter-name-temporarily)
+    (run-hooks 'star-tabs-filter-change-hook)))
+    ;;(star-tabs-display-tab-bar nil 'scroll-to-current-buffer)))
 
 (defun star-tabs-find-active-filter (&optional inhibit-refresh) 
   "Find a filter for the current buffer, if such filter exists in the current collection.
@@ -615,7 +615,7 @@ If INHIBIT-REFRESH is nil (default), refresh the tab bar as well."
       (star-tabs-cycle-filters nil t)  ; If buffer is not in filter group, move cycle index once.
       (setq filter-count (1- filter-count))) ; Prevent infinite loop in case there is no match.
     (unless inhibit-refresh
-      (star-tabs-display-tab-bar nil 'scroll-to-current-buffer)
+      ;;(star-tabs-display-tab-bar nil 'scroll-to-current-buffer)
       (run-hooks 'star-tabs-filter-change-hook) ; REVIEW: Will this trigger even if we don't actually change filter?
       (star-tabs-get-active-filter-name))))
 
@@ -1183,7 +1183,6 @@ Return 0 if BUFFER is not in the active filter group."
 	     (setq star-tabs-active-filtered-buffers (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
 	     (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists))))
        nil)))
- 
 
 (defun star-tabs--filter-all-buffers ()
   "Filter buffers"
@@ -1640,7 +1639,10 @@ If the current buffer is not in the active filter group, return 0."
 (defun star-tabs-on-filter-change ()
   "Run when the active filter changes."
   ;; TODO: Add timer to this function
-  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffers))
+  ;; Review: Probably not triggered when changing collections (which subsequently will change the active filter)
+  (star-tabs--filter-all-buffers)
+  (star-tabs--display-filter-name-temporarily)
+  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffer))
 
 (defun star-tabs-on-collection-change ()
   "Run when the active filter changes."
@@ -1753,7 +1755,7 @@ Otherwise, if SCROLL is one of the following symbols, scroll the tab bar accordi
 ;; (add-hook 'star-tabs-timer-end-hook #'star-tabs-on-timer-end)
 ;; (add-hook 'star-tabs-timer-start-hook #'star-tabs-on-timer-start)
 ;; (add-hook 'star-tabs-collection-change-hook #'star-tabs-on-collection-change)
-;; (add-hook 'star-tabs-filter-change-hook #'star-tabs-on-filter-change) 
+(add-hook 'star-tabs-filter-change-hook #'star-tabs-on-filter-change) 
 ;; (add-hook 'star-tabs-buffer-list-update-hook #'star-tabs-on-buffer-switch)
 
 ;;; TODO: Unused functions; remove or fix.
