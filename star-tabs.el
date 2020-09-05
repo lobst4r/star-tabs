@@ -182,19 +182,12 @@ This is a helper variable for the automatic file extension filters")
 
 ;; Buffers
 
-(defvar star-tabs-active-filtered-buffers-enum nil
-  "Enumerated list of buffers after all filters have been applied.")
-
-(defvar star-tabs-active-filtered-buffers nil
-  "List of buffers after all filters have been applied.")
-
 (defvar star-tabs-active-buffers nil
   "List of all currently active/'real' buffers.
 A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/temporary or otherwise deemed unimportant.")
 
-(defvar star-tabs-buffers-enum nil
-  "Alist of enumerated buffers for all filters in the active collection. 
-Key is filter name, value is an enumerated list of buffers.")
+(defvar star-tabs-active-group-buffers nil
+  "List of all buffers in the active group")
 
 
 ;;; Visuals
@@ -890,8 +883,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
        :collection collection-name
        :inhibit-refresh t)
       (setq extensions-updated-p t))
-    (let ((file-extensions '(\.el))
-			   ;;(mapcar 'intern (star-tabs-get-file-extensions)))
+    (let ((file-extensions (mapcar 'intern (star-tabs-get-file-extensions)))
 	  (filter-names star-tabs-file-extension-filter-names))
       ;; Add new filters if there are new file extensions among open buffers.
       (dolist (ext file-extensions)
@@ -906,7 +898,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 	  (setq extensions-updated-p (or (star-tabs--remove-file-extension-filter filter t collection-name)
 					 extensions-updated-p)))))
     (unless inhibit-refresh
-       (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
+       (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll))
     extensions-updated-p))
 
 (defun star-tabs--remove-file-extension-filter (filter-name &optional inhibit-refresh collection-name)
@@ -1037,7 +1029,7 @@ sometimes returns temporary/unreal buffers."
 (defun star-tabs-get-buffer-tab-number (&optional buffer)
   "Return the tab number of buffer BUFFER.
 Return 0 if BUFFER is not in the active filter group."
-  (1+ (or (cl-position (current-buffer) star-tabs-active-filtered-buffers)
+  (1+ (or (cl-position (current-buffer) star-tabs-active-group-buffers)
       -1)))
 
 
@@ -1100,55 +1092,43 @@ Return 0 if BUFFER is not in the active filter group."
 
 (defun star-tabs--filter-all-buffers ()
   "Filter buffers"
-  (let* ((buffers)
-	 (counter 1)
-	 enum-buffer-list)
-    ;; Apply all filters
-    (let ((filters (star-tabs-get-filter-names))
-	  (buffer-lists nil)
-	  (filtered-buffers)
-	  (filtered-buffers-enum)
-	  (counter 1))
-      (dolist (filter filters buffer-lists)
-	(setq filtered-buffers (star-tabs-filter-buffers filter star-tabs-active-buffers))
-	(star-tabs-set-filter-prop-value :buffer-list
-					 (star-tabs-update-list (star-tabs-get-filter-prop-value :buffer-list)
-								filtered-buffers)
-					 t
-					 filter)
-	(dolist (buffer filtered-buffers filtered-buffers-enum)
-	  (add-to-list 'filtered-buffers-enum `(,counter . ,buffer))
-	  (setq counter (1+ counter)))
-	(star-tabs-set-filter-prop-value :buffer-list-enum
-					 (star-tabs-update-list (star-tabs-get-filter-prop-value :buffer-list-enum)
-								(reverse filtered-buffers-enum))
-					 t
-					 filter)
-	(setq buffer-lists (push `(,filter . ,(reverse filtered-buffers-enum)) buffer-lists)))
-      (setq star-tabs-buffers-enum (reverse buffer-lists))
-      (setq star-tabs-active-filtered-buffers (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
-      (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists)))))
+  ;; Apply all filters
+  (let ((filters (star-tabs-get-filter-names))
+	(filtered-buffers))
+    (dolist (filter filters)
+      (setq filtered-buffers (star-tabs-filter-buffers filter star-tabs-active-buffers))
+      (star-tabs-set-filter-prop-value :buffer-list
+				       (star-tabs-update-list (star-tabs-get-filter-prop-value :buffer-list
+											       filter)
+							      filtered-buffers)
+				       t
+				       filter))
+    (setq star-tabs-active-group-buffers (star-tabs-get-filter-prop-value
+					  :buffer-list
+					  (star-tabs-get-active-filter-name)))))
 
-(defun star-tabs-active-filtered-buffers ())
+;; (star-tabs-get-filter-prop-value :buffer-list)
+;; star-tabs-active-group-buffers
+;; star-tabs-active-buffers
 
-(defun star-tabs-get-group-buffers (&optional enumerated-list filter-name collection-name)
-  (let ((prop (if enumerated-list
-		  :buffer-list-enum
-		:buffer-list)))
-  (star-tabs-get-filter-prop-value prop filter-name collection-name)))
+;;(defun star-tabs-active-filtered-buffers ())
+
+(defun star-tabs-get-group-buffers (&optional filter-name collection-name)
+  (star-tabs-get-filter-prop-value :buffer-list filter-name collection-name))
 
 (defun star-tabs-get-active-group-buffers ()
-  (star-tabs-get-group-buffers nil (star-tabs-get-active-filter-name) (star-tabs-active-filter-collection-name)))
+  (star-tabs-get-group-buffers (star-tabs-get-active-filter-name) (star-tabs-active-filter-collection-name)))
 
-(defun star-tabs-get-active-group-buffers-enum ()
-  (star-tabs-get-group-buffers t (star-tabs-get-active-filter-name) (star-tabs-active-filter-collection-name)))
+;; (star-tabs-get-group-buffers '\.org)
+;; star-tabs-active-filtered-buffers-enum
+
 
 ;; Buffer Switching
 
 (defun star-tabs-switch-to-buffer (n)
   "Switch to the buffer associated with the number N."
   (interactive "p")
-  (let ((buffer (cdr (assoc n (star-tabs-flatten-alist star-tabs-buffers-enum)))))
+  (let ((buffer (nth (1+ n) star-tabs-active-group-buffers)))
     (switch-to-buffer buffer)))
 
 (defun star-tabs-switch-to-buffer-on-click (event)
@@ -1200,14 +1180,14 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
     (when (star-tabs--string-truncated-p star-tabs-header-line-format)
       ;; Make sure we don't scroll past the last buffer.
       (setq count (min
-		   (1- (length star-tabs-active-filtered-buffers-enum))
+		   (1- (length star-tabs-active-group-buffers))
 		   count))
-      (length star-tabs-active-filtered-buffers-enum)
-      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count))
+      (length star-tabs-active-group-buffers)
+      (star-tabs--set-header-line star-tabs-active-group-buffers count))
     ;; When going backward:
     (when (and (>= first-tab-number 2)
 	       backward)
-      (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum count))))
+      (star-tabs--set-header-line star-tabs-active-group-buffers count))))
 
 (defun star-tabs-scroll-tab-bar-forward (&optional count)
   "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
@@ -1237,7 +1217,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
   "Move the currently active tab one step to the right (or left, if BACKWARD is non-nil).
 If INHIBIT-REFRESH is non-nil, don't force a redisplay of the tab bar.
 Note that this might also change the tab's position in other filter groups."
-  (when (> (length star-tabs-active-filtered-buffers-enum) 1) ; No need to move the tab if there is just 1 or less tabs.
+  (when (> (length star-tabs-active-group-buffers) 1) ; No need to move the tab if there is just 1 or less tabs.
     (let* ((active-tab-buffer (star-tabs-current-buffer))
 	   (adjacent-tab-buffer (star-tabs-left-of-elt
 				 (if backward
@@ -1278,15 +1258,15 @@ This only works if the active buffer is part of the active filter group."
 
 ;; Set display
 
-(defun star-tabs--set-header-line (buffer-list-enum &optional scroll)
-  "Set the tab bar to list buffers BUFFER-LIST-ENUM as tabs.
+(defun star-tabs--set-header-line (buffer-list &optional scroll)
+  "Set the tab bar to list buffers BUFFER-LIST as tabs.
 If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP is non-nil."
-  (if (and (not buffer-list-enum)
-	   (not star-tabs-active-filtered-buffers-enum))
+  (if (and (not buffer-list)
+	   (not star-tabs-active-group-buffers))
       ;;If there are no buffers in any group in the current collection, display a message. 
       (setq star-tabs-header-line-format "   No buffers in any group in current collection.")
     ;; Build the tab bar using propertized strings.
-    (when (and buffer-list-enum
+    (when (and buffer-list
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
       ;; Determine how much to, and if we should scroll.
       (message "SCROLL: %s" scroll)
@@ -1321,8 +1301,8 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 		      ;; Display tabs:
 		      (let ((tab-line "")  ; This will be returned from the let function and concat'd with the rest of the string.
 			    (counter 1)) ; Give each tab a unique, incrementing number.
-			(dolist (buffer buffer-list-enum tab-line)
-			  (let ((name (buffer-name (cdr buffer))))
+			(dolist (buffer buffer-list tab-line)
+			  (let ((name (buffer-name buffer)))
 			    (unless (< (1- counter) scroll) 
 			      (setq tab-line
 				    (concat tab-line (star-tabs--tab name counter))))
@@ -1472,7 +1452,7 @@ This function uses global helper variable star-tabs-filter-name-timer to keep tr
 							"1 sec"
 							nil
 							#'star-tabs--set-header-line
-						        star-tabs-active-filtered-buffers-enum	
+						        star-tabs-active-group-buffers	
 							'keep-scroll)))
 
 (defun star-tabs--display-collection-name-temporarily (&optional collection-name)
@@ -1488,7 +1468,7 @@ This function uses global helper variable star-tabs-collection-name-timer to kee
 							"1 sec"
 							nil
 							#'star-tabs--set-header-line
-							star-tabs-active-filtered-buffers-enum
+							star-tabs-active-group-buffers
 							'keep-scroll)))
 
 
@@ -1555,7 +1535,7 @@ If the current buffer is not in the active filter group, return 0."
     (message "Real buffer list updated"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers) 
-  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
+  (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll))
 
 (defun star-tabs-on-buffer-switch ()
   "Run when the current real buffer is switched."
@@ -1569,7 +1549,7 @@ If the current buffer is not in the active filter group, return 0."
 	 (star-tabs-get-filter-prop-value :auto-sort)
 	 'recent-first)
     (star-tabs-auto-sort))
-  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffer)) ; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
+  (star-tabs--set-header-line star-tabs-active-group-buffers 'scroll-to-current-buffer)) ; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
 
 
 ;; Functions to run when modified state changes
@@ -1580,7 +1560,7 @@ If the current buffer is not in the active filter group, return 0."
       (progn (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should be.
 	     (when star-tabs-debug-messages
 	       (message "Buffer Modified"))
-	     (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))))
+	     (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll))))
 
 (defun star-tabs-when-buffer-first-saved ()
    "Run when a buffer goes from a modified state to an unmodified state."
@@ -1588,7 +1568,7 @@ If the current buffer is not in the active filter group, return 0."
     (message "Buffer Saved"))
    (when (member (current-buffer) star-tabs-active-buffers)
      (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
-     (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll)))
+     (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll)))
 
 
 ;; Functions to run when the active filter group or collection changes
@@ -1602,7 +1582,7 @@ If the current buffer is not in the active filter group, return 0."
   (star-tabs--filter-all-buffers)
   (star-tabs--display-filter-name-temporarily)
   (unless inhibit-refresh
-    (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffer)))
+    (star-tabs--set-header-line star-tabs-active-group-buffers 'scroll-to-current-buffer)))
 
 (defun star-tabs-on-collection-change ()
   "Run when the active filter changes."
@@ -1611,7 +1591,7 @@ If the current buffer is not in the active filter group, return 0."
     (message "Collection Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers)
-  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffer))
+  (star-tabs--set-header-line star-tabs-active-group-buffers 'scroll-to-current-buffer))
 
 
 ;; Functions to run when collection properties change
@@ -1644,7 +1624,7 @@ If the current buffer is not in the active filter group, return 0."
       (unless inhibit-hook
 	(run-hooks 'star-tabs-collection-property-change-hook))
       (unless inhibit-refresh
-	(star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll)))
+	(star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll)))
     extensions-updated-p))
 
 (defun star-tabs-on-collection-property-change ()
@@ -1652,7 +1632,7 @@ If the current buffer is not in the active filter group, return 0."
   (when star-tabs-debug-messages
     (message "Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
-  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'keep-scroll))
+  (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll))
 
 
 ;; Functions to run when enabling/disabling Star Tabs
@@ -1676,7 +1656,7 @@ If the current buffer is not in the active filter group, return 0."
   (when star-tabs-debug-messages
     (message "Tab moved"))
   (star-tabs--filter-all-buffers)
-  (star-tabs--set-header-line star-tabs-active-filtered-buffers-enum 'scroll-to-current-buffer))
+  (star-tabs--set-header-line star-tabs-active-group-buffers 'scroll-to-current-buffer))
 
 (defun star-tabs-on-timer-start ()
   "Run when a Star Tabs timer starts."
@@ -1705,7 +1685,7 @@ If the current buffer is not in the active filter group, return 0."
 	     ;; Update the tab bar when a buffer is saved.
 	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil)
 	     ;; Make sure that emacs finds a filter group with tabs (if there is one) when activating star-tabs-tab-bar-mode.
-	     (unless star-tabs-active-filtered-buffers-enum
+	     (unless star-tabs-active-group-buffers
 	       (star-tabs-cycle-filters)))))
 
 
@@ -1731,84 +1711,6 @@ Otherwise, return nil. This should only be used inside function (star-tabs--buff
     (progn
       (puthash buffer (buffer-modified-p buffer) star-tabs-modified-state-changed-buffer-table)
       t)))
-
-(defun star-tabs--buffer-list (&optional force-refresh)
-   "Return a filtered list of buffers on one or more on the following conditions:
- 1. star-tabs-active-buffers, the list of all buffers after global filters have been applied, has changed.
- 2. The current buffer has changed, and the new current buffer is a 'real' buffer (i.e. not ephemeral or 
- considered'unimportant').
- 3. The un/modified state of the current buffer has changed.
- 4. The active filter has changed.
-
- This should only be used as an argument for star-tabs--set-header-line in order to
- make sure the buffer list is in sync with the tab bar. "
-
-   ;; Make sure all of conditions are checked, regardless of whether previous conditions are true (which is why
-   ;; the checks are not done within the (or) function).
-   (or force-refresh (setq force-refresh nil))
-   (let* ((buffer-list-updated-p (star-tabs--update-buffer-list))
-	  (buffer-switched-p (star-tabs--buffer-switched-p))
-	  (modified-state-changed-p (star-tabs--modified-state-changed-p star-tabs-current-buffer))
-	  (filter-changed-p (star-tabs--filter-changed-p))
-	  (buffers)
-	  (counter 1)
-	  enum-buffer-list)
-     (if (or buffer-list-updated-p 
-	     modified-state-changed-p
-	     filter-changed-p
-	     buffer-switched-p
-	     force-refresh)
-	 (progn 
-	   (when star-tabs-debug-messages
-	     (message "Blist updated: %s\nModStateChanged: %s\nFilterChanged: %s\nBufferSwtched: %s\nForce: %s\nBuffer: %s"
-		      buffer-list-updated-p
-		      modified-state-changed-p
-		      filter-changed-p
-		      buffer-switched-p
-		      force-refresh
-		      (current-buffer)))
-	   ;; ;; Add file extension filters on one of the two conditions:
-	   ;; ;; 1. The currently active filter collection has the property :enable-file-extension-filters set to non-nil
-	   ;; ;; 2. The currently active filter collection has the property :enable-file-extension-filters set to nil,
-	   ;; ;; and a threshold set above 0 and the total number of buffers (after global filters were applied) exceeds that number.
-	   ;; (setq star-tabs-add-file-extension-filters
-	   ;; 	 (or (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters) nil))
-	   ;; ;; Activate the file extension filters if the buffer count exceeds a certain number
-	   ;; (when (and (not (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters))
-	   ;; 	      (not (<= star-tabs-file-ext-filter-buffer-threshold 0)))
-	   ;;   (star-tabs--auto-activate-file-extension-filters-on-buffer-count (star-tabs-get-filter-collection-prop-value
-	   ;; 								       :file-extension-filter-threshold)))
-	   ;; ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
-	   ;; (if star-tabs-add-file-extension-filters
-	   ;;     (star-tabs--update-file-extension-filters)
-	   ;;   ;; Remove all automatically set file extension filters in case none of the two conditions described
-	   ;;   ;; above are met.
-	   ;;   (when star-tabs-file-extension-filter-names
-	   ;;     (star-tabs--remove-file-extension-filters)))
-	   ;; Find and display a filter for the current buffer if we just switched buffer, and a filter exists for it.
-	   (when buffer-switched-p
-	     (star-tabs-find-active-filter)
-	     (when (equal
-	     	    (star-tabs-get-filter-prop-value :auto-sort)
-	     	    'recent-first)
-	       (star-tabs-auto-sort)))
-	   ;; Apply all filters
-	   (let ((filters (star-tabs-get-filter-names))
-		 (buffer-lists nil)
-		 (filtered-buffers)
-		 (filtered-buffers-enum)
-		 (counter 1))
-	     (dolist (filter filters buffer-lists)
-	       (setq filtered-buffers-enum nil)
-	       (setq filtered-buffers (star-tabs-filter-buffers filter star-tabs-active-buffers))
-	       (dolist (buffer filtered-buffers filtered-buffers-enum)
-		 (add-to-list 'filtered-buffers-enum `(,counter . ,buffer))
-		 (setq counter (1+ counter)))
-	       (setq buffer-lists (push `(,filter . ,(reverse filtered-buffers-enum)) buffer-lists)))
-	     (setq star-tabs-buffers-enum (reverse buffer-lists))
-	     (setq star-tabs-active-filtered-buffers (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers))
-	     (setq star-tabs-active-filtered-buffers-enum (alist-get (star-tabs-get-active-filter-name) buffer-lists))))
-       nil)))
 
 (defun star-tabs-display-tab-bar (&optional force-refresh scroll)
   "Display the tab bar. Refresh when either 1) FORCE-REFRESH is non-nil, 2) any of the conditions in (star-tabs--buffer-list) are met.
