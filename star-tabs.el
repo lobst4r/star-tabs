@@ -1217,16 +1217,19 @@ If INHIBIT-REFRESH is non-nil, don't force a redisplay of the tab bar.
 Note that this might also change the tab's position in other filter groups."
   (when (> (length (star-tabs-get-active-group-buffers)) 1) ; No need to move the tab if there is just 1 or less tabs.
     (let* ((active-tab-buffer (star-tabs-current-buffer))
+	   (buffers (star-tabs-get-active-group-buffers))
 	   (adjacent-tab-buffer (star-tabs-left-of-elt
 				 (if backward
-				     (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers)
-				   (reverse (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers)))
+				     buffers
+				   (reverse buffers))
 				 active-tab-buffer))
-	   (adjacent-tab-buffer-pos (cl-position adjacent-tab-buffer star-tabs-active-buffers)))
+	   (adjacent-tab-buffer-pos (cl-position adjacent-tab-buffer buffers)))
       (when adjacent-tab-buffer
-	(setq star-tabs-active-buffers(star-tabs-insert-at-nth (remove active-tab-buffer star-tabs-active-buffers)
-							       active-tab-buffer
-							       adjacent-tab-buffer-pos)))))
+	(star-tabs-set-filter-prop-value :buffer-list
+					 (star-tabs-insert-at-nth (remove active-tab-buffer buffers)
+								  active-tab-buffer
+								  adjacent-tab-buffer-pos)
+					 t))))
   (unless inhibit-refresh
     (run-hooks 'star-tabs-move-tab-hook)))
 
@@ -1577,7 +1580,6 @@ If the current buffer is not in the active filter group, return 0."
   ;; Review: Probably not triggered when changing collections (which subsequently will change the active filter)
   (when star-tabs-debug-messages
     (message "Filter Changed"))
-  (star-tabs--filter-all-buffers)
   (star-tabs--display-filter-name-temporarily)
   (unless inhibit-refresh
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)))
@@ -1630,6 +1632,7 @@ If the current buffer is not in the active filter group, return 0."
   (when star-tabs-debug-messages
     (message "Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
+  (star-tabs--filter-all-buffers)
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
 
 
@@ -1653,7 +1656,6 @@ If the current buffer is not in the active filter group, return 0."
   ;; TODO: Make buffer lists group-local and remove the need to refilter (and the need to do a lot of other things...)
   (when star-tabs-debug-messages
     (message "Tab moved"))
-  (star-tabs--filter-all-buffers)
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 (defun star-tabs-on-timer-start ()
