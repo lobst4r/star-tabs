@@ -898,7 +898,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 	  (setq extensions-updated-p (or (star-tabs--remove-file-extension-filter filter t collection-name)
 					 extensions-updated-p)))))
     (unless inhibit-refresh
-       (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll))
+       (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
     extensions-updated-p))
 
 (defun star-tabs--remove-file-extension-filter (filter-name &optional inhibit-refresh collection-name)
@@ -1029,7 +1029,7 @@ sometimes returns temporary/unreal buffers."
 (defun star-tabs-get-buffer-tab-number (&optional buffer)
   "Return the tab number of buffer BUFFER.
 Return 0 if BUFFER is not in the active filter group."
-  (1+ (or (cl-position (current-buffer) star-tabs-active-group-buffers)
+  (1+ (or (cl-position (current-buffer) (star-tabs-get-active-group-buffers))
       -1)))
 
 
@@ -1111,15 +1111,13 @@ Return 0 if BUFFER is not in the active filter group."
 ;; star-tabs-active-group-buffers
 ;; star-tabs-active-buffers
 
-;;(defun star-tabs-active-filtered-buffers ())
-
 (defun star-tabs-get-group-buffers (&optional filter-name collection-name)
   (star-tabs-get-filter-prop-value :buffer-list filter-name collection-name))
 
 (defun star-tabs-get-active-group-buffers ()
   (star-tabs-get-group-buffers (star-tabs-get-active-filter-name) (star-tabs-active-filter-collection-name)))
 
-;; (star-tabs-get-group-buffers '\.org)
+;; (star-tabs-get-group-buffers 'default)
 ;; star-tabs-active-filtered-buffers-enum
 
 
@@ -1128,7 +1126,7 @@ Return 0 if BUFFER is not in the active filter group."
 (defun star-tabs-switch-to-buffer (n)
   "Switch to the buffer associated with the number N."
   (interactive "p")
-  (let ((buffer (nth (1+ n) star-tabs-active-group-buffers)))
+  (let ((buffer (nth (1- n) (star-tabs-get-active-group-buffers))))
     (switch-to-buffer buffer)))
 
 (defun star-tabs-switch-to-buffer-on-click (event)
@@ -1180,14 +1178,14 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
     (when (star-tabs--string-truncated-p star-tabs-header-line-format)
       ;; Make sure we don't scroll past the last buffer.
       (setq count (min
-		   (1- (length star-tabs-active-group-buffers))
+		   (1- (length (star-tabs-get-active-group-buffers)))
 		   count))
-      (length star-tabs-active-group-buffers)
-      (star-tabs--set-header-line star-tabs-active-group-buffers count))
+      (length (star-tabs-get-active-group-buffers))
+      (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count))
     ;; When going backward:
     (when (and (>= first-tab-number 2)
 	       backward)
-      (star-tabs--set-header-line star-tabs-active-group-buffers count))))
+      (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count))))
 
 (defun star-tabs-scroll-tab-bar-forward (&optional count)
   "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
@@ -1217,7 +1215,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
   "Move the currently active tab one step to the right (or left, if BACKWARD is non-nil).
 If INHIBIT-REFRESH is non-nil, don't force a redisplay of the tab bar.
 Note that this might also change the tab's position in other filter groups."
-  (when (> (length star-tabs-active-group-buffers) 1) ; No need to move the tab if there is just 1 or less tabs.
+  (when (> (length (star-tabs-get-active-group-buffers)) 1) ; No need to move the tab if there is just 1 or less tabs.
     (let* ((active-tab-buffer (star-tabs-current-buffer))
 	   (adjacent-tab-buffer (star-tabs-left-of-elt
 				 (if backward
@@ -1262,7 +1260,7 @@ This only works if the active buffer is part of the active filter group."
   "Set the tab bar to list buffers BUFFER-LIST as tabs.
 If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP is non-nil."
   (if (and (not buffer-list)
-	   (not star-tabs-active-group-buffers))
+	   (not (star-tabs-get-active-group-buffers)))
       ;;If there are no buffers in any group in the current collection, display a message. 
       (setq star-tabs-header-line-format "   No buffers in any group in current collection.")
     ;; Build the tab bar using propertized strings.
@@ -1452,7 +1450,7 @@ This function uses global helper variable star-tabs-filter-name-timer to keep tr
 							"1 sec"
 							nil
 							#'star-tabs--set-header-line
-						        star-tabs-active-group-buffers	
+						        (star-tabs-get-active-group-buffers)	
 							'keep-scroll)))
 
 (defun star-tabs--display-collection-name-temporarily (&optional collection-name)
@@ -1468,7 +1466,7 @@ This function uses global helper variable star-tabs-collection-name-timer to kee
 							"1 sec"
 							nil
 							#'star-tabs--set-header-line
-							star-tabs-active-group-buffers
+							(star-tabs-get-active-group-buffers)
 							'keep-scroll)))
 
 
@@ -1535,7 +1533,7 @@ If the current buffer is not in the active filter group, return 0."
     (message "Real buffer list updated"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers) 
-  (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll))
+  (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
 
 (defun star-tabs-on-buffer-switch ()
   "Run when the current real buffer is switched."
@@ -1549,7 +1547,7 @@ If the current buffer is not in the active filter group, return 0."
 	 (star-tabs-get-filter-prop-value :auto-sort)
 	 'recent-first)
     (star-tabs-auto-sort))
-  (star-tabs--set-header-line star-tabs-active-group-buffers 'scroll-to-current-buffer)) ; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
+  (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)) ; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
 
 
 ;; Functions to run when modified state changes
@@ -1560,7 +1558,7 @@ If the current buffer is not in the active filter group, return 0."
       (progn (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should be.
 	     (when star-tabs-debug-messages
 	       (message "Buffer Modified"))
-	     (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll))))
+	     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))))
 
 (defun star-tabs-when-buffer-first-saved ()
    "Run when a buffer goes from a modified state to an unmodified state."
@@ -1568,7 +1566,7 @@ If the current buffer is not in the active filter group, return 0."
     (message "Buffer Saved"))
    (when (member (current-buffer) star-tabs-active-buffers)
      (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
-     (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll)))
+     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
 
 
 ;; Functions to run when the active filter group or collection changes
@@ -1582,7 +1580,7 @@ If the current buffer is not in the active filter group, return 0."
   (star-tabs--filter-all-buffers)
   (star-tabs--display-filter-name-temporarily)
   (unless inhibit-refresh
-    (star-tabs--set-header-line star-tabs-active-group-buffers 'scroll-to-current-buffer)))
+    (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)))
 
 (defun star-tabs-on-collection-change ()
   "Run when the active filter changes."
@@ -1591,7 +1589,7 @@ If the current buffer is not in the active filter group, return 0."
     (message "Collection Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers)
-  (star-tabs--set-header-line star-tabs-active-group-buffers 'scroll-to-current-buffer))
+  (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 
 ;; Functions to run when collection properties change
@@ -1624,7 +1622,7 @@ If the current buffer is not in the active filter group, return 0."
       (unless inhibit-hook
 	(run-hooks 'star-tabs-collection-property-change-hook))
       (unless inhibit-refresh
-	(star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll)))
+	(star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
     extensions-updated-p))
 
 (defun star-tabs-on-collection-property-change ()
@@ -1632,7 +1630,7 @@ If the current buffer is not in the active filter group, return 0."
   (when star-tabs-debug-messages
     (message "Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
-  (star-tabs--set-header-line star-tabs-active-group-buffers 'keep-scroll))
+  (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
 
 
 ;; Functions to run when enabling/disabling Star Tabs
@@ -1656,7 +1654,7 @@ If the current buffer is not in the active filter group, return 0."
   (when star-tabs-debug-messages
     (message "Tab moved"))
   (star-tabs--filter-all-buffers)
-  (star-tabs--set-header-line star-tabs-active-group-buffers 'scroll-to-current-buffer))
+  (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 (defun star-tabs-on-timer-start ()
   "Run when a Star Tabs timer starts."
@@ -1685,7 +1683,7 @@ If the current buffer is not in the active filter group, return 0."
 	     ;; Update the tab bar when a buffer is saved.
 	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil)
 	     ;; Make sure that emacs finds a filter group with tabs (if there is one) when activating star-tabs-tab-bar-mode.
-	     (unless star-tabs-active-group-buffers
+	     (unless (star-tabs-get-active-group-buffers)
 	       (star-tabs-cycle-filters)))))
 
 
