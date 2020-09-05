@@ -732,6 +732,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
 
 (defun star-tabs-filter-buffers (filter-name buffer-list)
   "Filter buffers BUFFER-LIST with filter FILTER and return the filtered list of buffers."
+  ;; REVIEW: No longer necessary to maintain the order when filtering since that is handled elsewhere. Refactor?
   (let* ((filter (star-tabs-get-filter-name filter-name))
 	 (include (plist-get filter :include))
 	 (exclude (plist-get filter :exclude))
@@ -1107,18 +1108,11 @@ Return 0 if BUFFER is not in the active filter group."
 					  :buffer-list
 					  (star-tabs-get-active-filter-name)))))
 
-;; (star-tabs-get-filter-prop-value :buffer-list)
-;; star-tabs-active-group-buffers
-;; star-tabs-active-buffers
-
 (defun star-tabs-get-group-buffers (&optional filter-name collection-name)
   (star-tabs-get-filter-prop-value :buffer-list filter-name collection-name))
 
 (defun star-tabs-get-active-group-buffers ()
   (star-tabs-get-group-buffers (star-tabs-get-active-filter-name) (star-tabs-active-filter-collection-name)))
-
-;; (star-tabs-get-group-buffers 'default)
-;; star-tabs-active-filtered-buffers-enum
 
 
 ;; Buffer Switching
@@ -1520,6 +1514,35 @@ If the current buffer is not in the active filter group, return 0."
 	       (star-tabs-filter-buffers
 		(star-tabs-get-active-filter-name) star-tabs-active-buffers))
       -1)))
+
+(defun star-tabs--visible-tabs ()
+  "Return the min and max tab number, currently displayed in the tab bar.
+Exclude the last tab if it's truncated."
+  (let* ((start-tab (star-tabs--first-number-in-tab-bar))
+	 (end-tab start-tab)
+	 (tab-bar-truncated-p nil)
+	 (string-length (length star-tabs-header-line-format))
+	 (string-pos 0))
+    (while (and (not tab-bar-truncated-p)
+		(< string-pos string-length))
+      (when (not (eq end-tab (setq end-tab (or (get-text-property string-pos 'buffer-number star-tabs-header-line-format) end-tab))
+		     ))
+	(setq tab-bar-truncated-p (star-tabs--string-truncated-p (substring star-tabs-header-line-format 0 string-pos)))
+	(message "%s"(substring star-tabs-header-line-format 0 string-pos))
+	(message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p))
+
+      (setq string-pos (1+ string-pos)))
+    (setq tab-bar-truncated-p (star-tabs--string-truncated-p (substring star-tabs-header-line-format 0 string-pos)))
+    (message "%s"(substring star-tabs-header-line-format 0 string-pos))
+    (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p)
+    (setq end-tab (if tab-bar-truncated-p
+		      (if (>= string-pos string-length)
+			  (- end-tab 1)
+			(- end-tab 2))
+		    (if (>= string-pos string-length)
+			end-tab
+		      end-tab)))
+    `(,start-tab ,end-tab ,string-pos ,string-length)))
 
 
 ;;; Functions to run with hooks
