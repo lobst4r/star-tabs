@@ -1299,13 +1299,82 @@ If no tab is found, return nil."
   (plist-get (if (bufferp tab-or-buffer)
 		 (star-tabs-get-tab tab-or-buffer filter-name collection-name)
 	       tab-or-buffer)
-	     :tab-number))
+	     prop))
 
 (defun star-tabs--select-icon (buffer)
   (with-current-buffer buffer
    (all-the-icons-icon-for-mode major-mode :v-adjust 0.001 :height 0.8)))
 
+(defun star-tabs--set-tab-bar (&optional filter-name collection-name)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (let ((buffers (star-tabs-get-group-buffers filter-name collection-name))
+	(tab-bar-tabs nil)
+	(cumulative-pixel-width nil))
+    (dolist (buffer buffers tab-bar-tabs)
+      (setq tab-bar-tabs (append tab-bar-tabs
+				 (list (star-tabs-get-tab buffer filter-name collection-name))))
 
+      (let* ((pixel-width (star-tabs-get-tab-prop-value buffer :tab-pixel-width filter-name collection-name)))
+	
+	(setq cumulative-pixel-width (append cumulative-pixel-width
+					     (list (+ pixel-width
+						      (or (car (reverse cumulative-pixel-width))
+							  0)))))))
+    (star-tabs-set-filter-prop-value :tab-bar-cumulative-pixel-width cumulative-pixel-width t filter-name collection-name)
+    (star-tabs-set-filter-prop-value :tab-bar tab-bar-tabs t filter-name collection-name)))
+
+(defun star-tabs--set-tab-bar-format (&optional start-number filter-name collection-name)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (setq start-number (if start-number
+			 (1- start-number)
+		       0))
+  (let ((tabs (nthcdr start-number (star-tabs-get-filter-prop-value :tab-bar filter-name collection-name)))
+	(tab-bar-format ""))
+    (dolist (tab tabs tab-bar-format)
+      (setq tab-bar-format
+	    (concat tab-bar-format
+	      (star-tabs-get-tab-prop-value tab :tab-string filter-name collection-name))))
+    ;; TODO: Add visible tabs prop
+    (star-tabs-set-filter-prop-value :tab-bar-format tab-bar-format t filter-name collection-name)))
+
+(defun star-tabs-scroll-to-active (tab-or-buffer &optional filter-name collection-name)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (let* ((current-tab-number (star-tabs--current-buffer-number))
+	 (tabs-pixel-width (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width filter-name collection-name))
+	 (current-tab-accumulative-pixel-width (nth (1- current-tab-number) tabs-pixel-width))
+	 (window-width (window-pixel-width))
+	 (start-nth -1)
+	 (start-tab 1))
+    (while (and (< start-tab current-tab-number)
+		(<= window-width
+		    (- current-tab-accumulative-pixel-width
+		       (if (equal start-nth -1)
+			   0
+			   (nth start-nth tabs-pixel-width)))))
+      (setq start-tab (1+ start-tab)
+	    start-nth (1+ start-nth)))
+    `(,start-tab ,current-tab-number)))
+
+
+;; (nth 0 (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width))
+;; (star-tabs-scroll-to-active (current-buffer))
+
+;; (star-tabs--visible-tabs)
+;; (star-tabs--set-tab-bar)
+;; (star-tabs--set-tab-bar-format 2)
+
+;; (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width)
+;; (insert (star-tabs-get-filter-prop-value :tab-bar-format))
+;; (star-tabs-get-filter-prop-value :tab-bar-visible-tabs)
+;; (nth 0 (length (star-tabs-get-filter-prop-value :tab-bar)))
+;; (nth 0 (length (star-tabs-get-filter-prop-value :tabs)))
+;; (star-tabs-get-filter-prop-value :tabs)
+
+;; (message "%s" (star-tabs-get-filter-prop-value :tabs))
+;; (nthcdr 1 '(a b c))
 
 ;; Scrolling
 
@@ -1401,6 +1470,7 @@ This only works if the active buffer is part of the active filter group."
 			     buffer
 			     0)))
   (run-hooks 'star-tabs-move-tab-hook))
+
 
 ;;; Display
 
