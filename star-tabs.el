@@ -1153,7 +1153,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
       nil)))
 
 
-;;; Tabs
+;;; Tab bar
 
 (defun star-tabs--tab (buffer-name number)
   "Return a propertized string that represents a tab for buffer BUFFER-NAME (string)."
@@ -1358,7 +1358,25 @@ If no tab is found, return nil."
 	    start-nth (1+ start-nth)))
     `(,start-tab ,current-tab-number)))
 
+(defun star-tabs--left-margin (&optional filter-name collection-name)
+  (let ((left-margin-fill (propertize star-tabs-left-margin
+				      'face 'star-tabs-tab-bar-left-margin))
+	(left-margin-collection-name (propertize (concat "" (when star-tabs-tab-bar-collection-name 
+						   (let ((collection-name star-tabs-tab-bar-collection-name))
+						     (concat (upcase (symbol-name collection-name))
+							     star-tabs-filter-name-number-separator))))
+						 'face 'star-tabs-collection-name))
+	(left-margin-filter-name (propertize (concat "" (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
+							star-tabs-tab-bar-filter-name)
+					       (let ((filter-name star-tabs-tab-bar-filter-name))
+						 (concat (upcase (symbol-name filter-name))
+							 star-tabs-filter-name-number-separator))))
+					     'face 'star-tabs-filter-name)))
+    (concat left-margin-fill
+	    (or left-margin-collection-name "")
+	    (or left-margin-filter-name ""))))
 
+(star-tabs--left-margin)
 ;; (nth 0 (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width))
 ;; (star-tabs-scroll-to-active (current-buffer))
 
@@ -1527,6 +1545,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 			    (setq counter (1+ counter))))))))
       ;; Add a fill to the unused area of the tab bar.
       (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
+ ;; (star-tabs--set-tab-bar)
   (force-mode-line-update t)
   nil)
 
