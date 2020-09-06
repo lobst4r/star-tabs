@@ -1040,7 +1040,7 @@ Return 0 if BUFFER is not in the active filter group."
   "Update the list of 'real' buffers star-tabs-active-buffers
  if (a) buffer(s) have/has been created or killed. 
  Return t if the buffer list was updated, otherwise nil."
-
+;; REVIEW: Refactor possible?
   ;; Ignore all buffers starting with a space.
   (let* ((active-buffers (delq nil
 			       (mapcar (lambda (buffer)
@@ -1153,159 +1153,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
       nil)))
 
 
-;;; Display
-
-;; Scrolling
-
-(defun star-tabs-scroll-tab-bar (&optional backward count)
-  "Horizontally scroll the tab bar to the right (left if BACKWARD is non-nil), COUNT (default 3) times."
-  (interactive)
-  ;; FIXME: scrolling before filter name has disappeared will reset scrolling
-  ;; FIXME: Decide when to maintain scrolling and when to reset. (get prop of first tab bar to get value of scrolling)
-  ;; TODO: Cache header-line-format (maybe not necessary)
-  (or count (setq count 3))
-  (let* ((first-tab-number (star-tabs--first-number-in-tab-bar))
-	 (count (if backward
-		    (- (- first-tab-number 1) count)
-		  (+ (- first-tab-number 1) count)))) 
-    ;; Only scroll forward (right) if the tab bar is truncated, otherwise there's really no need to scroll forward. 
-    (when (star-tabs--string-truncated-p star-tabs-header-line-format)
-      ;; Make sure we don't scroll past the last buffer.
-      (setq count (min
-		   (1- (length (star-tabs-get-active-group-buffers)))
-		   count))
-      (length (star-tabs-get-active-group-buffers))
-      (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count))
-    ;; When going backward:
-    (when (and (>= first-tab-number 2)
-	       backward)
-      (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count))))
-
-(defun star-tabs-scroll-tab-bar-forward (&optional count)
-  "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
-  (interactive "P") 
-  (or count (setq count 2))
-  (if (and (not (star-tabs--string-truncated-p star-tabs-header-line-format))
-	   (not (star-tabs-get-filter-collection-prop-value :disable-scroll-to-filter)))
-      ;; Move to next filter group if scrolled all the way to the right in the current group.
-      (star-tabs-cycle-filters)
-    (star-tabs-scroll-tab-bar nil count)))
-
-(defun star-tabs-scroll-tab-bar-backward (&optional count)
-  "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
-  (interactive "P") 
-  (or count (setq count 2))
-  (if (and (equal (star-tabs--first-number-in-tab-bar) 1)
-	   (not (star-tabs-get-filter-collection-prop-value :disable-scroll-to-filter)))
-      ;; Move to the end of the previous filter group if scrolled all the way to the left in the current group.
-      (progn (star-tabs-cycle-filters t)
-	     (star-tabs-scroll-tab-bar nil 1000000))
-    (star-tabs-scroll-tab-bar t count)))
-
-
-;; Reordering 
-
-(defun star-tabs-move-tab (&optional backward inhibit-refresh)
-  "Move the currently active tab one step to the right (or left, if BACKWARD is non-nil).
-If INHIBIT-REFRESH is non-nil, don't force a redisplay of the tab bar.
-Note that this might also change the tab's position in other filter groups."
-  (when (> (length (star-tabs-get-active-group-buffers)) 1) ; No need to move the tab if there is just 1 or less tabs.
-    (let* ((active-tab-buffer (star-tabs-current-buffer))
-	   (buffers (star-tabs-get-active-group-buffers))
-	   (adjacent-tab-buffer (star-tabs-left-of-elt
-				 (if backward
-				     buffers
-				   (reverse buffers))
-				 active-tab-buffer))
-	   (adjacent-tab-buffer-pos (cl-position adjacent-tab-buffer buffers)))
-      (when adjacent-tab-buffer
-	(star-tabs-set-filter-prop-value :buffer-list
-					 (star-tabs-insert-at-nth (remove active-tab-buffer buffers)
-								  active-tab-buffer
-								  adjacent-tab-buffer-pos)
-					 t))))
-  (unless inhibit-refresh
-    (run-hooks 'star-tabs-move-tab-hook)))
-
-(defun star-tabs-move-tab-right ()
-  "Move the currently active tab one step to the right in the tab bar.
-This only works if the active buffer is part of the active filter group."
-  (interactive)
-  (star-tabs-move-tab))
-
-(defun star-tabs-move-tab-left ()
-  "Move the currently active tab to the left in the tab bar.
-This only works if the active buffer is part of the active filter group."
-  (interactive)
-  (star-tabs-move-tab t))
-
-(defun star-tabs-move-current-tab-to-first ()
-  "Move the current buffer so that it becomes the first in the tab bar."
-  ;; REVIEW: only run hook when tab ACTUALLY moves?
-  (interactive)
-  (let ((buffer (star-tabs-current-buffer)))
-    (setq star-tabs-active-buffers
-	  (star-tabs-insert-at-nth (remove buffer star-tabs-active-buffers)
-			     buffer
-			     0)))
-  (run-hooks 'star-tabs-move-tab-hook))
-
-
-;; Set display
-
-(defun star-tabs--set-header-line (buffer-list &optional scroll)
-  "Set the tab bar to list buffers BUFFER-LIST as tabs.
-If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP is non-nil."
-  (if (and (not buffer-list)
-	   (not (star-tabs-get-active-group-buffers)))
-      ;;If there are no buffers in any group in the current collection, display a message. 
-      (setq star-tabs-header-line-format "   No buffers in any group in current collection.")
-    ;; Build the tab bar using propertized strings.
-    (when (and buffer-list
-	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
-      ;; Determine how much to, and if we should scroll.
-      (message "SCROLL: %s" scroll)
-      ;; REVIEW: Make sure scroll max (and min?) values are always enforced.
-      (or scroll (setq scroll 0))
-      (unless (integerp scroll)
-	(setq scroll (cond ((equal scroll 'keep-scroll) (1- (star-tabs--first-number-in-tab-bar)))
-			   ((equal scroll 'scroll-to-current-buffer) (- (star-tabs-get-buffer-tab-number (star-tabs-current-buffer))
-									2)))))
-      (let ((tab-bar-left-margin ""))
-	(setq tab-bar-left-margin
-	      ;; It's all just one giant string...start with the margin:
-	      (concat (propertize star-tabs-left-margin
-				  'face 'star-tabs-tab-bar-left-margin)
-		      ;; Display the name of the active collection:
-		      (propertize (concat 
-				   (when star-tabs-tab-bar-collection-name 
-				     (let ((collection-name star-tabs-tab-bar-collection-name))
-				       (concat (upcase (symbol-name collection-name))
-					       star-tabs-filter-name-number-separator))))
-				  'face 'star-tabs-collection-name)
-		      ;; Display the name of the active filter:
-		      (concat (propertize (concat 
-					   (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
-						      star-tabs-tab-bar-filter-name)
-					     (let ((filter-name star-tabs-tab-bar-filter-name))
-					       (concat (upcase (symbol-name filter-name))
-						       star-tabs-filter-name-number-separator))))
-					  'face 'star-tabs-filter-name))))
-	(setq star-tabs-header-line-format
-	      (concat tab-bar-left-margin
-		      ;; Display tabs:
-		      (let ((tab-line "")  ; This will be returned from the let function and concat'd with the rest of the string.
-			    (counter 1)) ; Give each tab a unique, incrementing number.
-			(dolist (buffer buffer-list tab-line)
-			  (let ((name (buffer-name buffer)))
-			    (unless (< (1- counter) scroll) 
-			      (setq tab-line
-				    (concat tab-line (star-tabs--tab name counter))))
-			    (setq counter (1+ counter))))))))
-      ;; Add a fill to the unused area of the tab bar.
-      (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
-  (force-mode-line-update t)
-  nil)
+;;; Tabs
 
 (defun star-tabs--tab (buffer-name number)
   "Return a propertized string that represents a tab for buffer BUFFER-NAME (string)."
@@ -1410,18 +1258,207 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 				  'buffer-name name
 				  'buffer-number number)))
     ;; Final tab:
-    (concat divider
-	    (when (stringp icon)
-	      icon)
-	    divider
-	    number-and-name
-	    modified-icon
-	    close-button
-	    tab-divider)))
+    (let* ((tab-buffer (get-buffer name))
+	   (tab-string (concat divider
+			       (when (stringp icon)
+				 icon)
+			       divider
+			       number-and-name
+			       modified-icon
+			       close-button
+			       tab-divider))
+	  (tab-number number)
+	  (tab-name name)
+	  (tab-column-width (length tab-string))
+	  (tab-pixel-width (star-tabs-string-pixel-width tab-string))
+	  (tab-modified-p (buffer-modified-p (get-buffer name)))
+	  (tab `(,tab-buffer :tab-number ,tab-number
+			     :tab-name ,tab-name
+			     :tab-string ,tab-string
+			     :tab-column-width ,tab-column-width
+			     :tab-pixel-width ,tab-pixel-width
+			     :tab-modified-p ,tab-modified-p)))
+      (if (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs))
+      	  (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs)) tab)
+      	(star-tabs-set-filter-prop-value :tabs
+      					 (append (star-tabs-get-filter-prop-value :tabs)
+      						 (list tab))
+      					 t))
+      tab-string)))
+
+(defun star-tabs-get-tab (buffer &optional filter-name collection-name)
+  "Return the tab corresponding to buffer BUFFER in filter group FILTER-NAME in filter collection FILTER-COLLECTION.
+If no tab is found, return nil."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (cdr (alist-get buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name))))
+
+(defun star-tabs-get-tab-prop-value (tab-or-buffer prop &optional filter-name collection-name)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (plist-get (if (bufferp tab-or-buffer)
+		 (star-tabs-get-tab tab-or-buffer filter-name collection-name)
+	       tab-or-buffer)
+	     :tab-number))
 
 (defun star-tabs--select-icon (buffer)
   (with-current-buffer buffer
    (all-the-icons-icon-for-mode major-mode :v-adjust 0.001 :height 0.8)))
+
+
+
+;; Scrolling
+
+(defun star-tabs-scroll-tab-bar (&optional backward count)
+  "Horizontally scroll the tab bar to the right (left if BACKWARD is non-nil), COUNT (default 3) times."
+  (interactive)
+  ;; FIXME: scrolling before filter name has disappeared will reset scrolling
+  ;; FIXME: Decide when to maintain scrolling and when to reset. (get prop of first tab bar to get value of scrolling)
+  ;; TODO: Cache header-line-format (maybe not necessary)
+  (or count (setq count 3))
+  (let* ((first-tab-number (star-tabs--first-number-in-tab-bar))
+	 (count (if backward
+		    (- (- first-tab-number 1) count)
+		  (+ (- first-tab-number 1) count)))) 
+    ;; Only scroll forward (right) if the tab bar is truncated, otherwise there's really no need to scroll forward. 
+    (when (star-tabs--string-truncated-p star-tabs-header-line-format)
+      ;; Make sure we don't scroll past the last buffer.
+      (setq count (min
+		   (1- (length (star-tabs-get-active-group-buffers)))
+		   count))
+      (length (star-tabs-get-active-group-buffers))
+      (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count))
+    ;; When going backward:
+    (when (and (>= first-tab-number 2)
+	       backward)
+      (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count))))
+
+(defun star-tabs-scroll-tab-bar-forward (&optional count)
+  "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
+  (interactive "P") 
+  (or count (setq count 2))
+  (if (and (not (star-tabs--string-truncated-p star-tabs-header-line-format))
+	   (not (star-tabs-get-filter-collection-prop-value :disable-scroll-to-filter)))
+      ;; Move to next filter group if scrolled all the way to the right in the current group.
+      (star-tabs-cycle-filters)
+    (star-tabs-scroll-tab-bar nil count)))
+
+(defun star-tabs-scroll-tab-bar-backward (&optional count)
+  "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
+  (interactive "P") 
+  (or count (setq count 2))
+  (if (and (equal (star-tabs--first-number-in-tab-bar) 1)
+	   (not (star-tabs-get-filter-collection-prop-value :disable-scroll-to-filter)))
+      ;; Move to the end of the previous filter group if scrolled all the way to the left in the current group.
+      (progn (star-tabs-cycle-filters t)
+	     (star-tabs-scroll-tab-bar nil 1000000))
+    (star-tabs-scroll-tab-bar t count)))
+
+
+;; Reordering 
+
+(defun star-tabs-move-tab (&optional backward inhibit-refresh)
+  "Move the currently active tab one step to the right (or left, if BACKWARD is non-nil).
+If INHIBIT-REFRESH is non-nil, don't force a redisplay of the tab bar.
+Note that this might also change the tab's position in other filter groups."
+  (when (> (length (star-tabs-get-active-group-buffers)) 1) ; No need to move the tab if there is just 1 or less tabs.
+    (let* ((active-tab-buffer (star-tabs-current-buffer))
+	   (buffers (star-tabs-get-active-group-buffers))
+	   (adjacent-tab-buffer (star-tabs-left-of-elt
+				 (if backward
+				     buffers
+				   (reverse buffers))
+				 active-tab-buffer))
+	   (adjacent-tab-buffer-pos (cl-position adjacent-tab-buffer buffers)))
+      (when adjacent-tab-buffer
+	(star-tabs-set-filter-prop-value :buffer-list
+					 (star-tabs-insert-at-nth (remove active-tab-buffer buffers)
+								  active-tab-buffer
+								  adjacent-tab-buffer-pos)
+					 t))))
+  (unless inhibit-refresh
+    (run-hooks 'star-tabs-move-tab-hook)))
+
+(defun star-tabs-move-tab-right ()
+  "Move the currently active tab one step to the right in the tab bar.
+This only works if the active buffer is part of the active filter group."
+  (interactive)
+  (star-tabs-move-tab))
+
+(defun star-tabs-move-tab-left ()
+  "Move the currently active tab to the left in the tab bar.
+This only works if the active buffer is part of the active filter group."
+  (interactive)
+  (star-tabs-move-tab t))
+
+(defun star-tabs-move-current-tab-to-first ()
+  "Move the current buffer so that it becomes the first in the tab bar."
+  ;; REVIEW: only run hook when tab ACTUALLY moves?
+  (interactive)
+  (let ((buffer (star-tabs-current-buffer)))
+    (setq star-tabs-active-buffers
+	  (star-tabs-insert-at-nth (remove buffer star-tabs-active-buffers)
+			     buffer
+			     0)))
+  (run-hooks 'star-tabs-move-tab-hook))
+
+;;; Display
+
+;; Set display
+
+(defun star-tabs--set-header-line (buffer-list &optional scroll)
+  "Set the tab bar to list buffers BUFFER-LIST as tabs.
+If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP is non-nil."
+  (if (and (not buffer-list)
+	   (not (star-tabs-get-active-group-buffers)))
+      ;;If there are no buffers in any group in the current collection, display a message. 
+      (setq star-tabs-header-line-format "   No buffers in any group in current collection.")
+    ;; Build the tab bar using propertized strings.
+    (when (and buffer-list
+	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
+      ;; Determine how much to, and if we should scroll.
+      (message "SCROLL: %s" scroll)
+      ;; REVIEW: Make sure scroll max (and min?) values are always enforced.
+      (or scroll (setq scroll 0))
+      (unless (integerp scroll)
+	(setq scroll (cond ((equal scroll 'keep-scroll) (1- (star-tabs--first-number-in-tab-bar)))
+			   ((equal scroll 'scroll-to-current-buffer) (- (star-tabs-get-buffer-tab-number (star-tabs-current-buffer))
+									2)))))
+      (let ((tab-bar-left-margin ""))
+	(setq tab-bar-left-margin
+	      ;; It's all just one giant string...start with the margin:
+	      (concat (propertize star-tabs-left-margin
+				  'face 'star-tabs-tab-bar-left-margin)
+		      ;; Display the name of the active collection:
+		      (propertize (concat 
+				   (when star-tabs-tab-bar-collection-name 
+				     (let ((collection-name star-tabs-tab-bar-collection-name))
+				       (concat (upcase (symbol-name collection-name))
+					       star-tabs-filter-name-number-separator))))
+				  'face 'star-tabs-collection-name)
+		      ;; Display the name of the active filter:
+		      (concat (propertize (concat 
+					   (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
+						      star-tabs-tab-bar-filter-name)
+					     (let ((filter-name star-tabs-tab-bar-filter-name))
+					       (concat (upcase (symbol-name filter-name))
+						       star-tabs-filter-name-number-separator))))
+					  'face 'star-tabs-filter-name))))
+	(setq star-tabs-header-line-format
+	      (concat tab-bar-left-margin
+		      ;; Display tabs:
+		      (let ((tab-line "")  ; This will be returned from the let function and concat'd with the rest of the string.
+			    (counter 1)) ; Give each tab a unique, incrementing number.
+			(dolist (buffer buffer-list tab-line)
+			  (let ((name (buffer-name buffer)))
+			    (unless (< (1- counter) scroll) 
+			      (setq tab-line
+				    (concat tab-line (star-tabs--tab name counter))))
+			    (setq counter (1+ counter))))))))
+      ;; Add a fill to the unused area of the tab bar.
+      (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
+  (force-mode-line-update t)
+  nil)
 
 (defun star-tabs--header-line-white-space ()
   "Return white space to fill out the unoccupied part, if any, of tab bar."
@@ -1510,31 +1547,36 @@ Or, return 0 if there are no tabs."
 (defun star-tabs--current-buffer-number ()
   "Return the tab number of the current buffer.
 If the current buffer is not in the active filter group, return 0."
-  (1+ (or (cl-position (star-tabs-current-buffer)
-	       (star-tabs-filter-buffers
-		(star-tabs-get-active-filter-name) star-tabs-active-buffers))
+  (1+ (or (cl-position (star-tabs-current-buffer) (star-tabs-get-active-group-buffers))
       -1)))
 
 (defun star-tabs--visible-tabs ()
   "Return the min and max tab number, currently displayed in the tab bar.
 Exclude the last tab if it's truncated."
+  ;; REVIEW: Maybe cache pixel length of each tab?
   (let* ((start-tab (star-tabs--first-number-in-tab-bar))
 	 (end-tab start-tab)
 	 (tab-bar-truncated-p nil)
 	 (string-length (length star-tabs-header-line-format))
 	 (string-pos 0))
+
+
     (while (and (not tab-bar-truncated-p)
 		(< string-pos string-length))
-      (when (not (eq end-tab (setq end-tab (or (get-text-property string-pos 'buffer-number star-tabs-header-line-format) end-tab))
-		     ))
-	(setq tab-bar-truncated-p (star-tabs--string-truncated-p (substring star-tabs-header-line-format 0 string-pos)))
-	(message "%s"(substring star-tabs-header-line-format 0 string-pos))
-	(message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p))
-
+      ;; Everytime a new tab is encountered, create a substring of the tab bar up until that point and check if it's truncated.
+      ;; Keep doing this until the substring is truncated, or until the end of the tab bar is reached.
+      (when (not (eq end-tab (setq end-tab (or (get-text-property string-pos 'buffer-number star-tabs-header-line-format) end-tab))))
+	(setq tab-bar-truncated-p (star-tabs--string-truncated-p
+				   (substring star-tabs-header-line-format 0 string-pos))))
+      ;; (setq (append tabs-pixel-width tab-bar-truncated-p)))
+      ;; (message "%s"(substring star-tabs-header-line-format 0 string-pos))
+      ;; (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p))
       (setq string-pos (1+ string-pos)))
-    (setq tab-bar-truncated-p (star-tabs--string-truncated-p (substring star-tabs-header-line-format 0 string-pos)))
-    (message "%s"(substring star-tabs-header-line-format 0 string-pos))
-    (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p)
+    (setq tab-bar-truncated-p (star-tabs--string-truncated-p
+			       (substring star-tabs-header-line-format 0 string-pos)))
+    ;; (message "%s"(substring star-tabs-header-line-format 0 string-pos))
+    ;; (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p)
+    ;; TODO: Clean up code below (too 'ugly')
     (setq end-tab (if tab-bar-truncated-p
 		      (if (>= string-pos string-length)
 			  (- end-tab 1)
@@ -1542,7 +1584,79 @@ Exclude the last tab if it's truncated."
 		    (if (>= string-pos string-length)
 			end-tab
 		      end-tab)))
-    `(,start-tab ,end-tab ,string-pos ,string-length)))
+    `(,start-tab ,(max start-tab end-tab))))
+
+(defun star-tabs--calculate-tabs-width ()
+  "Return the min and max tab number, currently displayed in the tab bar.
+Exclude the last tab if it's truncated."
+  ;; REVIEW: Maybe cache pixel length of each tab?
+  (let* ((start-tab (star-tabs--first-number-in-tab-bar))
+	 (end-tab start-tab)
+	 (tab-bar-truncated-p nil)
+	 (string-length (length star-tabs-header-line-format))
+	 (margin-column-width (star-tabs--tab-bar-left-margin-width))
+	 (string-pos margin-column-width)
+	 (tabs-pixel-width nil))
+    (setq tabs-pixel-width (append tabs-pixel-width
+				   (let* ((tab-number 0)
+					  (margin-end-pos margin-column-width)
+					  (margin-end-pixel (star-tabs-string-pixel-width (substring star-tabs-header-line-format
+												     0
+												     margin-column-width)))
+					  (margin-pixel-width margin-end-pixel))
+				     (list (list
+					    tab-number
+					    margin-end-pos
+					    margin-end-pixel
+					    margin-pixel-width)))))
+
+    (while (and (not tab-bar-truncated-p)
+		(< string-pos string-length))
+      ;; Everytime a new tab is encountered, create a substring of the tab bar up until that point and check if it's truncated.
+      ;; Keep doing this until the substring is truncated, or until the end of the tab bar is reached.
+      (when (not (eq end-tab (setq end-tab (or (get-text-property string-pos 'buffer-number star-tabs-header-line-format) end-tab))))
+	(setq tabs-pixel-width (append tabs-pixel-width
+				       (let* ((tab-number (1- end-tab))
+					      (tab-end-pos string-pos)
+					      (tab-end-pixel (star-tabs-string-pixel-width (substring star-tabs-header-line-format
+													 0
+													 string-pos)))
+					      (tab-pixel-width (- tab-end-pixel
+								  (car (cdr (reverse (car (reverse tabs-pixel-width))))))))
+					 (list (list
+						tab-number
+						tab-end-pos
+						tab-end-pixel
+						tab-pixel-width)))))
+	(setq tab-bar-truncated-p (star-tabs--string-truncated-p
+				   (substring star-tabs-header-line-format 0 string-pos))))
+      ;; (setq (append tabs-pixel-width tab-bar-truncated-p)))
+      ;; (message "%s"(substring star-tabs-header-line-format 0 string-pos))
+      ;; (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p))
+      (setq string-pos (1+ string-pos)))
+    (setq tab-bar-truncated-p (star-tabs--string-truncated-p
+			       (substring star-tabs-header-line-format 0 string-pos)))
+    ;; (message "%s"(substring star-tabs-header-line-format 0 string-pos))
+    ;; (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p)
+    ;; TODO: Clean up code below (too 'ugly')
+    (setq end-tab (if tab-bar-truncated-p
+		      (if (>= string-pos string-length)
+			  (- end-tab 1)
+			(- end-tab 2))
+		    (if (>= string-pos string-length)
+			end-tab
+		      end-tab)))
+    `(,start-tab ,(max start-tab end-tab))
+    tabs-pixel-width))
+
+(defun star-tabs--tab-visible-p (buffer)
+  "Return non-nil if the tab corresponding to buffer BUFFER is visible in the tab bar."
+  (let ((current-tab-number (star-tabs--current-buffer-number))
+	(visible-tab-numbers (star-tabs--visible-tabs)))
+    (when (and (>= current-tab-number (car visible-tab-numbers))
+	       (<= current-tab-number (car (cdr visible-tab-numbers))))
+      ;; FIXME: car of cdr ->  ??..
+      t)))
 
 
 ;;; Functions to run with hooks
