@@ -1279,7 +1279,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 			     :tab-pixel-width ,tab-pixel-width
 			     :tab-modified-p ,tab-modified-p)))
       (if (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs))
-      	  (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs)) tab)
+      	  (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs)) (cdr tab))
       	(star-tabs-set-filter-prop-value :tabs
       					 (append (star-tabs-get-filter-prop-value :tabs)
       						 (list tab))
@@ -1291,7 +1291,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 If no tab is found, return nil."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
-  (cdr (alist-get buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name))))
+  (alist-get buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name)))
 
 (defun star-tabs-get-tab-prop-value (tab-or-buffer prop &optional filter-name collection-name)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
@@ -1312,15 +1312,14 @@ If no tab is found, return nil."
 	(tab-bar-tabs nil)
 	(cumulative-pixel-width nil))
     (dolist (buffer buffers tab-bar-tabs)
-      (setq tab-bar-tabs (append tab-bar-tabs
-				 (list (star-tabs-get-tab buffer filter-name collection-name))))
-
-      (let* ((pixel-width (star-tabs-get-tab-prop-value buffer :tab-pixel-width filter-name collection-name)))
-	
-	(setq cumulative-pixel-width (append cumulative-pixel-width
-					     (list (+ pixel-width
-						      (or (car (reverse cumulative-pixel-width))
-							  0)))))))
+      (when (alist-get buffer (star-tabs-get-filter-prop-value :tabs))
+	(setq tab-bar-tabs (append tab-bar-tabs
+				   (list (star-tabs-get-tab buffer filter-name collection-name))))
+	(let* ((pixel-width (star-tabs-get-tab-prop-value buffer :tab-pixel-width filter-name collection-name)))
+	  (setq cumulative-pixel-width (append cumulative-pixel-width
+					       (list (+ pixel-width
+							(or (car (reverse cumulative-pixel-width))
+							    0))))))))
     (star-tabs-set-filter-prop-value :tab-bar-cumulative-pixel-width cumulative-pixel-width t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar tab-bar-tabs t filter-name collection-name)))
 
@@ -1376,7 +1375,6 @@ If no tab is found, return nil."
 	    (or left-margin-collection-name "")
 	    (or left-margin-filter-name ""))))
 
-(star-tabs--left-margin)
 ;; (nth 0 (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width))
 ;; (star-tabs-scroll-to-active (current-buffer))
 
@@ -1513,25 +1511,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 			   ((equal scroll 'scroll-to-current-buffer) (- (star-tabs-get-buffer-tab-number (star-tabs-current-buffer))
 									2)))))
       (let ((tab-bar-left-margin ""))
-	(setq tab-bar-left-margin
-	      ;; It's all just one giant string...start with the margin:
-	      (concat (propertize star-tabs-left-margin
-				  'face 'star-tabs-tab-bar-left-margin)
-		      ;; Display the name of the active collection:
-		      (propertize (concat 
-				   (when star-tabs-tab-bar-collection-name 
-				     (let ((collection-name star-tabs-tab-bar-collection-name))
-				       (concat (upcase (symbol-name collection-name))
-					       star-tabs-filter-name-number-separator))))
-				  'face 'star-tabs-collection-name)
-		      ;; Display the name of the active filter:
-		      (concat (propertize (concat 
-					   (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
-						      star-tabs-tab-bar-filter-name)
-					     (let ((filter-name star-tabs-tab-bar-filter-name))
-					       (concat (upcase (symbol-name filter-name))
-						       star-tabs-filter-name-number-separator))))
-					  'face 'star-tabs-filter-name))))
+	(setq tab-bar-left-margin (star-tabs--left-margin))
 	(setq star-tabs-header-line-format
 	      (concat tab-bar-left-margin
 		      ;; Display tabs:
@@ -1545,7 +1525,8 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 			    (setq counter (1+ counter))))))))
       ;; Add a fill to the unused area of the tab bar.
       (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
- ;; (star-tabs--set-tab-bar)
+  (star-tabs--set-tab-bar)
+  (star-tabs--set-tab-bar-format)
   (force-mode-line-update t)
   nil)
 
