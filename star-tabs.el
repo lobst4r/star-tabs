@@ -1342,24 +1342,6 @@ If no tab is found, return nil."
     (star-tabs-set-filter-prop-value :tab-bar-format tab-bar-format t filter-name collection-name)
     tab-bar-format))
 
-(defun star-tabs-scroll-to-buffer (&optional buffer filter-name collection-name)
-  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
-  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
-  (or buffer (setq buffer (star-tabs-current-buffer)))
-  (let* ((tab-number (star-tabs-get-buffer-tab-number buffer))
-	 (tabs-pixel-width (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width filter-name collection-name))
-	 (current-tab-accumulative-pixel-width (nth tab-number tabs-pixel-width))
-	 (tab-bar-left-margin-width (star-tabs-get-filter-prop-value :tab-bar-left-margin-width filter-name collection-name))
-	 (window-width (window-pixel-width))
-	 (start-tab 1))
-    (while (and (< start-tab tab-number)
-		(< window-width
-		    (- (+ current-tab-accumulative-pixel-width
-		        tab-bar-left-margin-width)
-			  (nth (1- start-tab) tabs-pixel-width))))
-      (setq start-tab (1+ start-tab)))
-    `(,start-tab ,tab-number)))
-
 (defun star-tabs--set-left-margin (&optional filter-name collection-name)
   (let* ((left-margin-fill (propertize star-tabs-left-margin
 				      'face 'star-tabs-tab-bar-left-margin))
@@ -1384,6 +1366,11 @@ If no tab is found, return nil."
     (star-tabs-set-filter-prop-value :tab-bar-left-margin tab-bar-left-margin t filter-name collection-name)
     tab-bar-left-margin))
 
+(defun star-tabs--update-tabs (buffers)
+  (let ((counter 1))
+    (dolist (buffer buffers)
+      (star-tabs--tab (buffer-name buffer) counter)
+      (setq counter (1+ counter)))))
 
 
 ;; (nth 0 (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width))
@@ -1450,6 +1437,29 @@ If no tab is found, return nil."
 	     (star-tabs-scroll-tab-bar nil 1000000))
     (star-tabs-scroll-tab-bar t count)))
 
+(defun star-tabs-scroll-to-buffer (&optional buffer filter-name collection-name)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (or buffer (setq buffer (star-tabs-current-buffer)))
+  (let* ((tab-number (star-tabs-get-buffer-tab-number buffer))
+	 (tabs-pixel-width (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width filter-name collection-name))
+	 (current-tab-accumulative-pixel-width (nth tab-number tabs-pixel-width))
+	 (tab-bar-left-margin-width (star-tabs-get-filter-prop-value :tab-bar-left-margin-width filter-name collection-name))
+	 (window-width (window-pixel-width))
+	 (start-tab 1))
+    (while (and (< start-tab tab-number)
+		(< window-width
+		    (- (+ current-tab-accumulative-pixel-width
+		        tab-bar-left-margin-width)
+			  (nth (1- start-tab) tabs-pixel-width))))
+      (setq start-tab (1+ start-tab)))
+    `(,start-tab ,tab-number)))
+
+(defun star-tabs-scroll-to-active-buffer ()
+  (interactive)
+  (let ((count (car (star-tabs-scroll-to-buffer (star-tabs-current-buffer)))))
+  (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count)))
+
 
 ;; Reordering 
 
@@ -1513,11 +1523,6 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
     ;; Build the tab bar using propertized strings.
     (when (and buffer-list
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
-      ;; Refresh Tabs
-      (let ((counter 1))
-	(dolist (buffer buffer-list)
-	  (star-tabs--tab (buffer-name buffer) counter)
-	  (setq counter (1+ counter))))
       ;; Set Tab Bar
       (star-tabs--set-tab-bar)
       ;; Determine how much to, and if we should scroll.
@@ -1525,8 +1530,9 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
       ;; REVIEW: Make sure scroll max (and min?) values are always enforced.
       (or scroll (setq scroll 0))
       (unless (integerp scroll)
-	(setq scroll (cond ((equal scroll 'keep-scroll) (1- (star-tabs--first-number-in-tab-bar)))
+	(setq scroll (cond ((equal scroll 'keep-scroll) (star-tabs--first-number-in-tab-bar))
 			   ((equal scroll 'scroll-to-current-buffer) (car (star-tabs-scroll-to-buffer))))))
+      ;; Set header-line-format
       (setq star-tabs-header-line-format (star-tabs--set-tab-bar-format scroll))
       ;; Fill the the right of the tab bar with space.
       (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
@@ -1735,6 +1741,7 @@ Exclude the last tab if it's truncated."
 ;;; Functions to run with hooks
 
 ;; Functions to run when the buffer list updates, or when switching buffers 
+
 (defun star-tabs-on-raw-buffer-list-update ()
   "Run with buffer-list-update-hook."
   (star-tabs--update-buffer-list)
@@ -1746,6 +1753,7 @@ Exclude the last tab if it's truncated."
     (message "Real buffer list updated"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers) 
+  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
 
 (defun star-tabs-on-buffer-switch ()
@@ -1760,6 +1768,7 @@ Exclude the last tab if it's truncated."
 	 (star-tabs-get-filter-prop-value :auto-sort)
 	 'recent-first)
     (star-tabs-auto-sort))
+  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)) ; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
 
 
@@ -1771,6 +1780,7 @@ Exclude the last tab if it's truncated."
       (progn (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should be.
 	     (when star-tabs-debug-messages
 	       (message "Buffer Modified"))
+	     (star-tabs--update-tabs(star-tabs-get-active-group-buffers))
 	     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))))
 
 (defun star-tabs-when-buffer-first-saved ()
@@ -1779,6 +1789,7 @@ Exclude the last tab if it's truncated."
     (message "Buffer Saved"))
    (when (member (current-buffer) star-tabs-active-buffers)
      (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should be.
+     (star-tabs--update-tabs(star-tabs-get-active-group-buffers))
      (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
 
 
@@ -1791,6 +1802,7 @@ Exclude the last tab if it's truncated."
   (when star-tabs-debug-messages
     (message "Filter Changed"))
   (star-tabs--display-filter-name-temporarily)
+  (star-tabs--update-tabs(star-tabs-get-active-group-buffers))
   (unless inhibit-refresh
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)))
 
@@ -1801,6 +1813,7 @@ Exclude the last tab if it's truncated."
     (message "Collection Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers)
+  (star-tabs--update-tabs(star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 
@@ -1843,6 +1856,7 @@ Exclude the last tab if it's truncated."
     (message "Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
   (star-tabs--filter-all-buffers)
+  (star-tabs--update-tabs(star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
 
 
@@ -1858,6 +1872,7 @@ Exclude the last tab if it's truncated."
   (when star-tabs-debug-messages
     (message "Star Tabs disabled")))
 
+
 ;; Misc. functions to run with hooks
 
 (defun star-tabs-on-tab-move ()
@@ -1866,6 +1881,7 @@ Exclude the last tab if it's truncated."
   ;; TODO: Make buffer lists group-local and remove the need to refilter (and the need to do a lot of other things...)
   (when star-tabs-debug-messages
     (message "Tab moved"))
+  (star-tabs--update-tabs(star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 (defun star-tabs-on-timer-start ()
