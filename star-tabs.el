@@ -1310,7 +1310,7 @@ If no tab is found, return nil."
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (let ((buffers (star-tabs-get-group-buffers filter-name collection-name))
 	(tab-bar-tabs nil)
-	(cumulative-pixel-width nil))
+	(cumulative-pixel-width '(0)))
     (dolist (buffer buffers tab-bar-tabs)
       (when (alist-get buffer (star-tabs-get-filter-prop-value :tabs))
 	(setq tab-bar-tabs (append tab-bar-tabs
@@ -1320,8 +1320,10 @@ If no tab is found, return nil."
 					       (list (+ pixel-width
 							(or (car (reverse cumulative-pixel-width))
 							    0))))))))
+    (star-tabs--set-left-margin)
     (star-tabs-set-filter-prop-value :tab-bar-cumulative-pixel-width cumulative-pixel-width t filter-name collection-name)
-    (star-tabs-set-filter-prop-value :tab-bar tab-bar-tabs t filter-name collection-name)))
+    (star-tabs-set-filter-prop-value :tab-bar tab-bar-tabs t filter-name collection-name)
+    tab-bar-tabs))
 
 (defun star-tabs--set-tab-bar-format (&optional start-number filter-name collection-name)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
@@ -1329,51 +1331,60 @@ If no tab is found, return nil."
   (setq start-number (if start-number
 			 (1- start-number)
 		       0))
-  (let ((tabs (nthcdr start-number (star-tabs-get-filter-prop-value :tab-bar filter-name collection-name)))
-	(tab-bar-format ""))
-    (dolist (tab tabs tab-bar-format)
+  (let* ((tabs (nthcdr start-number (star-tabs-get-filter-prop-value :tab-bar filter-name collection-name)))
+	 (tab-bar-left-margin (star-tabs-get-filter-prop-value :tab-bar-left-margin filter-name collection-name))
+	 (tab-bar-format (or tab-bar-left-margin "")))
+    (dolist (tab tabs)
       (setq tab-bar-format
 	    (concat tab-bar-format
-	      (star-tabs-get-tab-prop-value tab :tab-string filter-name collection-name))))
+		    (star-tabs-get-tab-prop-value tab :tab-string filter-name collection-name))))
     ;; TODO: Add visible tabs prop
-    (star-tabs-set-filter-prop-value :tab-bar-format tab-bar-format t filter-name collection-name)))
+    (star-tabs-set-filter-prop-value :tab-bar-format tab-bar-format t filter-name collection-name)
+    tab-bar-format))
 
-(defun star-tabs-scroll-to-active (tab-or-buffer &optional filter-name collection-name)
+(defun star-tabs-scroll-to-buffer (&optional buffer filter-name collection-name)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
-  (let* ((current-tab-number (star-tabs--current-buffer-number))
+  (or buffer (setq buffer (star-tabs-current-buffer)))
+  (let* ((tab-number (star-tabs-get-buffer-tab-number buffer))
 	 (tabs-pixel-width (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width filter-name collection-name))
-	 (current-tab-accumulative-pixel-width (nth (1- current-tab-number) tabs-pixel-width))
+	 (current-tab-accumulative-pixel-width (nth tab-number tabs-pixel-width))
+	 (tab-bar-left-margin-width (star-tabs-get-filter-prop-value :tab-bar-left-margin-width filter-name collection-name))
 	 (window-width (window-pixel-width))
-	 (start-nth -1)
 	 (start-tab 1))
-    (while (and (< start-tab current-tab-number)
-		(<= window-width
-		    (- current-tab-accumulative-pixel-width
-		       (if (equal start-nth -1)
-			   0
-			   (nth start-nth tabs-pixel-width)))))
-      (setq start-tab (1+ start-tab)
-	    start-nth (1+ start-nth)))
-    `(,start-tab ,current-tab-number)))
+    (while (and (< start-tab tab-number)
+		(< window-width
+		    (- (+ current-tab-accumulative-pixel-width
+		        tab-bar-left-margin-width)
+			  (nth (1- start-tab) tabs-pixel-width))))
+      (setq start-tab (1+ start-tab)))
+    `(,start-tab ,tab-number)))
 
-(defun star-tabs--left-margin (&optional filter-name collection-name)
-  (let ((left-margin-fill (propertize star-tabs-left-margin
+(defun star-tabs--set-left-margin (&optional filter-name collection-name)
+  (let* ((left-margin-fill (propertize star-tabs-left-margin
 				      'face 'star-tabs-tab-bar-left-margin))
-	(left-margin-collection-name (propertize (concat "" (when star-tabs-tab-bar-collection-name 
-						   (let ((collection-name star-tabs-tab-bar-collection-name))
-						     (concat (upcase (symbol-name collection-name))
-							     star-tabs-filter-name-number-separator))))
-						 'face 'star-tabs-collection-name))
-	(left-margin-filter-name (propertize (concat "" (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
-							star-tabs-tab-bar-filter-name)
-					       (let ((filter-name star-tabs-tab-bar-filter-name))
-						 (concat (upcase (symbol-name filter-name))
-							 star-tabs-filter-name-number-separator))))
-					     'face 'star-tabs-filter-name)))
-    (concat left-margin-fill
-	    (or left-margin-collection-name "")
-	    (or left-margin-filter-name ""))))
+	(left-margin-collection-name (when star-tabs-tab-bar-collection-name 
+				       (propertize
+					(let ((collection-name star-tabs-tab-bar-collection-name))
+					  (concat (upcase (symbol-name collection-name))
+						  star-tabs-filter-name-number-separator))
+				       'face 'star-tabs-collection-name)))
+	(left-margin-filter-name (when (and (plist-get (star-tabs-active-filter-collection-props) :display-filter-name)
+					    star-tabs-tab-bar-filter-name)
+				   (propertize 
+				    (let ((filter-name star-tabs-tab-bar-filter-name))
+				      (concat (upcase (symbol-name filter-name))
+					      star-tabs-filter-name-number-separator))
+				    'face 'star-tabs-filter-name)))
+	(tab-bar-left-margin (concat left-margin-fill
+				     (or left-margin-collection-name "")
+				     (or left-margin-filter-name "")))
+	(tab-bar-left-margin-width (star-tabs-string-pixel-width tab-bar-left-margin)))
+    (star-tabs-set-filter-prop-value :tab-bar-left-margin-width tab-bar-left-margin-width t filter-name collection-name)
+    (star-tabs-set-filter-prop-value :tab-bar-left-margin tab-bar-left-margin t filter-name collection-name)
+    tab-bar-left-margin))
+
+
 
 ;; (nth 0 (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width))
 ;; (star-tabs-scroll-to-active (current-buffer))
@@ -1511,7 +1522,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 			   ((equal scroll 'scroll-to-current-buffer) (- (star-tabs-get-buffer-tab-number (star-tabs-current-buffer))
 									2)))))
       (let ((tab-bar-left-margin ""))
-	(setq tab-bar-left-margin (star-tabs--left-margin))
+	(setq tab-bar-left-margin (star-tabs--set-left-margin))
 	(setq star-tabs-header-line-format
 	      (concat tab-bar-left-margin
 		      ;; Display tabs:
