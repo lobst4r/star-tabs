@@ -1513,31 +1513,23 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
     ;; Build the tab bar using propertized strings.
     (when (and buffer-list
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
+      ;; Refresh Tabs
+      (let ((counter 1))
+	(dolist (buffer buffer-list)
+	  (star-tabs--tab (buffer-name buffer) counter)
+	  (setq counter (1+ counter))))
+      ;; Set Tab Bar
+      (star-tabs--set-tab-bar)
       ;; Determine how much to, and if we should scroll.
       (message "SCROLL: %s" scroll)
       ;; REVIEW: Make sure scroll max (and min?) values are always enforced.
       (or scroll (setq scroll 0))
       (unless (integerp scroll)
 	(setq scroll (cond ((equal scroll 'keep-scroll) (1- (star-tabs--first-number-in-tab-bar)))
-			   ((equal scroll 'scroll-to-current-buffer) (- (star-tabs-get-buffer-tab-number (star-tabs-current-buffer))
-									2)))))
-      (let ((tab-bar-left-margin ""))
-	(setq tab-bar-left-margin (star-tabs--set-left-margin))
-	(setq star-tabs-header-line-format
-	      (concat tab-bar-left-margin
-		      ;; Display tabs:
-		      (let ((tab-line "")  ; This will be returned from the let function and concat'd with the rest of the string.
-			    (counter 1)) ; Give each tab a unique, incrementing number.
-			(dolist (buffer buffer-list tab-line)
-			  (let ((name (buffer-name buffer)))
-			    (unless (< (1- counter) scroll) 
-			      (setq tab-line
-				    (concat tab-line (star-tabs--tab name counter))))
-			    (setq counter (1+ counter))))))))
-      ;; Add a fill to the unused area of the tab bar.
+			   ((equal scroll 'scroll-to-current-buffer) (car (star-tabs-scroll-to-buffer))))))
+      (setq star-tabs-header-line-format (star-tabs--set-tab-bar-format scroll))
+      ;; Fill the the right of the tab bar with space.
       (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
-  (star-tabs--set-tab-bar)
-  (star-tabs--set-tab-bar-format)
   (force-mode-line-update t)
   nil)
 
