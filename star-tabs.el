@@ -1040,7 +1040,8 @@ Return 0 if BUFFER is not in the active filter group."
   "Update the list of 'real' buffers star-tabs-active-buffers
  if (a) buffer(s) have/has been created or killed. 
  Return t if the buffer list was updated, otherwise nil."
-;; REVIEW: Refactor possible?
+  ;; REVIEW: Refactor possible?
+  ;; --------------------------
   ;; Ignore all buffers starting with a space.
   (let* ((active-buffers (delq nil
 			       (mapcar (lambda (buffer)
@@ -1052,66 +1053,59 @@ Return 0 if BUFFER is not in the active filter group."
 					     (unless (gethash buffer star-tabs-cached-filtered-buffers)
 					       buffer))
 					   active-buffers))))
-    ;; Return nil if there are no new 'real' buffers. Otherwise, apply global filters to the new buffers.
+    ;; Return nil if there are no new real buffers. Otherwise, apply global filters to the new buffers.
     (if (seq-set-equal-p star-tabs-active-buffers active-buffers)
 	nil
-      ;; Apply global filter.
+      ;; Apply the global filters.
       ;; First include...
+      ;; REVIEW: Remove the option to include, and instead just exclude.
+      ;;         (although there should be some sort of always-include capability.)
       (let*((buffer-list-inc (when star-tabs-global-inclusion-prefix-filter
 			       (star-tabs-filter-by-prefix active-buffers star-tabs-global-inclusion-prefix-filter t)))
 	    ;; ...then exclude.
 	    (buffer-list (if star-tabs-global-exclusion-prefix-filter
 			     (star-tabs-filter-by-prefix (if buffer-list-inc
-						      buffer-list-inc
-						    active-buffers)
-						  star-tabs-global-exclusion-prefix-filter nil)
+							     buffer-list-inc
+							   active-buffers)
+							 star-tabs-global-exclusion-prefix-filter nil)
 			   (if buffer-list-inc
 			       buffer-list-inc
 			     active-buffers))))
-	;; Add globally filtered buffers to cache so we can ignore them next time.
+	;; Add globally filtered buffers to the cache so we can ignore them next time.
 	(star-tabs-add-filtered-buffers-to-cache (seq-difference active-buffers buffer-list) star-tabs-cached-filtered-buffers)
-	;; See if the globally filtered buffer list changed. If it did, update the list of active/'real' buffers.
+	;; See if the buffer list changed. If it did, update the global list of real buffers.
 	;; Otherwise, return nil. 
 	(if (not (seq-set-equal-p star-tabs-active-buffers buffer-list))
 	    (progn
 	      (setq star-tabs-active-buffers (star-tabs-update-list star-tabs-active-buffers buffer-list))
 	      (run-hooks 'star-tabs-buffer-list-update-hook)
 	      t)
-	    ;; (progn (let* ((all-buffers buffer-list)
-	    ;; 		  (new-buffers (seq-difference buffer-list star-tabs-active-buffers))
-	    ;; 		  (old-buffers))
-	    ;; 	     ;; Append new buffers to the end of the list of active buffers.
-	    ;; 	     (when new-buffers
-	    ;; 	       (setq star-tabs-active-buffers (append star-tabs-active-buffers new-buffers)))
-	    ;; 	     ;; Remove killed buffers from the list of active buffers.
-	    ;; 	     (setq old-buffers (seq-difference star-tabs-active-buffers buffer-list))
-	    ;; 	     (when old-buffers
-	    ;; 	       (setq star-tabs-active-buffers (seq-difference star-tabs-active-buffers old-buffers))))
-	    ;; 	   (run-hooks 'star-tabs-buffer-list-update-hook)
-	    ;; 	   t)
 	  nil)))))
 
 (defun star-tabs--filter-all-buffers ()
-  "Filter buffers"
-  ;; Apply all filters
+  "Apply filters to all real buffers in, and set create separate buffer lists for, all filter groups in the active collection."
+  ;; TODO: Only apply filters to new buffers, and remove killed buffers, instead of doing it all
+  ;;       for all buffers in all filter groups. Make sure all buffers are filtered for any new groups created though.
   (let ((filters (star-tabs-get-filter-names))
 	(filtered-buffers))
     (dolist (filter filters)
-      (setq filtered-buffers (star-tabs-filter-buffers filter star-tabs-active-buffers))
+      (setq filtered-buffers (star-tabs-filter-buffers filter
+						       star-tabs-active-buffers))
       (star-tabs-set-filter-prop-value :buffer-list
 				       (star-tabs-update-list (star-tabs-get-filter-prop-value :buffer-list
 											       filter)
 							      filtered-buffers)
 				       t
-				       filter))
-    (setq star-tabs-active-group-buffers (star-tabs-get-filter-prop-value
-					  :buffer-list
-					  (star-tabs-get-active-filter-name)))))
+				       filter))))
 
 (defun star-tabs-get-group-buffers (&optional filter-name collection-name)
+  "Return all buffers in the filter group FILTER-NAME of collection COLLECTION-NAME as a list."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (star-tabs-get-filter-prop-value :buffer-list filter-name collection-name))
 
 (defun star-tabs-get-active-group-buffers ()
+  "Return all buffers in the active filter group as a list."
   (star-tabs-get-group-buffers (star-tabs-get-active-filter-name) (star-tabs-active-filter-collection-name)))
 
 
