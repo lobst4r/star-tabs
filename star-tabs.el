@@ -731,8 +731,9 @@ COLLECTION-NAME defaults to the currently active filter collection."
 ;; Apply filters
 
 (defun star-tabs-filter-buffers (filter-name buffer-list)
-  "Filter buffers BUFFER-LIST with filter FILTER and return the filtered list of buffers."
+  "Filter buffers BUFFER-LIST with filter FILTER-NAME and return the filtered list of buffers."
   ;; REVIEW: No longer necessary to maintain the order when filtering since that is handled elsewhere. Refactor?
+  ;; REVIEW: Exluce first, then include??
   (let* ((filter (star-tabs-get-filter-name filter-name))
 	 (include (plist-get filter :include))
 	 (exclude (plist-get filter :exclude))
@@ -760,10 +761,11 @@ COLLECTION-NAME defaults to the currently active filter collection."
 	       exclude)
 	  (setq buffers (star-tabs--apply-filter-list buffers include t always-include))
 	  (setq buffers (star-tabs--apply-filter-list (star-tabs-get-buffers buffers) exclude nil always-include)))))
-    (star-tabs-get-buffers buffers)))
+    buffers))
 
 (defun star-tabs--apply-filter-list (buffer-list regexps include always-include)
   "Apply all regular expressions in list REGEXPS to all buffers in BUFFER-LIST. 
+Return the filtered list of buffers.
 If INCLUDE is non-nil, include all matching buffers. 
 If INCLUDE is nil, exclude all matching buffers.
 Buffers matching regexp in ALWAYS-INCLUDE will be always be included."
@@ -786,7 +788,6 @@ Buffers matching regexp in ALWAYS-INCLUDE will be always be included."
 				    ;; Filter out anything not matched by the regexp list
 				    (if (string-match regexp buffer)
 					(setq match buffer))
-
 				  ;; Filter out everything matched by the regexp list
 				  (cond (stop)
 					((string-match regexp buffer)
@@ -795,17 +796,13 @@ Buffers matching regexp in ALWAYS-INCLUDE will be always be included."
 					   (setq stop t)))
 					((setq match buffer)))))))
 			(star-tabs-get-buffer-names buffer-list)))))
-    buffers))
+    (star-tabs-get-buffers buffers)))
 
 (defun star-tabs-filter-by-prefix (buffer-list prefix-list &optional include)
   "Return globally filtered buffers BUFFER-LIST with/without the prefixes PREFIX-LIST. 
 If INCLUDE (default nil) is non-nil, return a list of buffers that match any of the prefixes.
-Otherwise, return a list of buffers that don't match any of the prefixes."
+Otherwise, if INCLUDE is nil, return a list of buffers that don't match any of the prefixes."
   (or include (setq include nil))
-  ;; Apply string-prefix-p for each prefix in PREFIX-LIST to each buffer in BUFFER-LIST.
-  ;; If a buffer contains any of the prefixes, return nil;
-  ;; otherwise, return the buffer (or vice versa in case include is non-nil),
-  ;; then delete all nil elements of the list.
   (delq nil (mapcar (lambda (buffer)
 		      (if (not (member nil (mapcar (lambda (prefix)
 						     (funcall #'star-tabs-buffer-prefix-p prefix buffer))
