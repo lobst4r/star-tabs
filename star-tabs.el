@@ -565,9 +565,9 @@ COLLECTION-NAME defaults to the currently active filter collection."
 ;; Filter Interactions 
 
 (defun star-tabs-cycle-filters (&optional reverse inhibit-refresh)
-  "Cycle (move forward, or backward if REVERSE is non-nil) through filters in the currently active filter collection. 
-Ignore empty filters.\n
-Refresh tab bar if INHIBIT-REFRESH is nil."
+  "Cycle (move forward, or backward if REVERSE is non-nil) through filter groups in the active collection. 
+Ignore empty filter groups.
+Also run hook star-tabs-filter-change-hook if INHIBIT-REFRESH is nil."
   (interactive)
   (or reverse (setq reverse nil))
   ;; Move (cycle) forward once, or backward if REVERSE is non-nil.
@@ -575,26 +575,31 @@ Refresh tab bar if INHIBIT-REFRESH is nil."
 					     (eval (star-tabs-active-filter-collection-name))
 					     reverse))
   (let ((filter-count (length (eval (star-tabs-active-filter-collection-name)))))
-    ;; Skip to the next filter when no buffers are returned (i.e. avoid empty filter groups).
-    ;; Go through the list of filters in the active filter collection once, or until a non-empty filter group is found.
-    (while (and (not (star-tabs-filter-buffers (star-tabs-get-active-filter-name)star-tabs-active-buffers))
+    ;; Go through the list of filter groups in the active filter collection once, or until a non-empty filter group is found,
+    ;; skipping to the next filter group if when the filter group is empty.
+    (while (and (not (star-tabs-get-active-group-buffers))
 		(>= filter-count 0))
-      (set (star-tabs-active-filter-collection-name) (star-tabs-cycle-list-car (eval (star-tabs-active-filter-collection-name)) reverse))
+      ;; Cycle by rotating the list of filters. The active filter is the car of the list.
+      (set (star-tabs-active-filter-collection-name)
+	   (star-tabs-cycle-list-car (eval (star-tabs-active-filter-collection-name))
+				     reverse))
       (setq filter-count (1- filter-count)))) ;Prevent infinite loop in case all groups are empty
-  ;; Refresh tab bar unless explicitly told not to.
   (unless inhibit-refresh
     (run-hooks 'star-tabs-filter-change-hook)))
 
 (defun star-tabs-find-active-filter (&optional inhibit-refresh) 
-  "Find a filter for the current buffer, if such filter exists in the current collection.
-If INHIBIT-REFRESH is nil (default), refresh the tab bar as well."
+  "Find a filter group for the current buffer, if such filter exists in the current collection.
+If the current buffer is in the active filter, do nothing.
+If INHIBIT-REFRESH is nil (default), refresh the tab bar as well.
+Return the name of the new filter if the filter switches."
   (interactive)
   (let ((current-buffer (star-tabs-current-buffer))
-	(filter-count (length (eval (star-tabs-active-filter-collection-name))))
+	(filter-count (length (eval (star-tabs-active-filter-collection-name)))) ; TODO: Create function to retrieve number of filters instead. 
 	(prev-filter-name (star-tabs-get-active-filter-name)))
     ;; Loop through the list of registered filters once, or until a filter is found.
     ;; But there is no need to change filter group if the current buffer is already in the active filter group.
-    (while (and (not (member current-buffer (star-tabs-filter-buffers (star-tabs-get-active-filter-name) star-tabs-active-buffers)))
+    (while (and (not (member current-buffer
+			     (star-tabs-get-active-group-buffers)))
 		(>= filter-count 0))
       (star-tabs-cycle-filters nil t)  ; If buffer is not in filter group, move cycle index once.
       (setq filter-count (1- filter-count))) ; Prevent infinite loop in case there is no match.
@@ -610,49 +615,47 @@ If INHIBIT-REFRESH is nil (default), refresh the tab bar as well."
 
 (defun star-tabs-add-to-always-include-in-filter (buffer &optional filter-name collection-name)
   "Always include buffer BUFFER in filter FILTER-NAME of collection COLLECTION-NAME."
+  ;; REVIEW: inhibit-hooks maybe?
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (let* ((buffer-name (buffer-name buffer))
-	 (regexp (regexp-quote buffer-name))
-	 (always-include (plist-get (alist-get filter-name (eval collection-name)) :always-include))
+	 (regexp (concat "^" (regexp-quote (buffer-name (current-buffer))) "$"))
+	 (always-include (star-tabs-get-filter-prop-value :always-include filter-name collection-name))
 	 (always-include (when (not (member regexp always-include))
 			   (push regexp always-include))))
     (when always-include
-      (star-tabs-set-filter-prop-value :always-include always-include nil filter-name collection-name)))
-  ;; (plist-put (alist-get filter-name (eval collection-name))
-  ;; 		 :always-include always-include)))
-  )
+      (star-tabs-set-filter-prop-value :always-include always-include nil filter-name collection-name))))
 
 (defun star-tabs-exclude-from-filter (buffer &optional filter-name collection-name)
   "Exclude buffer BUFFER from filter FILTER-NAME of collection COLLECTION-NAME.
 Also remove it from automatic inclusion, if applicable."
-  ;; REVIEW: can regexp match other buffers as well?
+  ;; REVIEW: inhibit-hooks maybe?
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (let* ((buffer-name (buffer-name buffer))
-	 (regexp (regexp-quote buffer-name))
-	 (always-include (plist-get (alist-get filter-name (eval collection-name)) :always-include))
-	 (always-include (remove regexp always-include))
-	 (exclude (plist-get (alist-get filter-name (eval collection-name)) :exclude))
+	 (regexp (concat "^" (regexp-quote (buffer-name (current-buffer))) "$"))
+	 (always-include (remove regexp
+				 (star-tabs-get-filter-prop-value :always-include filter-name collection-name)))
+	 (exclude (star-tabs-get-filter-prop-value :exclude filter-name collection-name))
 	 (exclude (when (not (member regexp exclude))
 			     (push regexp exclude))))
     (star-tabs-set-filter-prop-value :always-include always-include nil filter-name collection-name)
     (when exclude
-      (star-tabs-set-filter-prop-value :always-include always-include nil filter-name collection-name))
-    ))
+      (star-tabs-set-filter-prop-value :exclude exclude nil filter-name collection-name))))
 
 (defun star-tabs-include-current-buffer-in-current-filter ()
-  "Include current buffer in the currently active filter."
+  "Include current buffer in the active filter."
   (interactive)
   (star-tabs-add-to-always-include-in-filter (star-tabs-current-buffer)))
 
 (defun star-tabs-exclude-current-buffer-from-current-filter ()
-  "Exclude current buffer from the currently active filter."
+  "Exclude current buffer from the active filter group."
   (interactive)
   (star-tabs-exclude-from-filter (star-tabs-current-buffer)))
 
 (defun star-tabs-print-active-filter-name ()
-  "Output the active filter name."
+  "Output the active filter name as a message."
+  ;; REVIEW: Probably not needed.
   (interactive)
   (message "Active filter name: %s" (star-tabs-get-active-filter-name)))
 
@@ -660,10 +663,10 @@ Also remove it from automatic inclusion, if applicable."
   "Automatically sort filter group FILTER-NAME in collection COLLECTION-NAME.
 FILTER-NAME defaults to the active filter group.
 COLLECTION-NAME defaults to the active filter collection.
-SORT-METHOD defaults to the filter property :auto-sort of FILTER-NAME.
+SORT-METHOD defaults to the filter property :auto-sort of FILTER-NAME, which by default is nil.
 If filter property :auto-sort is non-nil and SORT-METHOD is not specified, nothing will be sorted.\n
 The following will explain the different options for SORT-METHOD:
-- 'recent-first - The most recent (current) buffer will be the first (left-most) tab. The second most recent will be the second tab, and so on. 
+- 'recent-first - The most recent (current) buffer will always be the first (left-most) tab. The second most recent will be the second tab, and so on. 
 The last (right-most) tab will thus be the buffer to last be revisited/reopened." 
 ;; TODO: Add the following sorting methods:
 ;; - 'last-first (to be implemented) - The opposite of 'recent-first. That is, the most recent buffer will be last in the tab bar. 
@@ -672,8 +675,9 @@ The last (right-most) tab will thus be the buffer to last be revisited/reopened.
 ;; - 'alpha-asc (to be implemented) - The same as 'alpha-desc, except that tabs will be sorted in an ascending alphabetical order.
 ;; - 'extension-desc (to be implemented) - Sort tabs by their file extensions alphabetically in a descending order. 
 ;; - 'extension-asc (to be implemented) - The same as 'extension-desc, except that the ordering will be in an ascending order.
-;; TODO Add :auto-sort as a collection property as well. If it's not set on filter-level, it will default to the collection property (if set), 
+;; TODO: Add :auto-sort as a collection property as well. If it's not set on filter-level, it will default to the collection property (if set), 
 ;; otherwise nil
+;; TODO: Allow for multiple sorting methods at the same time.
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (or sort-method (setq sort-method (star-tabs-get-filter-prop-value :auto-sort filter-name collection-name)))
@@ -682,10 +686,14 @@ The last (right-most) tab will thus be the buffer to last be revisited/reopened.
 	   (star-tabs-move-current-tab-to-first)))))
 
 (defun star-tabs-set-filter-prop-value (prop value &optional inhibit-hook filter-name collection-name)
-  "Set property PROP of filter FILTER-NAME in collection COLLECTION-NAME to value VALUE."
+  "Set property PROP of filter FILTER-NAME in collection COLLECTION-NAME to value VALUE.
+Also run hook star-tabs-collection-property-change-hook unless inhibit-hook is non-nil."
+  ;; REVIEW: Make a filter-prop-change-hook as well?
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
-  (plist-put (star-tabs-get-filter-props filter-name collection-name) prop value)
+  (plist-put (star-tabs-get-filter-props filter-name collection-name)
+	     prop
+	     value)
   (unless inhibit-hook
     (run-hooks 'star-tabs-collection-property-change-hook)))
 
