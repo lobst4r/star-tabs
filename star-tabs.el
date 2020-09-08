@@ -1154,9 +1154,20 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 
 
 ;;; Tab bar
-
 (defun star-tabs--tab (buffer-name number)
-  "Return a propertized string that represents a tab for buffer BUFFER-NAME (string)."
+  "Create/Update the tab, and return a propertized string that represents the tab, for buffer BUFFER-NAME with tab number NUMBER.
+Properties of the tab can be accessed using (star-tabs-get-tab-prop-value TAB-OR-BUFFER PROP FILTER-NAME COLLECTION-NAME).\n
+Properties related to the tab are:
+:tab-name - The name of the tab.
+:tab-number - The number of the tab (potentially deprecated soon).
+:tab-string - Propertized string representation of the tab.
+:tab-column-width - The width in columns of the string representation of the tab.
+:tab-pixel-width - The width in pixels of the string representation of the tab.
+:tab-modified-p - Whether the tab is modified (non-nil) or not (nil). "
+  ;; TODO: buffer-name -> buffer
+  ;; TODO: Rename, update separators/dividers (and make sure they are customizable)
+  ;; TODO: Reduce if-statements that check for current buffer.
+  ;; FIXME: Icon shouldn't be highlighted on mouse-over.
   (let* ((name buffer-name)
 	 ;; Number and name:
 	 (number-and-name (propertize (concat
@@ -1177,9 +1188,10 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 				      'buffer-number number))
 	 ;; Modified symbol:
 	 ;; Don't show (un)modified symbol for system buffers or read-only buffers.
-	 (modified-icon (propertize (if (and(not (string-match "^[[:space:]]" name))
-					    (not (string-match "^*.*\\*$" name))
-					    (not (star-tabs-buffer-read-only-p name)))
+	 ;; TODO: move regexp into variables
+	 (modified-icon (propertize (if (and (not (string-match "^[[:space:]]" name))
+					     (not (string-match "^*.*\\*$" name))
+					     (not (star-tabs-buffer-read-only-p name)))
 					;; Display (un)modified symbol:
 					(concat  
 					 (if (buffer-modified-p (get-buffer name))
@@ -1188,7 +1200,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 					 (when (not(star-tabs-get-filter-collection-prop-value
 						    :hide-close-buttons))
 					   star-tabs-modified-icon-close-button-separator))
-				      ;; Display nothing if it's a system or read-only buffer:
+				      ;; Display nothing if it's an unreal buffer, system buffer, or read-only buffer:
 				      "")
 				    'keymap star-tabs-map-select-tab
 				    'face 
@@ -1272,31 +1284,32 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 	  (tab-column-width (length tab-string))
 	  (tab-pixel-width (star-tabs-string-pixel-width tab-string))
 	  (tab-modified-p (buffer-modified-p (get-buffer name)))
-	  (tab `(,tab-buffer :tab-number ,tab-number
+	  (tab `(,tab-buffer :tab-number ,tab-number ; REVIEW: Maybe no need to store this here?
 			     :tab-name ,tab-name
 			     :tab-string ,tab-string
 			     :tab-column-width ,tab-column-width
 			     :tab-pixel-width ,tab-pixel-width
 			     :tab-modified-p ,tab-modified-p)))
+      ;; Add tab to the filter group property :tabs as an alist,
+      ;; where the key is the buffer and the value is a plist of tab properties.
       (if (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs))
-	  
-	  (progn (message "%s" (cdr tab))
-		 (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs)) (cdr tab)))
+		 (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs)) (cdr tab))
 	(star-tabs-set-filter-prop-value :tabs
       					 (append (star-tabs-get-filter-prop-value :tabs)
       						 (list tab))
-      					 t)
-	(message "%s" (list tab)))
+      					 t))
       tab-string)))
 
 (defun star-tabs-get-tab (buffer &optional filter-name collection-name)
-  "Return the tab corresponding to buffer BUFFER in filter group FILTER-NAME in filter collection FILTER-COLLECTION.
+  "Return the tab corresponding to buffer BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME.
 If no tab is found, return nil."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (alist-get buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name)))
 
 (defun star-tabs-get-tab-prop-value (tab-or-buffer prop &optional filter-name collection-name)
+  "Return value of property PROP of tab/buffer TAB-OR-BUFFER in filter group FILTER-name of collection COLLECTION-NAME.
+Return nil if either the property is not found, or if the tab doesn't exists."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (plist-get (if (bufferp tab-or-buffer)
@@ -1305,15 +1318,27 @@ If no tab is found, return nil."
 	     prop))
 
 (defun star-tabs--select-icon (buffer)
+  "Return the all-theicons-icon for buffer BUFFER."
+  ;; TODO: add checks for whether all-the-icons is installed (also make sure graphical elements are supported).
+  ;; TODO: make height user-customizable.
   (with-current-buffer buffer
    (all-the-icons-icon-for-mode major-mode :v-adjust 0.001 :height 0.8)))
 
 (defun star-tabs--set-tab-bar (&optional filter-name collection-name)
+  "Set and return the tab bar of filter group FILTER-NAME of collection COLLECTION-NAME.
+This function also sets the left margin (see (star-tabs--set-left-margin)).\n
+Properties of the tab bar can be accessed using (star-tabs-get-filter-prop-value PROP FILTER-NAME COLLECTION-NAME).
+Properties related to the tab bar are:
+:tabs - An unordered list of all tabs in the tab bar (REVIEW: currently includes killed buffers as well, it probably shouldn't?)
+:tab-bar - A list of all the tabs in the tab bar.
+:tab-bar-format - Set using (star-tabs--set-tab-bar-format), this hold the string representation of the tab bar, which might be truncated.
+:tab-bar-cumulative-pixel-width - List of the pixel width of all tabs in the tab bar."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
-  (let ((buffers (star-tabs-get-group-buffers filter-name collection-name))
+  (let ((buffers (star-tabs-get-group-buffers filter-name collection-name)) ; This is the order in which the tabs should appear.
 	(tab-bar-tabs nil)
 	(cumulative-pixel-width '(0)))
+    ;; For each buffer in the filter group, get the corresponding tab and add it to a list (the tab bar).
     (dolist (buffer buffers tab-bar-tabs)
       (when (alist-get buffer (star-tabs-get-filter-prop-value :tabs))
 	(setq tab-bar-tabs (append tab-bar-tabs
@@ -1329,6 +1354,9 @@ If no tab is found, return nil."
     tab-bar-tabs))
 
 (defun star-tabs--set-tab-bar-format (&optional start-number filter-name collection-name)
+  "Set and return the string representation of the tab bar for filter FILTER-NAME of collection COLLECTION-NAME.
+Scroll START-NUMBER - 1 (default 0) tabs to the right.
+The tab bar format can be accessed using (star-tabs-get-filter-prop-value :tab-bar-format FILTER-NAME COLLECTION-NAME)."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (setq start-number (if start-number
@@ -1341,11 +1369,17 @@ If no tab is found, return nil."
       (setq tab-bar-format
 	    (concat tab-bar-format
 		    (star-tabs-get-tab-prop-value tab :tab-string filter-name collection-name))))
-    ;; TODO: Add visible tabs prop
+    ;; REVIEW: Add visible tabs prop? (maybe not a good idea since window width can change all the time, meaning we would still need to recalculate.)
     (star-tabs-set-filter-prop-value :tab-bar-format tab-bar-format t filter-name collection-name)
     tab-bar-format))
 
 (defun star-tabs--set-left-margin (&optional filter-name collection-name)
+  "Set and return the left margin of the tab bar in filter group FILTER-NAME of collection COLLECTION-NAME.
+Properties of the left margin can be accessed using (star-tabs-get-filter-prop-value PROP FILTER-NAME COLLECTION-NAME).
+Properties related to the left margin are:
+:tab-bar-left-margin - Propertized string representation of the left margin.
+:tab-bar-left-margin-width - Width in pixels of the left margin.
+:tab-bar-left-margin-column-width - Width in columns of the left margin."
   (let* ((left-margin-fill (propertize star-tabs-left-margin
 				      'face 'star-tabs-tab-bar-left-margin))
 	(left-margin-collection-name (when star-tabs-tab-bar-collection-name 
@@ -1372,6 +1406,7 @@ If no tab is found, return nil."
 
 (defun star-tabs--update-tabs (buffers)
   "Update tabs BUFFERS in the active filter group."
+  ;; TODO: revamp how tabs are updated. 
   (let ((counter 1))
     (dolist (buffer buffers)
       (star-tabs--tab (buffer-name buffer) counter)
