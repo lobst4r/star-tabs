@@ -1371,6 +1371,7 @@ If no tab is found, return nil."
     tab-bar-left-margin))
 
 (defun star-tabs--update-tabs (buffers)
+  "Update tabs BUFFERS in the active filter group."
   (let ((counter 1))
     (dolist (buffer buffers)
       (star-tabs--tab (buffer-name buffer) counter)
@@ -1397,17 +1398,15 @@ If no tab is found, return nil."
 ;; Scrolling
 
 (defun star-tabs-scroll-tab-bar (&optional backward count)
-  "Horizontally scroll the tab bar to the right (left if BACKWARD is non-nil), COUNT (default 3) times."
-  (interactive)
+  "Horizontally scroll the tab bar to the right (left if BACKWARD is non-nil), COUNT (default 2) times."
   ;; FIXME: scrolling before filter name has disappeared will reset scrolling
-  ;; FIXME: Decide when to maintain scrolling and when to reset. (get prop of first tab bar to get value of scrolling)
   ;; TODO: Cache header-line-format (maybe not necessary)
   (or count (setq count 3))
   (let* ((first-tab-number (star-tabs--first-number-in-tab-bar))
 	 (count (if backward
 		    (- (- first-tab-number 1) count)
 		  (+ (- first-tab-number 1) count)))) 
-    ;; Only scroll forward (right) if the tab bar is truncated, otherwise there's really no need to scroll forward. 
+    ;; Only scroll forward (right) if the right of the tab bar is truncated, otherwise there's really no need to scroll forward. 
     (when (star-tabs--string-truncated-p star-tabs-header-line-format)
       ;; Make sure we don't scroll past the last buffer.
       (setq count (min
@@ -1421,7 +1420,10 @@ If no tab is found, return nil."
       (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count))))
 
 (defun star-tabs-scroll-tab-bar-forward (&optional count)
-  "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
+  "Scroll tab bar forward prefix argument COUNT (default 2) number of tabs.
+Switch to the next filter group if we're already scrolled all the way to the right."
+  ;; REVIEW: Require two consecutive scrolls before switching filters?
+  ;; TODO: Fix docstring wording
   (interactive "P") 
   (or count (setq count 2))
   (if (and (not (star-tabs--string-truncated-p star-tabs-header-line-format))
@@ -1432,7 +1434,10 @@ If no tab is found, return nil."
     (star-tabs-scroll-tab-bar nil count)))
 
 (defun star-tabs-scroll-tab-bar-backward (&optional count)
-  "Scroll tab bar forward COUNT (prefix argument, default 2) tabs."
+  "Scroll tab bar backward prefix argument COUNT (default 2) number of tabs.
+Switch to the previous filter group if we're already scrolled all the way to the left."
+  ;; REVIEW: Require two consecutive scrolls before switching filters?
+  ;; TODO: Fix docstring wording
   (interactive "P") 
   (or count (setq count 2))
   (if (and (equal (star-tabs--first-number-in-tab-bar) 1)
@@ -1443,6 +1448,9 @@ If no tab is found, return nil."
     (star-tabs-scroll-tab-bar t count)))
 
 (defun star-tabs-scroll-to-buffer (&optional buffer filter-name collection-name)
+  "Return the number of tabs required to scroll to tab BUFFER in filter group FILTER-NAME in collection COLLECTION-NAME."
+  ;; TODO: change function name.
+  ;; TODO: change return value from list to int.
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (or buffer (setq buffer (star-tabs-current-buffer)))
@@ -1452,6 +1460,7 @@ If no tab is found, return nil."
 	 (tab-bar-left-margin-width (star-tabs-get-filter-prop-value :tab-bar-left-margin-width filter-name collection-name))
 	 (window-width (window-pixel-width))
 	 (start-tab 1))
+    ;; Using the pixel width of each tab, calculate how many tabs we can display while also displaying the tab corresponding to BUFFER.
     (while (and (< start-tab tab-number)
 		(< window-width
 		    (- (+ current-tab-accumulative-pixel-width
@@ -1461,9 +1470,10 @@ If no tab is found, return nil."
     `(,start-tab ,tab-number)))
 
 (defun star-tabs-scroll-to-active-buffer ()
+  "Scroll to the tab of the active buffer, if it exists in in the tab bar."
   (interactive)
   (let ((count (car (star-tabs-scroll-to-buffer (star-tabs-current-buffer)))))
-  (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count)))
+    (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count)))
 
 
 ;; Reordering 
@@ -1490,13 +1500,13 @@ If INHIBIT-REFRESH is non-nil, don't force a redisplay of the tab bar."
     (run-hooks 'star-tabs-move-tab-hook)))
 
 (defun star-tabs-move-tab-right ()
-  "Move the currently active tab one step to the right in the tab bar.
+  "Move the active tab one step to the right in the tab bar.
 This only works if the active buffer is part of the active filter group."
   (interactive)
   (star-tabs-move-tab))
 
 (defun star-tabs-move-tab-left ()
-  "Move the currently active tab to the left in the tab bar.
+  "Move the active tab to the left in the tab bar.
 This only works if the active buffer is part of the active filter group."
   (interactive)
   (star-tabs-move-tab t))
