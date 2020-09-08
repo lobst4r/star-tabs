@@ -1688,8 +1688,8 @@ If the buffer is not in the filter group, return 0."
   (or buffer (star-tabs-current-buffer))
   (let ((tab-number (star-tabs--current-buffer-number))
 	(visible-tab-numbers (star-tabs--visible-tabs)))
-    (when (and (>= current-tab-number (car visible-tab-numbers))
-	       (<= current-tab-number (nth 1 visible-tab-numbers)))
+    (when (and (>= tab-number (car visible-tab-numbers))
+	       (<= tab-number (nth 1 visible-tab-numbers)))
       t)))
 
 (defun star-tabs--visible-tabs ()
