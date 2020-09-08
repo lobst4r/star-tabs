@@ -1003,13 +1003,14 @@ FILTER-NAME defaults to the currently active filter."
 ;; Helper functions
 
 (defun star-tabs-buffer-read-only-p (buffer-or-name)
-  "Return t if buffer BUFFER-OR-NAME is read-only; otherwise return nil."
+  "Return non-nil if buffer BUFFER-OR-NAME is read-only; otherwise return nil."
   (not (with-current-buffer buffer-or-name (null buffer-read-only))))
 
 (defun star-tabs-current-buffer ()
   "Return the current buffer if it's being displayed in a window. Otherwise, return the last current buffer displayed in a window.
 This is used instead of (current-buffer) because (current-buffer) 
-sometimes returns temporary/unreal buffers."
+sometimes returns temporary/unreal buffers.
+;; REVIEW: Is the window-check sufficient?"
   (if (get-buffer-window (current-buffer))
       (current-buffer)
     star-tabs-current-buffer))
