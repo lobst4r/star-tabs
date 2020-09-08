@@ -1469,10 +1469,9 @@ If no tab is found, return nil."
 ;; Reordering 
 
 (defun star-tabs-move-tab (&optional backward inhibit-refresh)
-  "Move the currently active tab one step to the right (or left, if BACKWARD is non-nil).
-If INHIBIT-REFRESH is non-nil, don't force a redisplay of the tab bar.
-Note that this might also change the tab's position in other filter groups."
-  (when (> (length (star-tabs-get-active-group-buffers)) 1) ; No need to move the tab if there is just 1 or less tabs.
+  "Move the active tab one step to the right (or left, if BACKWARD is non-nil).
+If INHIBIT-REFRESH is non-nil, don't force a redisplay of the tab bar."
+  (when (> (length (star-tabs-get-active-group-buffers)) 1) ; No need to move the tab if there is just 1 or 0 tabs in the tab bar.
     (let* ((active-tab-buffer (star-tabs-current-buffer))
 	   (buffers (star-tabs-get-active-group-buffers))
 	   (adjacent-tab-buffer (star-tabs-left-of-elt
@@ -1506,13 +1505,14 @@ This only works if the active buffer is part of the active filter group."
   "Move the current buffer so that it becomes the first in the tab bar."
   ;; REVIEW: only run hook when tab ACTUALLY moves?
   (interactive)
-  (let ((buffer (star-tabs-current-buffer)))
-    (setq star-tabs-active-buffers
-	  (star-tabs-insert-at-nth (remove buffer star-tabs-active-buffers)
-			     buffer
-			     0)))
+  (let ((buffer (star-tabs-current-buffer))
+	(buffers (star-tabs-get-active-group-buffers)))
+    (star-tabs-set-filter-prop-value :buffer-list
+				     (star-tabs-insert-at-nth (remove buffer buffers)
+							      buffer
+							      0)
+				     t))
   (run-hooks 'star-tabs-move-tab-hook))
-
 
 ;;; Display
 
@@ -1521,6 +1521,8 @@ This only works if the active buffer is part of the active filter group."
 (defun star-tabs--set-header-line (buffer-list &optional scroll)
   "Set the tab bar to list buffers BUFFER-LIST as tabs.
 If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP is non-nil."
+  ;; TODO: Remove buffer-list argument as it's deprecated.
+  ;; TODO: Update doc string.
   (if (and (not buffer-list)
 	   (not (star-tabs-get-active-group-buffers)))
       ;;If there are no buffers in any group in the current collection, display a message. 
@@ -1531,7 +1533,8 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
       ;; Set Tab Bar
       (star-tabs--set-tab-bar)
       ;; Determine how much to, and if we should scroll.
-      (message "SCROLL: %s" scroll)
+      (if star-tabs-debug-messages
+	  (message "SCROLL: %s" scroll))
       ;; REVIEW: Make sure scroll max (and min?) values are always enforced.
       (or scroll (setq scroll 0))
       (unless (integerp scroll)
@@ -1539,13 +1542,13 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 			   ((equal scroll 'scroll-to-current-buffer) (car (star-tabs-scroll-to-buffer))))))
       ;; Set header-line-format
       (setq star-tabs-header-line-format (star-tabs--set-tab-bar-format scroll))
-      ;; Fill the the right of the tab bar with space.
+      ;; Fill the right of the tab bar with propertized empty space.
       (setq star-tabs-header-line-format (concat star-tabs-header-line-format (star-tabs--header-line-white-space)))))
   (force-mode-line-update t)
   nil)
 
 (defun star-tabs--header-line-white-space ()
-  "Return white space to fill out the unoccupied part, if any, of tab bar."
+  "Return white space as a string to fill out the unoccupied part, if any, of the tab bar."
   (let ((empty-space (/ (star-tabs--header-line-remaining-space)
 			(window-font-width nil 'star-tabs-non-selected-tab)))
 	(white-space ""))
@@ -1560,11 +1563,12 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 Unless set, FILTER-NAME defaults to the currently active filter name.
 This function uses global helper variable star-tabs-filter-name-timer to keep track of the timer."
   ;; Force cancel on any other active timers set with this function.
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (when star-tabs-filter-name-timer
     (cancel-timer star-tabs-filter-name-timer)
     star-tabs-filter-name-timer nil)
   (setq star-tabs-filter-name-timer (star-tabs-set-temporarily 'star-tabs-tab-bar-filter-name
-							(star-tabs-get-active-filter-name)
+							filter-name
 							"1 sec"
 							nil
 							#'star-tabs--set-header-line
@@ -1576,11 +1580,12 @@ This function uses global helper variable star-tabs-filter-name-timer to keep tr
 Unless set, COLLECTION-NAME defaults to the active collection name.
 This function uses global helper variable star-tabs-collection-name-timer to keep track of the timer."
   ;; Force cancel on any other active timers set with this function.
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name t)))
   (when star-tabs-collection-name-timer
     (cancel-timer star-tabs-collection-name-timer)
     star-tabs-collection-name-timer nil)
   (setq star-tabs-collection-name-timer (star-tabs-set-temporarily 'star-tabs-tab-bar-collection-name
-							(star-tabs-active-filter-collection-name t)
+							collection-name
 							"1 sec"
 							nil
 							#'star-tabs--set-header-line
@@ -1591,7 +1596,7 @@ This function uses global helper variable star-tabs-collection-name-timer to kee
 ;; Display helper functions
 
 (defun star-tabs--string-truncated-p (string)
-  "Return t if the width of the tab bar is greater than the width of the current window.
+  "Return t if the width of string STRING is greater than the width of the current window.
 Otherwise, return the number of truncated pixels."
   (let ((tab-bar-width (star-tabs-string-pixel-width string)) 
 	(window-width (window-pixel-width)))
@@ -1602,22 +1607,9 @@ Otherwise, return the number of truncated pixels."
       nil)))
 
 (defun star-tabs--header-line-remaining-space()
-  "Return the width in pixels between the end of the last tab and the right edge of the window."
-  ;; FIXME: Make more accurate calculation of empty space in tab bar.
-  (- (window-pixel-width) (star-tabs-string-pixel-width star-tabs-header-line-format)))
-
-(defun star-tabs--tab-bar-left-margin-width ()
-  "Return the column width of all characters left of the beginning of the first tab.
-If there are no tabs, return 0."
-  (let ((tab-bar-left-margin-width 0)
-	(tab-bar-length (length star-tabs-header-line-format)))
-    (while (and (< tab-bar-left-margin-width tab-bar-length)
-		(eq 0 (or (get-text-property tab-bar-left-margin-width 'buffer-number star-tabs-header-line-format)
-			  0)))
-      (setq tab-bar-left-margin-width (1+ tab-bar-left-margin-width)))
-    (if (>= tab-bar-left-margin-width tab-bar-length)
-	0
-      tab-bar-left-margin-width)))
+  "Return the width in pixels between the end of the last tab and the right edge of the current window."
+  (- (window-pixel-width)
+     (star-tabs-string-pixel-width star-tabs-header-line-format)))
 
 (defun star-tabs--first-number-in-tab-bar ()
   "Return the tab number of the first visible tab in the tab bar.
@@ -1651,11 +1643,10 @@ If the buffer is not in the filter group, return 0."
 	       (<= current-tab-number (nth 1 visible-tab-numbers)))
       t)))
 
-
 (defun star-tabs--visible-tabs ()
   "Return, as a list, the min and max tab number currently displayed in the tab bar.
-Exclude the last tab if it's at all truncated.
-If there is no tabs in the tab bar, return (0 0) indicating that there is neither a start nor an end tab."
+Exclude the last tab if it's truncated.
+If there are no tabs in the tab bar, return (0 0) indicating that there is neither a start nor an end tab."
   (if (star-tabs-get-filter-prop-value :tab-bar)
       (let* ((tabs-pixel-width (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width))
 	     (tab-bar-left-margin-width (star-tabs-get-filter-prop-value :tab-bar-left-margin-width))
@@ -1867,6 +1858,19 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (add-hook 'star-tabs-buffer-switch-hook #'star-tabs-on-buffer-switch)
 
 ;;; DEPRECATED
+
+(defun star-tabs--tab-bar-left-margin-width ()
+  "Return the column width of all characters left of the beginning of the first tab.
+If there are no tabs, return 0."
+  (let ((tab-bar-left-margin-width 0)
+	(tab-bar-length (length star-tabs-header-line-format)))
+    (while (and (< tab-bar-left-margin-width tab-bar-length)
+		(eq 0 (or (get-text-property tab-bar-left-margin-width 'buffer-number star-tabs-header-line-format)
+			  0)))
+      (setq tab-bar-left-margin-width (1+ tab-bar-left-margin-width)))
+    (if (>= tab-bar-left-margin-width tab-bar-length)
+	0
+      tab-bar-left-margin-width)))
 
 (provide 'star-tabs)
 
