@@ -824,17 +824,19 @@ Otherwise, return a list of buffers that don't match any of the prefixes."
 ;; Cache filtered buffers
 
 (defun star-tabs-clear-cached-buffers ()
-  "Clear cache star-tabs-cached-filtered-buffers."
+  "Clear cache of unwanted/unreal buffers star-tabs-cached-filtered-buffers."
   (interactive)
   (clrhash star-tabs-cached-filtered-buffers))
 
 (defun star-tabs-add-filtered-buffer-to-cache (buffer hash-table)
-  "Add unwanted buffer BUFFER to cache HASH-TABLE."
+  "Add unwanted/unreal buffer BUFFER to cache HASH-TABLE."
   (puthash buffer t hash-table))
 
 (defun star-tabs-add-filtered-buffers-to-cache (buffer-list hash-table)
-  "Add unwanted buffers BUFFER-LIST to cache HASH-TABLE."
-  (mapc (lambda (buffer) (star-tabs-add-filtered-buffer-to-cache buffer hash-table)) buffer-list))
+  "Add unwanted/unreal buffers BUFFER-LIST to cache HASH-TABLE."
+  (mapc (lambda (buffer)
+	  (star-tabs-add-filtered-buffer-to-cache buffer hash-table))
+	buffer-list))
 
 
 ;; File extension filters
