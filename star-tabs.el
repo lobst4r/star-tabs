@@ -1118,7 +1118,7 @@ Return 0 if BUFFER is not in the active filter group."
 ;; Buffer Switching
 
 (defun star-tabs-switch-to-buffer (n)
-  "Switch to the buffer associated with the number N."
+  "Switch to the buffer associated with tab number N."
   (interactive "p")
   (let ((buffer (nth (1- n) (star-tabs-get-active-group-buffers))))
     (switch-to-buffer buffer)))
@@ -1138,13 +1138,16 @@ Return 0 if BUFFER is not in the active filter group."
     (kill-buffer buffer-name)))
 
 (defun star-tabs--buffer-switched-p ()
-  "Return t if the current buffer has been switched since last time this function was called. Otherwise, return nil.
-This function should only be used in one place, inside (star-tabs--buffer-list)."
+  "Return non-nil if the current buffer has been switched since last time this function was called. Otherwise, return nil.
+This function should only be used in one place, inside (star-tabs-on-raw-buffer-list-update).
+If the buffer was switched, also run hook star-tabs-buffer-switch-hook."
   (when (and (get-buffer-window (current-buffer))
 	     (not (string-prefix-p " " (buffer-name (current-buffer))))
 	     (member (current-buffer) star-tabs-active-buffers))
     (if (not (equal star-tabs-current-buffer (current-buffer)))
 	(progn
+	  ;; Refresh the filter-name timer if it was running when the buffer switched.
+	  ;; REVIEW: Do this for collection-name timer as well?
 	  (when star-tabs-tab-bar-filter-name
 	    (star-tabs--display-filter-name-temporarily))
 	  (setq star-tabs-current-buffer (current-buffer))
@@ -1154,6 +1157,7 @@ This function should only be used in one place, inside (star-tabs--buffer-list).
 
 
 ;;; Tab bar
+
 (defun star-tabs--tab (buffer-name number)
   "Create/Update the tab, and return a propertized string that represents the tab, for buffer BUFFER-NAME with tab number NUMBER.
 Properties of the tab can be accessed using (star-tabs-get-tab-prop-value TAB-OR-BUFFER PROP FILTER-NAME COLLECTION-NAME).\n
