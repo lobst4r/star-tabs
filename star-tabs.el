@@ -1631,23 +1631,31 @@ Or, return 0 if there are no tabs."
 (defun star-tabs--current-buffer-number ()
   "Return the tab number of the current buffer.
 If the current buffer is not in the active filter group, return 0."
-  (1+ (or (cl-position (star-tabs-current-buffer) (star-tabs-get-active-group-buffers))
-      -1)))
+  (star-tabs--get-buffer-number))
 
+(defun star-tabs--get-buffer-number (&optional buffer filter-name collection-name)
+  "Return the tab number of buffer BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME.
+If the buffer is not in the filter group, return 0."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
+  (or buffer (setq buffer (star-tabs-current-buffer)))
+  (1+ (or (cl-position buffer (star-tabs-get-group-buffers filter-name collection-name))
+	  -1)))
 
-(defun star-tabs--tab-visible-p (buffer)
+(defun star-tabs--tab-visible-p (&optional buffer)
   "Return non-nil if the tab corresponding to buffer BUFFER is visible in the tab bar."
-  (let ((current-tab-number (star-tabs--current-buffer-number))
+  (or buffer (star-tabs-current-buffer))
+  (let ((tab-number (star-tabs--current-buffer-number))
 	(visible-tab-numbers (star-tabs--visible-tabs)))
     (when (and (>= current-tab-number (car visible-tab-numbers))
 	       (<= current-tab-number (nth 1 visible-tab-numbers)))
-      ;; FIXME: car of cdr ->  ??..
       t)))
+
 
 (defun star-tabs--visible-tabs ()
   "Return, as a list, the min and max tab number currently displayed in the tab bar.
-Exclude the last tab if it's truncated."
-  (message "BEFORE VISIBLE TABS")
+Exclude the last tab if it's at all truncated.
+If there is no tabs in the tab bar, return (0 0) indicating that there is neither a start nor an end tab."
   (if (star-tabs-get-filter-prop-value :tab-bar)
       (let* ((tabs-pixel-width (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width))
 	     (tab-bar-left-margin-width (star-tabs-get-filter-prop-value :tab-bar-left-margin-width))
@@ -1663,22 +1671,22 @@ Exclude the last tab if it's truncated."
 
 	  (setq end-tab (1+ end-tab))
 	  (setq end-tab-end-pixel (nth end-tab tabs-pixel-width)))
-	(message "INSIDE VISIBLE TABS")
 	`(,start-tab ,(1- end-tab)))
-    (message "FAILED VISIBLE TABS")
     '(0 0)))
+
 
 ;;; Functions to run with hooks
 
-;; Functions to run when the buffer list updates, or when switching buffers 
+;; Functions to run when the buffer list updates, or when switching buffers .
 
 (defun star-tabs-on-raw-buffer-list-update ()
   "Run with buffer-list-update-hook."
   (star-tabs--update-buffer-list)
-  (star-tabs--buffer-switched-p)) ; REVIEW: Rename function?
+  (star-tabs--buffer-switched-p)) 
 
 (defun star-tabs-on-buffer-list-update ()
   "Run when the list of real buffers updates."
+  ;; TODO: Add parameter for new/killed buffers
   (when star-tabs-debug-messages
     (message "Real buffer list updated"))
   (star-tabs--add-and-remove-file-extension-filters t t)
@@ -1688,34 +1696,33 @@ Exclude the last tab if it's truncated."
 
 (defun star-tabs-on-buffer-switch ()
   "Run when the current real buffer is switched."
-  ;; Find a filter for the new buffer.
   (when star-tabs-debug-messages
     (message "Buffer Switched: %s" (buffer-name (current-buffer))))
+  ;; Find a filter for the new buffer.
   (when (star-tabs-find-active-filter t)
     (star-tabs-on-filter-change t))
   ;; Auto Sort.
-  (when (equal
-	 (star-tabs-get-filter-prop-value :auto-sort)
-	 'recent-first)
+  (when (equal (star-tabs-get-filter-prop-value :auto-sort) 'recent-first)
     (star-tabs-auto-sort))
+  ;; Update and display tab bar.
   (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (if (star-tabs--tab-visible-p (star-tabs-current-buffer))
       (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)))
-
 ;; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
 
-;; Functions to run when modified state changes
+
+;; Functions to run when modified state changes.
 
 (defun star-tabs-when-buffer-first-modified ()
   "Run when a buffer goes from an unmodified state to a modified state."
-  (if (member (current-buffer) star-tabs-active-buffers)
-      (progn
-	(set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should automatically be set to t.
-	(when star-tabs-debug-messages
-	  (message "Buffer Modified"))
-	(star-tabs--update-tabs(star-tabs-get-active-group-buffers))
-	(star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))))
+  (when (member (current-buffer) star-tabs-active-buffers)
+    (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should automatically be set to t.
+    (when star-tabs-debug-messages
+      (message "Buffer Modified"))
+    (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+    (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
+
 
 (defun star-tabs-when-buffer-first-saved ()
   "Run when a buffer goes from a modified state to an unmodified state."
@@ -1727,7 +1734,7 @@ Exclude the last tab if it's truncated."
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
 
 
-;; Functions to run when the active filter group or collection changes
+;; Functions to run when the active filter group or collection changes.
 
 (defun star-tabs-on-filter-change (&optional inhibit-refresh)
   "Run when the active filter group changes."
@@ -1742,6 +1749,7 @@ Exclude the last tab if it's truncated."
 (defun star-tabs-on-collection-change ()
   "Run when the active filter collection changes."
   ;; TODO: (star-tabs--display-collection-name-temporarily) (and filter-name)
+  ;; REVIEW: Make sure this works!
   (when star-tabs-debug-messages
     (message "Collection Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t)
@@ -1750,28 +1758,27 @@ Exclude the last tab if it's truncated."
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 
-;; Functions to run when collection properties change
+;; Functions to run when collection properties change.
 
 (defun star-tabs--add-and-remove-file-extension-filters (&optional inhibit-hook inhibit-refresh)
   "Add or remove file extension filters, based on the collection settings.\n
-File extension filters will be added on one of the two conditions:
-1. The currently active filter collection has the property :enable-file-extension-filters set to non-nil
-2. The currently active filter collection has the property :enable-file-extension-filters set to nil,
-and :file-extension-filter-threshold set above 0 and the total number of buffers (after applying global filters) exceeds that number."
-  (message "BEFORE File Extension List/Filters Updated")
+File extension filters will be added on one of two conditions:
+1. The active filter collection has the property :enable-file-extension-filters set to non-nil
+2. The active filter collection has the property :enable-file-extension-filters set to nil,
+and :file-extension-filter-threshold set above 0, and the total number of buffers (after applying global filters) exceeds that number."
   (setq star-tabs-add-file-extension-filters
 	(or (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters) nil))
-  ;; Activate the file extension filters if the buffer count exceeds a threshold (if set).
+  ;; Activate file extension filters if the buffer count exceeds the threshold (if set).
   (when (and (not (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters))
 	     (not (<= star-tabs-file-ext-filter-buffer-threshold 0)))
     (star-tabs--auto-activate-file-extension-filters-on-buffer-count (star-tabs-get-filter-collection-prop-value
 								      :file-extension-filter-threshold)))
-  ;; Add and remove file extension filters in the current collection, based on what buffers are currently open.
+  ;; Add and remove file extension filters in the current collection, based on the file extension of currently open buffers.
   (let ((extensions-updated-p nil))
     (if star-tabs-add-file-extension-filters
 	(setq extensions-updated-p (or (star-tabs--update-file-extension-filters inhibit-hook)
 				       extensions-updated-p))
-      ;; Remove all automatically set file extension filters in case none of the two conditions described
+      ;; Remove all automatically set file extension filters in case none of the two conditions 
       ;; above are met.
       (when star-tabs-file-extension-filter-names
 	(setq extensions-updated-p (or (star-tabs--remove-file-extension-filters) extensions-updated-p))))
@@ -1782,7 +1789,6 @@ and :file-extension-filter-threshold set above 0 and the total number of buffers
 	(run-hooks 'star-tabs-collection-property-change-hook))
       (unless inhibit-refresh
 	(star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
-    (message "After File Extension List/Filters Updated")
     extensions-updated-p))
 
 (defun star-tabs-on-collection-property-change ()
@@ -1795,7 +1801,7 @@ and :file-extension-filter-threshold set above 0 and the total number of buffers
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
 
 
-;; Functions to run when enabling/disabling Star Tabs
+;; Functions to run when enabling/disabling Star Tabs.
 
 (defun star-tabs-init ()
   "Run when Star Tabs first loads"
@@ -1803,18 +1809,18 @@ and :file-extension-filter-threshold set above 0 and the total number of buffers
     (message "Star Tabs initializing...")))
 
 (defun star-tabs-on-disable-tab-bar ()
-  "Run when Star Tabs goes from enabled to disabled."
+  "Run when Star Tabs Mode goes from enabled to disabled."
   (when star-tabs-debug-messages
     (message "Star Tabs disabled")))
 
 
-;; Misc. functions to run with hooks
+;; Misc. functions to run with hooks.
 
 (defun star-tabs-on-tab-move ()
   "Run when a tab changes position in the tab bar."
   (when star-tabs-debug-messages
     (message "Tab moved"))
-  (star-tabs--update-tabs(star-tabs-get-active-group-buffers))
+  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 (defun star-tabs-on-timer-start ()
@@ -1861,104 +1867,6 @@ and :file-extension-filter-threshold set above 0 and the total number of buffers
 (add-hook 'star-tabs-buffer-switch-hook #'star-tabs-on-buffer-switch)
 
 ;;; DEPRECATED
-
-(defun star-tabs--calculate-tabs-width ()
-  "Return the min and max tab number, currently displayed in the tab bar.
-Exclude the last tab if it's truncated."
-  ;; REVIEW: Maybe cache pixel length of each tab?
-  (let* ((start-tab (star-tabs--first-number-in-tab-bar))
-	 (end-tab start-tab)
-	 (tab-bar-truncated-p nil)
-	 (string-length (length star-tabs-header-line-format))
-	 (margin-column-width (star-tabs--tab-bar-left-margin-width))
-	 (string-pos margin-column-width)
-	 (tabs-pixel-width nil))
-    (setq tabs-pixel-width (append tabs-pixel-width
-				   (let* ((tab-number 0)
-					  (margin-end-pos margin-column-width)
-					  (margin-end-pixel (star-tabs-string-pixel-width (substring star-tabs-header-line-format
-												     0
-												     margin-column-width)))
-					  (margin-pixel-width margin-end-pixel))
-				     (list (list
-					    tab-number
-					    margin-end-pos
-					    margin-end-pixel
-					    margin-pixel-width)))))
-
-    (while (and (not tab-bar-truncated-p)
-		(< string-pos string-length))
-      ;; Everytime a new tab is encountered, create a substring of the tab bar up until that point and check if it's truncated.
-      ;; Keep doing this until the substring is truncated, or until the end of the tab bar is reached.
-      (when (not (eq end-tab (setq end-tab (or (get-text-property string-pos 'buffer-number star-tabs-header-line-format) end-tab))))
-	(setq tabs-pixel-width (append tabs-pixel-width
-				       (let* ((tab-number (1- end-tab))
-					      (tab-end-pos string-pos)
-					      (tab-end-pixel (star-tabs-string-pixel-width (substring star-tabs-header-line-format
-													 0
-													 string-pos)))
-					      (tab-pixel-width (- tab-end-pixel
-								  (car (cdr (reverse (car (reverse tabs-pixel-width))))))))
-					 (list (list
-						tab-number
-						tab-end-pos
-						tab-end-pixel
-						tab-pixel-width)))))
-	(setq tab-bar-truncated-p (star-tabs--string-truncated-p
-				   (substring star-tabs-header-line-format 0 string-pos))))
-      ;; (setq (append tabs-pixel-width tab-bar-truncated-p)))
-      ;; (message "%s"(substring star-tabs-header-line-format 0 string-pos))
-      ;; (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p))
-      (setq string-pos (1+ string-pos)))
-    (setq tab-bar-truncated-p (star-tabs--string-truncated-p
-			       (substring star-tabs-header-line-format 0 string-pos)))
-    ;; (message "%s"(substring star-tabs-header-line-format 0 string-pos))
-    ;; (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p)
-    ;; TODO: Clean up code below (too 'ugly')
-    (setq end-tab (if tab-bar-truncated-p
-		      (if (>= string-pos string-length)
-			  (- end-tab 1)
-			(- end-tab 2))
-		    (if (>= string-pos string-length)
-			end-tab
-		      end-tab)))
-    `(,start-tab ,(max start-tab end-tab))
-    tabs-pixel-width))
-
-(defun star-tabs--visible-tabs-depr ()
-  "Return the min and max tab number, currently displayed in the tab bar.
-Exclude the last tab if it's truncated."
-  ;; REVIEW: Maybe cache pixel length of each tab?
-  (let* ((start-tab (star-tabs--first-number-in-tab-bar))
-	 (end-tab start-tab)
-	 (tab-bar-truncated-p nil)
-	 (tab-bar-header-line (or star-tabs-header-line-format ""))
-	 (string-length (length tab-bar-header-line))
-	 (string-pos 0))
-    (while (and (not tab-bar-truncated-p)
-		(< string-pos string-length))
-      ;; Everytime a new tab is encountered, create a substring of the tab bar up until that point and check if it's truncated.
-      ;; Keep doing this until the substring is truncated, or until the end of the tab bar is reached.
-      (when (not (eq end-tab (setq end-tab (or (get-text-property string-pos 'buffer-number tab-bar-header-line) end-tab))))
-	(setq tab-bar-truncated-p (star-tabs--string-truncated-p
-				   (substring tab-bar-header-line 0 string-pos))))
-      ;; (setq (append tabs-pixel-width tab-bar-truncated-p)))
-      ;; (message "%s"(substring star-tabs-header-line-format 0 string-pos))
-      ;; (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p))
-      (setq string-pos (1+ string-pos)))
-    (setq tab-bar-truncated-p (star-tabs--string-truncated-p
-			       (substring tab-bar-header-line 0 string-pos)))
-    ;; (message "%s"(substring star-tabs-header-line-format 0 string-pos))
-    ;; (message "BN: %s Trunc: %s" (1- end-tab) tab-bar-truncated-p)
-    ;; TODO: Clean up code below (too 'ugly')
-    (setq end-tab (if tab-bar-truncated-p
-		      (if (>= string-pos string-length)
-			  (- end-tab 1)
-			(- end-tab 2))
-		    (if (>= string-pos string-length)
-			end-tab
-		      end-tab)))
-    `(,start-tab ,(max start-tab end-tab))))
 
 (provide 'star-tabs)
 
