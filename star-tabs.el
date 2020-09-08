@@ -955,14 +955,14 @@ Deactivate this feature by setting this variable to 0."
   "Kill all buffers in the filter group FILTER-NAME (defaults to the currently active filter)."
   (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
-  (let ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers)))
+  (let ((buffers (star-tabs-get-group-buffers filter-name)))
     (star-tabs--kill-buffers buffers)))
 
 (defun star-tabs-kill-all-unmodified-buffers-in-filter (&optional filter-name)
   "Kill all unmodified buffers in the filter group FILTER-NAME (defaults to the currently active filter)."
   (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
-  (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
+  (let* ((buffers (star-tabs-get-group-buffers filter-name))
 	 (buffers (delq nil (mapcar (lambda (buffer)
 				      (unless (buffer-modified-p buffer)
 					buffer))
@@ -974,7 +974,7 @@ Deactivate this feature by setting this variable to 0."
 FILTER-NAME defaults to the currently active filter."
   (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
-  (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
+  (let* ((buffers (star-tabs-get-group-buffers filter-name))
 	 (buffers (delq nil (mapcar (lambda (buffer)
 				      (unless (get-buffer-window buffer)
 					buffer))
@@ -986,7 +986,7 @@ FILTER-NAME defaults to the currently active filter."
 FILTER-NAME defaults to the currently active filter."
   (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
-  (let* ((buffers (star-tabs-filter-buffers filter-name star-tabs-active-buffers))
+  (let* ((buffers (star-tabs-get-group-buffers filter-name))
 	 (buffers (delq nil (mapcar (lambda (buffer)
 				      (unless (or (get-buffer-window buffer)
 						   (buffer-modified-p buffer))
@@ -1557,6 +1557,7 @@ This only works if the active buffer is part of the active filter group."
 							      0)
 				     t))
   (run-hooks 'star-tabs-move-tab-hook))
+
 
 ;;; Display
 
