@@ -841,6 +841,7 @@ Otherwise, return a list of buffers that don't match any of the prefixes."
 
 (defun star-tabs-get-file-extensions ()
   "Return all file extension names for all active buffers."
+  ;; TODO: Move regexp to global vars
   (let ((buffers (star-tabs-get-buffer-names star-tabs-active-buffers))
 	(file-ext-regexp ".+\\.*?\\(\\..+$\\)")  ; Regexp matching file extensions.
 	(no-ext-regexp "^[a-z0-9A-Z]+$")	 ; Regexp matching extensionless files/buffers FIXME: Use this or throw it away.
@@ -855,6 +856,7 @@ Otherwise, return a list of buffers that don't match any of the prefixes."
   "Add an inclusive filter for file extension EXTENSION-NAME to filter collection COLLECTION-NAME.
 COLLECTION-NAME defaults to the currently active filter collection.
 Return non-nil if a filter was added, otherwise return nil."
+  ;; REVIEW: Remove inhibit-refresh parameter?
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   ;; Only add a filter if does not already exist in COLLECTION-NAME.
   (if (or (not (member extension-name star-tabs-file-extension-filter-names))
@@ -872,11 +874,14 @@ Return non-nil if a filter was added, otherwise return nil."
     nil))
 
 (defun star-tabs--update-file-extension-filters (&optional inhibit-refresh collection-name)
-  "Update automatically added file extension buffer filters in filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection."
+  "Update automatically added file extension filters in filter collection COLLECTION-NAME.
+COLLECTION-NAME defaults to the currently active filter collection.
+Return non-nil if a filter was added or removed, otherwise nil."
+  ;; REVIEW: Remove inhibit-refresh parameter?
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   ;; Make sure there is a filter for extensionless files.
   (let ((extensions-updated-p nil)) ; Keep track of whether we actually add or remove a filter.
+    ;; TODO: Only add this if there are extensionless files
     (when (not (member 'extensionless (star-tabs-get-filter-names)))
       (star-tabs-add-filter
        :name 'extensionless
@@ -906,6 +911,7 @@ COLLECTION-NAME defaults to the currently active filter collection."
   "Remove automatically added file extension filter FILTER-NAME from filter collection COLLECTION-NAME.
 COLLECTION-NAME defaults to the currently active filter collection.
 Return non-nil if a filter was removed, otherwise nil."
+  ;; REVIEW: Remove inhibit-refresh parameter?
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   (if (member filter-name star-tabs-file-extension-filter-names) ; Make sure the filter is one of the automatically added filters.
 	;; First remove the filter from the collection...
@@ -919,11 +925,14 @@ Return non-nil if a filter was removed, otherwise nil."
     nil))
 
 (defun star-tabs--remove-file-extension-filters (&optional inhibit-refresh collection-name)
-  "Remove all automatically added file extension buffer filters from filter collection COLLECTION-NAME.
+  "Remove all automatically added file extension filters from filter collection COLLECTION-NAME.
+Return non-nil if a filter was removed, otherwise nil.
 COLLECTION-NAME defaults to the currently active filter collection."
+  ;; REVIEW: Remove inhibit-refresh paremater (these filters should only be removed by setting collection prop)?
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   (let ((file-extensions star-tabs-file-extension-filter-names)
 	(extensions-updated-p nil))
+    ;; Remove file extension filters, if any.
     (dolist (ext file-extensions)
       (setq extensions-updated-p (or (star-tabs--remove-file-extension-filter ext inhibit-refresh collection-name)
 				     extensions-updated-p)))
@@ -933,12 +942,11 @@ COLLECTION-NAME defaults to the currently active filter collection."
     extensions-updated-p))
 
 (defun star-tabs--auto-activate-file-extension-filters-on-buffer-count (threshold)
- "When the total number of buffers after global filters have been applied reaches or exceeds 
-THRESHOLD, star-tabs-add-file-extension-filters is automatically set to t,
+ "Add file extension filters when the total number of real buffers reaches or exceeds THRESHOLD.
+More specifically, when the threshold is met, star-tabs-add-file-extension-filters is automatically set to t,
 and file extension filters are subsequently added. If the buffer count goes down below the threshold again,
 star-tabs-add-file-extension-filters is then set to nil, and all automatically added file extension filters are removed.
-Deactivate this feature by setting this variable to 0."
- ;; FIXME: Fix documentation ("this variable" ??)
+Deactivate this feature by setting collection property :file-extension-filter-threshold to 0."
  (unless (<= threshold 0)
    (if (and (not star-tabs-add-file-extension-filters)
 	    (>= (length star-tabs-active-buffers) threshold))
