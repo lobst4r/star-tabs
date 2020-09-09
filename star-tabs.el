@@ -1331,6 +1331,16 @@ Return nil if either the property is not found, or if the tab doesn't exists."
 	       tab-or-buffer)
 	     prop))
 
+(defun star-tabs-get-tab-props (tab-or-buffer &optional filter-name collection-name)
+  "Return the properties of tab TAB-OR-BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME.
+If TAB-OR-BUFFER is a tab, return itself.
+If TAB-OR-BUFFER is a buffer, return the tab (including its properties) corresponding to TAB-OR-BUFFER."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
+  (if (bufferp tab-or-buffer)
+      (star-tabs-get-tab tab-or-buffer filter-name collection-name)
+    tab-or-buffer))
+
 (defun star-tabs--select-icon (buffer)
   "Return the all-theicons-icon for buffer BUFFER."
   ;; TODO: add checks for whether all-the-icons is installed (also make sure graphical elements are supported).
