@@ -120,6 +120,13 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
 (defvar star-tabs-debug-messages t
   "If set to non-nil, debug messages will be displayed.")
 
+(defvar star-tabs-tab-bar-filter-name nil
+  "Filter name to be displayed in the tab bar; automatically set by other functions.")
+
+(defvar star-tabs-tab-bar-collection-name nil
+  "Collection name to be displayed in the tab bar; automatically set by other functions.")
+
+
 ;; Collections
 
 (defvar star-tabs-collections nil
@@ -136,23 +143,21 @@ should (and should only!) be applied to buffers that you really don't care about
 Buffers with the space prefix (\" \") are automatically filtered before this filter is applied, and thus cannot  
 be included.
 
-This filter is applied before star-tabs-global-exclusion-prefix-filter.")
+This filter is applied before star-tabs-global-exclusion-prefix-filter."
+  ;; REVIEW: DEPRECATED: Not really needed maybe?
+  )
 
-(defvar star-tabs-global-exclusion-prefix-filter '("*" "magit-" "magit:")
+(defvar star-tabs-global-exclusion-prefix-filter '("*"
+						   "magit-"
+						   "magit:")
   "List of buffer name prefixes to be excluded globally. Buffers filtered this way will be cached and ignored
-for all future searches. As such, global filtering may increase performance, and
+for all future buffer list updates. As such, global filtering may increase performance, and
 should (and should only!) be applied to buffers that you really don't care about.
 
 Buffers with the space prefix (\" \") are automatically filtered before this filter is applied, and thus need not
 be added to this list.
 
-This filter is applied after star-tabs-global-inclusion-prefix-filter.")
-
-(defvar star-tabs-tab-bar-filter-name nil
-  "Filter name to be displayed in the tab bar; automatically set by other functions.")
-
-(defvar star-tabs-tab-bar-collection-name nil
-  "Collection name to be displayed in the tab bar; automatically set by other functions.")
+REVIEW: DEPRECATED: This filter is applied after star-tabs-global-inclusion-prefix-filter, which will probably be removed soon?")
 
 (defvar star-tabs-cached-filtered-buffers (make-hash-table :test #'equal)
   "Cache globally filtered buffers to improve performance.")
