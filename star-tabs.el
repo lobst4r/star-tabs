@@ -58,11 +58,11 @@
 (defvar star-tabs-buffer-list-update-hook nil
   "Functions to run when the Star Tabs-curated list of real buffers is updated.")
 
-(defvar star-tabs-filter-change-hook nil
-  "Functions to run when the active filter group changes.")
+(defvar star-tabs-filter-switch-hook nil
+  "Functions to run when the active filter group switches.")
 
-(defvar star-tabs-collection-change-hook nil
-  "Functions to run when the active collection changes.")
+(defvar star-tabs-collection-switch-hook nil
+  "Functions to run when the active collection switches.")
 
 (defvar star-tabs-timer-start-hook nil
   "Functions to run when a Star Tabs timer starts.")
@@ -73,15 +73,17 @@
 (defvar star-tabs-init-hook nil
   "Functions to run when Star Tabs first loads.")
 
+;; TODO: add enable-tab-bar-hook as well?
+
 (defvar star-tabs-disable-tab-bar-hook nil
-  "Functions to run when Star Tabs goes from enabled to disabled.")
+  "Functions to run when Star Tabs becomes disabled.")
 
 (defvar star-tabs-move-tab-hook nil
   "Functions to run when a tab changes position in the tab bar.")
 
 (defvar star-tabs-collection-property-change-hook nil
   "Functions to run when the property of a collection changes.
-Note that only Star Tabs functions will trigger this hook.")
+Note that only Star Tabs functions used to set or change collection properties will trigger this hook.")
 
 
 ;; Keymaps
@@ -396,7 +398,7 @@ identified by the symbol name (intern (concat collection-name-prefix name)). (de
 	       (when use
 		 (while (not (eq (star-tabs-active-collection-name) name))
 		   (star-tabs-cycle-collections t t))
-		 (run-hooks 'star-tabs-collection-change-hook)))
+		 (run-hooks 'star-tabs-collection-switch-hook)))
       (message "Collection name already exists"))))
 
 (defun star-tabs-collection-names ()
@@ -425,11 +427,11 @@ identified by the symbol name (intern (concat collection-name-prefix name)). (de
 
 (defun star-tabs-cycle-collections (&optional reverse inhibit-hook)
   "Cycle (move forward, or backward if REVERSE is non-nil) through collections.
-Also run hook star-tabs-collection-change-hook if INHIBIT-HOOK is nil (default)."
+Also run hook star-tabs-collection-switch-hook if INHIBIT-HOOK is nil (default)."
   (interactive)
   (setq star-tabs-collections (star-tabs-cycle-list-car star-tabs-collections reverse))
   (unless inhibit-hook
-    (run-hooks 'star-tabs-collection-change-hook)))
+    (run-hooks 'star-tabs-collection-switch-hook)))
 
 (defun star-tabs-active-collection-name (&optional no-prefix)
   "Return the name of the active collection."
@@ -557,7 +559,7 @@ Note that file extensions will be readded if activated."
 (defun star-tabs-cycle-filters (&optional reverse inhibit-refresh)
   "Cycle (move forward, or backward if REVERSE is non-nil) through filter groups in the active collection. 
 Ignore empty filter groups.
-Also run hook star-tabs-filter-change-hook if INHIBIT-REFRESH is nil."
+Also run hook star-tabs-filter-switch-hook if INHIBIT-REFRESH is nil."
   (interactive)
   (or reverse (setq reverse nil))
   ;; Move (cycle) forward once, or backward if REVERSE is non-nil.
@@ -575,7 +577,7 @@ Also run hook star-tabs-filter-change-hook if INHIBIT-REFRESH is nil."
 				     reverse))
       (setq filter-count (1- filter-count)))) ;Prevent infinite loop in case all groups are empty
   (unless inhibit-refresh
-    (run-hooks 'star-tabs-filter-change-hook)))
+    (run-hooks 'star-tabs-filter-switch-hook)))
 
 (defun star-tabs-find-active-filter (&optional inhibit-refresh) 
   "Find a filter group for the current buffer, if such filter exists in the current collection.
@@ -598,7 +600,7 @@ Return the name of the new filter if the filter switches."
 				     (star-tabs-get-active-filter-name)))))
       (when (and (not inhibit-refresh)
 		 filter-changed-p)
-	(run-hooks 'star-tabs-filter-change-hook)) ; REVIEW: Will this trigger even if we don't actually change filter?
+	(run-hooks 'star-tabs-filter-switch-hook)) ; REVIEW: Will this trigger even if we don't actually change filter?
       (if filter-changed-p
 	  (star-tabs-get-active-filter-name)
 	nil))))
@@ -1741,7 +1743,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (message "Buffer Switched: %s" (buffer-name (current-buffer))))
   ;; Find a filter for the new buffer.
   (when (star-tabs-find-active-filter t)
-    (star-tabs-on-filter-change t))
+    (star-tabs-on-filter-switch t))
   ;; Auto Sort.
   (when (equal (star-tabs-get-filter-prop-value :auto-sort) 'recent-first)
     (star-tabs-auto-sort))
@@ -1777,7 +1779,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 
 ;; Functions to run when the active filter group or collection changes.
 
-(defun star-tabs-on-filter-change (&optional inhibit-refresh)
+(defun star-tabs-on-filter-switch (&optional inhibit-refresh)
   "Run when the active filter group changes."
   ;; Review: Probably not triggered when changing collections (which subsequently will change the active filter)
   (when star-tabs-debug-messages
@@ -1787,7 +1789,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   (unless inhibit-refresh
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)))
 
-(defun star-tabs-on-collection-change ()
+(defun star-tabs-on-collection-switch ()
   "Run when the active collection changes."
   ;; TODO: (star-tabs--display-collection-name-temporarily) (and filter-name)
   ;; REVIEW: Make sure this works!
@@ -1903,8 +1905,8 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (add-hook 'star-tabs-buffer-list-update-hook #'star-tabs-on-buffer-list-update)
 ;; (add-hook 'star-tabs-timer-end-hook #'star-tabs-on-timer-end)
 ;; (add-hook 'star-tabs-timer-start-hook #'star-tabs-on-timer-start)
-(add-hook 'star-tabs-collection-change-hook #'star-tabs-on-collection-change)
-(add-hook 'star-tabs-filter-change-hook #'star-tabs-on-filter-change) 
+(add-hook 'star-tabs-collection-switch-hook #'star-tabs-on-collection-switch)
+(add-hook 'star-tabs-filter-switch-hook #'star-tabs-on-filter-switch) 
 (add-hook 'star-tabs-buffer-switch-hook #'star-tabs-on-buffer-switch)
 
 ;;; DEPRECATED
