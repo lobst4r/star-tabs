@@ -224,7 +224,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
       (
        :height ,star-tabs-tab-bar-height
        :background ,star-tabs-tab-bar-non-selected-background)))
-  "Face for left margin of the header-line which is used for determining the height of the header-line.")
+  "Face for the left margin of the header-line which is used for determining the height of the header-line.")
 
 (defface star-tabs-filter-name
   `((t
@@ -232,7 +232,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
       :background ,star-tabs-tab-bar-non-selected-background
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
-  "Face for displaying filter-name in the tab bar.")
+  "Face for displaying the filter name in the tab bar.")
 
 (defface star-tabs-collection-name
   `((t
@@ -240,7 +240,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
       :background ,star-tabs-tab-bar-non-selected-background
       :foreground ,star-tabs-tab-bar-collection-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
-  "Face for displaying collection name in the tab bar.")
+  "Face for displaying the collection name in the tab bar.")
 
 (defface star-tabs-tab-divider-mouse-selected
   `((t
@@ -248,7 +248,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
       :background ,star-tabs-tab-bar-selected-background
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
-  "Face to be displayed when hovering over a selected tab with the mouse in the tab bar.")
+  "Face to prevent tabs from 'melting' together when hovering over a selected tab with the mouse in the tab bar.")
 
 (defface star-tabs-tab-divider-mouse-non-selected
   `((t
@@ -256,7 +256,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
       :background ,star-tabs-tab-bar-non-selected-background
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
-  "Face to be displayed when hovering over a selected tab with the mouse in the tab bar.")
+  "Face to prevent tabs from 'melting' together when hovering over a non-selected tab with the mouse in the tab bar.")
 
 (defface star-tabs-mouse-selected
   `((t
@@ -272,7 +272,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
       :background ,star-tabs-tab-bar-non-selected-background
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
-  "Face to be displayed when hovering over a selected tab with the mouse in the tab bar.")
+  "Face to be displayed when hovering over a non-selected tab with the mouse in the tab bar.")
 
 (defface star-tabs-non-selected-tab
   `((t (
