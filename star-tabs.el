@@ -310,7 +310,8 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
 ;;; Utility
 
 (defun star-tabs-cycle-list-car (list &optional reverse)
-  "Cycle (move forward, or backward if REVERSE is non-nil) through list LIST. Return the modified list."
+  "Cycle (move forward, or backward if REVERSE is non-nil) through list LIST. 
+Return a copy of the modified list."
   (or reverse (setq reverse nil))
   (let (cycled-list)
     (if reverse
@@ -327,21 +328,16 @@ Return nil if ELT is not in LIST."
       (or left-elt (car (reverse list))))))
 
 (defun star-tabs-insert-at-nth (list elt n)
-  "Insert element ELT in list LIST at position N. Return the modified list."
+  "Insert element ELT in list LIST at position N. Return a copy of the modified list."
   (let ((nth-from-end (- (length list) n)))
     (append (reverse (nthcdr nth-from-end (reverse list))) (list elt) (nthcdr n list))))
 
-(defun star-tabs-flatten-alist (alist)
-  "Flatten an alist by removing keys and keeping values."
-  (let ((flattened-list nil))
-    (dolist (item alist flattened-list)
-      (dolist (value (cdr item) flattened-list)
-	(push value flattened-list)))
-    (delq nil (reverse flattened-list))))
-
 (defun star-tabs-set-temporarily (symbol value duration &optional value-after func-after &rest args)
   "Set symbol SYMBOL to value VALUE for DURATION. After DURATION, set SYMBOL to VALUE-AFTER (default nil). 
-Optionally run function FUNCTION with arguments ARGS after DURATION. Return timer."
+Optionally run function FUNCTION with arguments ARGS after DURATION. Return timer.
+Also run hook star-tabs-timer-start-hook before the timer starts, and
+star-tabs-timer-end-hook when the timer ends."
+  ;; TODO: Add inhibit-hook parameter.
   ;; Set to new value when the timer starts.
   (set symbol value)
   (run-hooks 'star-tabs-timer-start-hook)
@@ -1922,6 +1918,14 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (add-hook 'star-tabs-buffer-switch-hook #'star-tabs-on-buffer-switch)
 
 ;;; DEPRECATED
+
+(defun star-tabs-flatten-alist (alist)
+  "Flatten an alist by removing keys and keeping values."
+  (let ((flattened-list nil))
+    (dolist (item alist flattened-list)
+      (dolist (value (cdr item) flattened-list)
+	(push value flattened-list)))
+    (delq nil (reverse flattened-list))))
 
 (defun star-tabs--tab-bar-left-margin-width ()
   "Return the column width of all characters left of the beginning of the first tab.
