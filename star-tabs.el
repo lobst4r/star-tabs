@@ -192,6 +192,8 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
 
 ;;; Visuals
 
+;; TODO: Make these defcustom
+
 (defvar star-tabs-tab-bar-height 210
   "Height of the tab bar.")
 
@@ -199,16 +201,16 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
   "Text height for tabs.")
 
 (defvar star-tabs-tab-bar-filter-name-foreground "#ef21b3"
-  "Foreground color for tab bar filter name.")
+  "Foreground color for the tab bar filter name.")
 
 (defvar star-tabs-tab-bar-collection-name-foreground "#7cd164"
-  "Foreground color for tab bar collection name.")
+  "Foreground color for the tab bar collection name.")
 
 (defvar star-tabs-tab-bar-selected-background "#202020"
-  "Background color for selected tab.")
+  "Background color for the selected tab.")
 
 (defvar star-tabs-tab-bar-selected-foreground "#a3c9e7"
-  "Foreground color for selected tab.")
+  "Foreground color for the selected tab.")
 
 (defvar star-tabs-tab-bar-non-selected-background "#262626"
   "Background color for non-selected tabs.")
