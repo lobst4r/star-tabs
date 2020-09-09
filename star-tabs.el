@@ -1393,6 +1393,8 @@ Properties related to the left margin are:
 :tab-bar-left-margin - Propertized string representation of the left margin.
 :tab-bar-left-margin-width - Width in pixels of the left margin.
 :tab-bar-left-margin-column-width - Width in columns of the left margin."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (let* ((left-margin-fill (propertize star-tabs-left-margin
 				      'face 'star-tabs-tab-bar-left-margin))
 	(left-margin-collection-name (when star-tabs-tab-bar-collection-name 
