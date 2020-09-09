@@ -163,21 +163,14 @@ This filter is applied after star-tabs-global-inclusion-prefix-filter.")
 (defvar star-tabs-add-file-extension-filters nil
   "If non-nil, file extension filters will be added to the collection. This variable is set and
 controlled by functions, and depends on collection-specific configuration."
-  ;; FIXME: Add as a collection property instead.
+  ;; TODO: Add as a collection property instead.
   )
 
-(defcustom star-tabs-file-ext-filter-buffer-threshold 15
-  "When the total number of buffers after global filters have been applied reaches or exceeds 
-the number set in this variable, star-tabs-set-file-extension-filters is automatically set to t,
-and file extension filters are subsequently added. If the buffer count goes down below the threshold again,
-star-tabs-set-file-extension-filters is then set to nil, and all automatically added file extension filters removed.
-Deactivate this feature by setting this variable to 0."
-  ;; FIXME: Add as a collection property instead.
-  :type 'int)
-
 (defvar star-tabs-file-extension-filter-names nil
-  "Automatically added file-extension filters. 
-This is a helper variable for the automatic file extension filters")
+  "Automatically added file-extension filter group names. 
+This is a helper variable for the automatic file extension filter groups."
+  ;; TODO: Add as a collection property instead
+  )
 
 
 ;; Buffers
@@ -1938,6 +1931,15 @@ If there are no tabs, return 0."
     (if (>= tab-bar-left-margin-width tab-bar-length)
 	0
       tab-bar-left-margin-width)))
+
+(defcustom star-tabs-file-ext-filter-buffer-threshold 15
+  "When the total number of buffers after global filters have been applied reaches or exceeds 
+the number set in this variable, star-tabs-set-file-extension-filters is automatically set to t,
+and file extension filters are subsequently added. If the buffer count goes down below the threshold again,
+star-tabs-set-file-extension-filters is then set to nil, and all automatically added file extension filters removed.
+Deactivate this feature by setting this variable to 0."
+  ;; FIXME: Add as a collection property instead.
+  :type 'int)
 
 (provide 'star-tabs)
 
