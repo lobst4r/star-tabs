@@ -377,6 +377,7 @@ Any elements in OLD-LIST not in NEW-LIST will be removed."
 among currently open buffers (default nil).
 :collection-name-prefix - the prefix of the name of the collection, used in variable names. Individual collections can be 
 identified by the symbol name (intern (concat collection-name-prefix name)). (default \"star-tabs-collection-\")."
+  ;; TODO: Update documentation for :disable-scroll-to-filter
   (let* ((use (plist-get collection-props :use))
 	 (enable-file-extension-filters (plist-get collection-props :enable-file-extension-filters))
 	 (hide-close-buttons (plist-get collection-props :hide-close-buttons))
@@ -1358,6 +1359,7 @@ Properties related to the tab bar are:
 							(or (car (reverse cumulative-pixel-width))
 							    0))))))))
     (star-tabs--set-left-margin)
+    (star-tabs-set-filter-prop-value :tab-bar-tab-count (length buffers) t filter-name collection-name) ; TODO: Move this to earlier in cycle?
     (star-tabs-set-filter-prop-value :tab-bar-cumulative-pixel-width cumulative-pixel-width t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar tab-bar-tabs t filter-name collection-name)
     tab-bar-tabs))
@@ -1369,7 +1371,8 @@ The tab bar format can be accessed using (star-tabs-get-filter-prop-value :tab-b
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (setq start-number (if start-number
-			 (1- start-number)
+			 (min (1- (or (star-tabs-get-filter-prop-value :tab-bar-tab-count filter-name collection-name) 1))
+			      (1- (max start-number 1)))
 		       0))
   (let* ((tabs (nthcdr start-number (star-tabs-get-filter-prop-value :tab-bar filter-name collection-name)))
 	 (tab-bar-left-margin (star-tabs-get-filter-prop-value :tab-bar-left-margin filter-name collection-name))
@@ -1382,7 +1385,6 @@ The tab bar format can be accessed using (star-tabs-get-filter-prop-value :tab-b
     (star-tabs-set-filter-prop-value :tab-bar-format-first-tab-number (1+ start-number) t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar-format tab-bar-format t filter-name collection-name)
     tab-bar-format))
-
 
 (defun star-tabs--set-left-margin (&optional filter-name collection-name)
   "Set and return the left margin of the tab bar in filter group FILTER-NAME of collection COLLECTION-NAME.
@@ -1424,55 +1426,34 @@ Properties related to the left margin are:
       (setq counter (1+ counter)))))
 
 
-;; (nth 0 (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width))
-;; (star-tabs-scroll-to-active (current-buffer))
-
-;; (star-tabs--visible-tabs)
-;; (star-tabs--set-tab-bar)
-;; (star-tabs--set-tab-bar-format 2)
-
-;; (star-tabs-get-filter-prop-value :tab-bar-cumulative-pixel-width)
-;; (insert (star-tabs-get-filter-prop-value :tab-bar-format))
-;; (star-tabs-get-filter-prop-value :tab-bar-visible-tabs)
-;; (nth 0 (length (star-tabs-get-filter-prop-value :tab-bar)))
-;; (nth 0 (length (star-tabs-get-filter-prop-value :tabs)))
-;; (star-tabs-get-filter-prop-value :tabs)
-
-;; (message "%s" (star-tabs-get-filter-prop-value :tabs))
-;; (nthcdr 1 '(a b c))
-
 ;; Scrolling
 
 (defun star-tabs-scroll-tab-bar (&optional backward count)
   "Horizontally scroll the tab bar to the right (left if BACKWARD is non-nil), COUNT (default 2) times."
-  ;; FIXME: scrolling before filter name has disappeared will reset scrolling
-  ;; TODO: Cache header-line-format (maybe not necessary)
-  (or count (setq count 3))
+  (or count (setq count 2))
+  ;; Keep timers going to display filter name and collection name in the tab bar, if they are running.
+  (when star-tabs-tab-bar-filter-name
+    (star-tabs--display-filter-name-temporarily))
+  (when star-tabs-tab-bar-collection-name
+    (star-tabs--display-collection-name-temporarily))
   (let* ((first-tab-number (star-tabs--first-number-in-tab-bar))
 	 (count (if backward
-		    (- (- first-tab-number 1) count)
-		  (+ (- first-tab-number 1) count)))) 
-    ;; Only scroll forward (right) if the right of the tab bar is truncated, otherwise there's really no need to scroll forward. 
-    (when (star-tabs--string-truncated-p star-tabs-header-line-format)
-      ;; Make sure we don't scroll past the last buffer.
-      (setq count (min
-		   (1- (length (star-tabs-get-active-group-buffers)))
-		   count))
-      (length (star-tabs-get-active-group-buffers))
-      (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count))
-    ;; When going backward:
-    (when (and (>= first-tab-number 2)
-	       backward)
-      (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count))))
+		    (- first-tab-number (max count 1))
+		  (+ first-tab-number (max count 0))))) 
+    ;; Don't scroll past the last tab.
+    (setq count (min
+		 (length (star-tabs-get-active-group-buffers))
+		 count))
+    (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count)))
 
 (defun star-tabs-scroll-tab-bar-forward (&optional count)
   "Scroll tab bar forward prefix argument COUNT (default 2) number of tabs.
 Switch to the next filter group if we're already scrolled all the way to the right."
-  ;; REVIEW: Require two consecutive scrolls before switching filters?
   ;; TODO: Fix docstring wording
   (interactive "P") 
   (or count (setq count 2))
-  (if (and (not (star-tabs--string-truncated-p star-tabs-header-line-format))
+  (if (and (>  (+ count (star-tabs-get-filter-prop-value :tab-bar-format-first-tab-number))
+	       (star-tabs-get-filter-prop-value :tab-bar-tab-count))
 	   (not (star-tabs-get-collection-prop-value :disable-scroll-to-filter)))
       ;; Move to next filter group if scrolled all the way to the right in the current group.
       (progn (star-tabs-cycle-filters)
@@ -1588,11 +1569,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
     (when (and buffer-list
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
       ;; Set Tab Bar
-      (message "Margin width BEFORE set-tab-bar: %s" (star-tabs-get-filter-prop-value :tab-bar-left-margin-column-width))
-      (message "First tab BEFORE: %s" (star-tabs--first-number-in-tab-bar))
       (star-tabs--set-tab-bar)
-      (message "Margin width AFTER set-tab-bar: %s" (star-tabs-get-filter-prop-value :tab-bar-left-margin-column-width))
-      (message "First tab AFTER: %s" (star-tabs--first-number-in-tab-bar))
       ;; Determine how much to, and if we should scroll.
       (if star-tabs-debug-messages
 	  (message "SCROLL: %s" scroll))
