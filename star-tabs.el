@@ -1164,7 +1164,7 @@ If the buffer was switched, also run hook star-tabs-buffer-switch-hook."
 
 ;;; Tab bar
 
-(defun star-tabs--tab (buffer-name number)
+(defun star-tabs--create-tab (buffer-name number &optional filter-name collection-name)
   "Create/Update the tab, and return a propertized string that represents the tab, for buffer BUFFER-NAME with tab number NUMBER.
 Properties of the tab can be accessed using (star-tabs-get-tab-prop-value TAB-OR-BUFFER PROP FILTER-NAME COLLECTION-NAME).\n
 Properties related to the tab are:
@@ -1178,6 +1178,8 @@ Properties related to the tab are:
   ;; TODO: Rename, update separators/dividers (and make sure they are customizable)
   ;; TODO: Reduce if-statements that check for current buffer.
   ;; FIXME: Icon shouldn't be highlighted on mouse-over.
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (let* ((name buffer-name)
 	 ;; Number and name:
 	 (number-and-name (propertize (concat
@@ -1208,7 +1210,7 @@ Properties related to the tab are:
 					     star-tabs-modified-buffer-icon
 					   star-tabs-unmodified-buffer-icon)
 					 (when (not(star-tabs-get-collection-prop-value
-						    :hide-close-buttons))
+						    :hide-close-buttons collection-name))
 					   star-tabs-modified-icon-close-button-separator))
 				      ;; Display nothing if it's an unreal buffer, system buffer, or read-only buffer:
 				      "")
@@ -1226,7 +1228,7 @@ Properties related to the tab are:
 	 ;; Close button:
 	 ;; Conditionally display close button
 	 (close-button (propertize (if (not(star-tabs-get-collection-prop-value
-					    :hide-close-buttons))
+					    :hide-close-buttons collection-name))
 				       star-tabs-close-buffer-icon
 				     "")
 				   'keymap star-tabs-map-close-tab
@@ -1302,12 +1304,14 @@ Properties related to the tab are:
 			     :tab-modified-p ,tab-modified-p)))
       ;; Add tab to the filter group property :tabs as an alist,
       ;; where the key is the buffer and the value is a plist of tab properties.
-      (if (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs))
-		 (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs)) (cdr tab))
+      (if (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name))
+		 (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name)) (cdr tab))
 	(star-tabs-set-filter-prop-value :tabs
-      					 (append (star-tabs-get-filter-prop-value :tabs)
+      					 (append (star-tabs-get-filter-prop-value :tabs filter-name collection-name)
       						 (list tab))
-      					 t))
+      					 t
+					 filter-name
+					 collection-name))
       tab-string)))
 
 (defun star-tabs-get-tab (buffer &optional filter-name collection-name)
@@ -1419,12 +1423,14 @@ Properties related to the left margin are:
     (star-tabs-set-filter-prop-value :tab-bar-left-margin tab-bar-left-margin t filter-name collection-name)
     tab-bar-left-margin))
 
-(defun star-tabs--update-tabs (buffers)
+(defun star-tabs--update-tabs (buffers &optional filter-name collection-name)
   "Update tabs BUFFERS in the active filter group."
   ;; TODO: revamp how tabs are updated. 
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (let ((counter 1))
     (dolist (buffer buffers)
-      (star-tabs--tab (buffer-name buffer) counter)
+      (star-tabs--create-tab (buffer-name buffer) counter)
       (setq counter (1+ counter)))))
 
 
