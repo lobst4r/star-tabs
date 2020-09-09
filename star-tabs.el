@@ -1379,8 +1379,10 @@ The tab bar format can be accessed using (star-tabs-get-filter-prop-value :tab-b
 	    (concat tab-bar-format
 		    (star-tabs-get-tab-prop-value tab :tab-string filter-name collection-name))))
     ;; REVIEW: Add visible tabs prop? (maybe not a good idea since window width can change all the time, meaning we would still need to recalculate.)
+    (star-tabs-set-filter-prop-value :tab-bar-format-first-tab-number (1+ start-number) t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar-format tab-bar-format t filter-name collection-name)
     tab-bar-format))
+
 
 (defun star-tabs--set-left-margin (&optional filter-name collection-name)
   "Set and return the left margin of the tab bar in filter group FILTER-NAME of collection COLLECTION-NAME.
@@ -1586,7 +1588,11 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
     (when (and buffer-list
 	       (not (window-dedicated-p (get-buffer-window (current-buffer)))))
       ;; Set Tab Bar
+      (message "Margin width BEFORE set-tab-bar: %s" (star-tabs-get-filter-prop-value :tab-bar-left-margin-column-width))
+      (message "First tab BEFORE: %s" (star-tabs--first-number-in-tab-bar))
       (star-tabs--set-tab-bar)
+      (message "Margin width AFTER set-tab-bar: %s" (star-tabs-get-filter-prop-value :tab-bar-left-margin-column-width))
+      (message "First tab AFTER: %s" (star-tabs--first-number-in-tab-bar))
       ;; Determine how much to, and if we should scroll.
       (if star-tabs-debug-messages
 	  (message "SCROLL: %s" scroll))
@@ -1669,11 +1675,7 @@ Otherwise, return the number of truncated pixels."
 (defun star-tabs--first-number-in-tab-bar ()
   "Return the tab number of the first visible tab in the tab bar.
 Or, return 0 if there are no tabs."
-  (if (> (length star-tabs-header-line-format) 0)
-      (or (get-text-property (star-tabs-get-filter-prop-value :tab-bar-left-margin-column-width)
-			     'buffer-number star-tabs-header-line-format)
-	  0)
-    0))
+  (or (star-tabs-get-filter-prop-value :tab-bar-format-first-tab-number) 0))
 
 (defun star-tabs--current-buffer-number ()
   "Return the tab number of the current buffer.
