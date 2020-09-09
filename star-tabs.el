@@ -182,12 +182,9 @@ This is a helper variable for the automatic file extension filters")
 
 ;; Buffers
 
+;; TODO: Rename star-tabs-active-buffers -> ??
 (defvar star-tabs-active-buffers nil
-  "List of all active/'real' buffers.
-A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/temporary or otherwise deemed unimportant.")
-
-(defvar star-tabs-active-group-buffers nil
-  "List of all buffers in the active group")
+  "List of all real buffers.")
 
 
 ;;; Visuals
