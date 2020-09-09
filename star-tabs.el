@@ -1912,43 +1912,6 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (add-hook 'star-tabs-filter-switch-hook #'star-tabs-on-filter-switch) 
 (add-hook 'star-tabs-buffer-switch-hook #'star-tabs-on-buffer-switch)
 
-;;; DEPRECATED
-
-(defun star-tabs-flatten-alist (alist)
-  "Flatten an alist by removing keys and keeping values."
-  (let ((flattened-list nil))
-    (dolist (item alist flattened-list)
-      (dolist (value (cdr item) flattened-list)
-	(push value flattened-list)))
-    (delq nil (reverse flattened-list))))
-
-(defun star-tabs--tab-bar-left-margin-width ()
-  "Return the column width of all characters left of the beginning of the first tab.
-If there are no tabs, return 0."
-  (let ((tab-bar-left-margin-width 0)
-	(tab-bar-length (length star-tabs-header-line-format)))
-    (while (and (< tab-bar-left-margin-width tab-bar-length)
-		(eq 0 (or (get-text-property tab-bar-left-margin-width 'buffer-number star-tabs-header-line-format)
-			  0)))
-      (setq tab-bar-left-margin-width (1+ tab-bar-left-margin-width)))
-    (if (>= tab-bar-left-margin-width tab-bar-length)
-	0
-      tab-bar-left-margin-width)))
-
-(defcustom star-tabs-file-ext-filter-buffer-threshold 15
-  "When the total number of buffers after global filters have been applied reaches or exceeds 
-the number set in this variable, star-tabs-set-file-extension-filters is automatically set to t,
-and file extension filters are subsequently added. If the buffer count goes down below the threshold again,
-star-tabs-set-file-extension-filters is then set to nil, and all automatically added file extension filters removed.
-Deactivate this feature by setting this variable to 0."
-  ;; FIXME: Add as a collection property instead.
-  :type 'int)
-
-(defvar star-tabs-modified-state-changed-buffer-table (make-hash-table :test #'equal)
-  "Store whether a buffer has been modified.")
-
-(defvar star-tabs-current-filter nil
-  "Helper variable for (star-tabs--filter-changed-p) to keep track of when a filter changes.")
 
 (provide 'star-tabs)
 
