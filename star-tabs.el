@@ -479,7 +479,8 @@ COLLECTION-NAME defaults to the currently active filter collection."
 ;; Add and remove filters
 
 (defun star-tabs-add-filter (&rest filter-props)
-  "Add a regular expression-based filter to include/exclude buffers from being displayed.\n
+  "Add a regular expression-based filter group to include and/or exclude buffers from being displayed.
+The filter group can have the following properties set manually: \n
 -:name is the name of the filter. 
 -:include and :exclude are lists of regular expressions.
 -Either :include or :exclude or both must be set. 
@@ -487,10 +488,10 @@ COLLECTION-NAME defaults to the currently active filter collection."
 will be excluded from those matching the regexp in :include.
 -if only :include is set, only the buffers matching the regexp in :include will be displayed.
 -if only :exclude is set, all buffers except the ones matching the regexp in :exclude will be displayed.
+-if :auto-sort is set to 'recent-first (default nil), tabs in the filter will be arranged in the order in which they became current/active.
+-if :inhibit-refresh is nil (default), run hook star-tabs-collection-property-change-hook
 -The filter will be added to filter collection :collection-name, which defaults to the currently active filter collection."
-
   ;; TODO add auto-sort expl. to readme
-  ;; TODO add expl of :inhibit-refresh
   (let* ((name (plist-get filter-props :name))
 	 (exclude (plist-get filter-props :exclude))
 	 (include (plist-get filter-props :include))
@@ -502,11 +503,12 @@ will be excluded from those matching the regexp in :include.
 			 :auto-sort ,auto-sort))
 	 last-filter-pos)
     (if (not (member name (star-tabs-get-filter-names)))
-	;; Add the filter to the "right" of the last added filter, in order to maintain order.
+	;; Add the filter group to the "right" of the last added filter group, in order to maintain order.
 	(progn (setq last-filter-pos
 		     (cl-position (star-tabs-get-filter-collection-prop-value
 				   :last-filter (star-tabs-active-filter-collection-name))
 				  (star-tabs-get-filter-names)))
+	       ;; Make the filter group the last added.
 	       (if last-filter-pos
 		   (set collection-name (star-tabs-insert-at-nth (eval collection-name) filter (1+ last-filter-pos)))
 		 (set collection-name (append (eval collection-name) (list filter))))
@@ -516,11 +518,12 @@ will be excluded from those matching the regexp in :include.
       (run-hooks 'star-tabs-collection-property-change-hook))))
 
 (defun star-tabs-remove-filter (filter-name &optional inhibit-refresh collection-name)
-  "Remove filter FILTER-NAME from filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection."
+  "Remove filter group FILTER-NAME from collection COLLECTION-NAME.
+Also run hook star-tabs-collection-property-change-hook unless INHIBIT-REFRESH is non-nil.
+COLLECTION-NAME defaults to the currently active collection."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   ;; When removing the last added filter, set the :last-filter property of the collection to the next-to-last
-  ;; filter instead.
+  ;; filter instead. This is to maintain the order in which the filter groups were added.
   (when (eq (star-tabs-get-filter-collection-prop-value :last-filter collection-name)
 	    filter-name)
     (star-tabs-set-filter-collection-prop-value :last-filter (star-tabs-left-of-elt
@@ -531,8 +534,9 @@ COLLECTION-NAME defaults to the currently active filter collection."
     (run-hooks 'star-tabs-collection-property-change-hook)))
 
 (defun star-tabs-remove-all-filters (&optional inhibit-refresh collection-name)
-  "Delete all filters in filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection."
+  "Delete all filters in collection COLLECTION-NAME.
+COLLECTION-NAME defaults to the currently active collection.
+Note that file extensions will be readded if activated."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   (let ((filters (star-tabs-get-filter-names)))
     (dolist (filter filters)
@@ -540,29 +544,23 @@ COLLECTION-NAME defaults to the currently active filter collection."
     (setq star-tabs-file-extension-filter-names nil)))
 
 (defun star-tabs-init-filters ()
-  "Initialize default collection and filters."
+  "Initialize default collection and filter groups."
+  ;; TODO: DEPRECATED: Modify body of function and run with hook instead.
   (star-tabs-create-filter-collection
-   :name "default-collection9"
+   :name "default-collection"
    :use t
    :enable-file-extension-filters t 
    :display-filter-name t)
-  
   (star-tabs-add-filter
    :name 'default
    :exclude '("^[[:space:]]" "^*.*\\*$" "^magit-" "^magit:")
    :inhibit-refresh t)
-
-  (star-tabs-add-filter
-   :name 'system
-   :include `("^*.*\\*$")
-   :inhibit-refresh t)
-  
-  ;; Add file extension filters if customizable variable is set 
-  (if (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters)
-      (star-tabs--update-file-extension-filters t)))
+  ;; Optionally add file extension filters.
+  (when (star-tabs-get-filter-collection-prop-value  :enable-file-extension-filters)
+      (star-tabs--add-and-remove-file-extension-filters t)))
 
 
-;; Filter Interactions 
+;; filter Interactions 
 
 (defun star-tabs-cycle-filters (&optional reverse inhibit-refresh)
   "Cycle (move forward, or backward if REVERSE is non-nil) through filter groups in the active collection. 
@@ -1818,16 +1816,16 @@ File extension filters will be added on one of two conditions:
 2. The active filter collection has the property :enable-file-extension-filters set to nil,
 and :file-extension-filter-threshold set above 0, and the total number of buffers (after applying global filters) exceeds that number."
   (setq star-tabs-add-file-extension-filters
-	(or (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters) nil))
+	(or (star-tabs-get-filter-collection-prop-value :enable-file-extension-filters) nil))
   ;; Activate file extension filters if the buffer count exceeds the threshold (if set).
-  (when (and (not (plist-get (star-tabs-active-filter-collection-props) :enable-file-extension-filters))
-	     (not (<= star-tabs-file-ext-filter-buffer-threshold 0)))
+  (when (and (not (star-tabs-get-filter-collection-prop-value :enable-file-extension-filters))
+	     (not (<= (star-tabs-get-filter-collection-prop-value :file-extension-filter-threshold) 0)))
     (star-tabs--auto-activate-file-extension-filters-on-buffer-count (star-tabs-get-filter-collection-prop-value
 								      :file-extension-filter-threshold)))
   ;; Add and remove file extension filters in the current collection, based on the file extension of currently open buffers.
   (let ((extensions-updated-p nil))
     (if star-tabs-add-file-extension-filters
-	(setq extensions-updated-p (or (star-tabs--update-file-extension-filters inhibit-hook)
+	(setq extensions-updated-p (or (star-tabs--update-file-extension-filters t)
 				       extensions-updated-p))
       ;; Remove all automatically set file extension filters in case none of the two conditions 
       ;; above are met.
