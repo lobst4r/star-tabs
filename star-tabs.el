@@ -102,20 +102,13 @@ Note that only Star Tabs functions will trigger this hook.")
 ;; Global state variables
 
 (defvar star-tabs-current-buffer nil
-  "Helper variable for function (star-tabs--buffer-switched-p) to keep track of the current 'real' buffer.
-A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/temporary or otherwise deemed unimportant.")
-
-(defvar star-tabs-current-filter nil
-  "Helper variable for (star-tabs--filter-changed-p) to keep track of when a filter changes.")
-
-(defvar star-tabs-modified-state-changed-buffer-table (make-hash-table :test #'equal)
-  "Store whether a buffer has been modified.")
+  "Helper variable for function `star-tabs--buffer-switched-p' to keep track of the current real buffer.")
 
 (defvar star-tabs-filter-name-timer nil
-  "The last used timer set automatically by (star-tabs--display-filter-name-temporarily).")
+  "The last used timer set automatically by `star-tabs--display-filter-name-temporarily'.")
 
 (defvar star-tabs-collection-name-timer nil
-  "The last used timer set automatically by (star-tabs--display-collection-name-temporarily).")
+  "The last used timer set automatically by `star-tabs--display-collection-name-temporarily'.")
 
 (defvar star-tabs-debug-messages t
   "If set to non-nil, debug messages will be displayed.")
@@ -1945,6 +1938,12 @@ star-tabs-set-file-extension-filters is then set to nil, and all automatically a
 Deactivate this feature by setting this variable to 0."
   ;; FIXME: Add as a collection property instead.
   :type 'int)
+
+(defvar star-tabs-modified-state-changed-buffer-table (make-hash-table :test #'equal)
+  "Store whether a buffer has been modified.")
+
+(defvar star-tabs-current-filter nil
+  "Helper variable for (star-tabs--filter-changed-p) to keep track of when a filter changes.")
 
 (provide 'star-tabs)
 
