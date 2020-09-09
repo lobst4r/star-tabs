@@ -14,19 +14,22 @@
 (defvar star-tabs-header-line 'header-line
   "Header line where tabs are displayed.")
 
+
 ;; Tab bar dividers 
 
+;; TODO: Add variables for each divider and use them.
 (defvar star-tabs-left-margin "   " 
   "Space used to the left of the tab bar.")
 
 (defvar star-tabs-right-margin ""
-  "Space used to the right of the tab bar.")
+  "Space used to the right of the tab bar.
+This variable is currently not used.")
 
 (defvar star-tabs-tab-separator " "
   "Tab bar divider that separates tabs.")
 
 (defvar star-tabs-number-name-separator " "
-  "Tab bar divider that separates the buffer number and buffer name in a tab.")
+  "Tab bar divider that separates the tab number and tab name in a tab.")
 
 (defvar star-tabs-name-modified-icon-separator " "
   "Tab bar divider that separates the buffer name and modified icon in a tab.")
