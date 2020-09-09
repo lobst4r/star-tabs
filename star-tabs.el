@@ -62,7 +62,7 @@
   "Functions to run when the active filter group changes.")
 
 (defvar star-tabs-collection-change-hook nil
-  "Functions to run when the active filter collection changes.")
+  "Functions to run when the active collection changes.")
 
 (defvar star-tabs-timer-start-hook nil
   "Functions to run when a Star Tabs timer starts.")
@@ -123,7 +123,7 @@ A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/tempo
 ;; Collections
 
 (defvar star-tabs-filter-collections nil
-  "List of all filter collections. car of the list represents the currently active collection in the tab bar.")
+  "List of all collections. car of the list represents the active collection in the tab bar.")
 
 
 ;; Filters
@@ -183,7 +183,7 @@ This is a helper variable for the automatic file extension filters")
 ;; Buffers
 
 (defvar star-tabs-active-buffers nil
-  "List of all currently active/'real' buffers.
+  "List of all active/'real' buffers.
 A 'real' or 'active' buffer refers to an open buffer that is not ephemeral/temporary or otherwise deemed unimportant.")
 
 (defvar star-tabs-active-group-buffers nil
@@ -374,18 +374,18 @@ Any elements in OLD-LIST not in NEW-LIST will be removed."
 	  (seq-difference new-list old-list)))
 
 
-;;; Filter Collections
+;;; Collections
 
 (defun star-tabs-create-filter-collection (&rest collection-props)
-  "Create a filter collection. Available properties are:
+  "Create a collection. Available properties are:
 :name - the name of the collection.
 :use - if non-nil, switch to collection directly after creation (default nil).
 :hide-close-buttons - if non-nil, hide tab close buttons (default nil).
-:display-filter-name - if non-nil, display the name of the currently active filter in the tab bar (default nil).
+:display-filter-name - if non-nil, display the name of the active filter in the tab bar (default nil).
 :enable-file-extension-filters - if non-nil, enable filter groups in the collection for all file extensions 
 among currently open buffers (default nil).
 :collection-name-prefix - the prefix of the name of the collection, used in variable names. Individual collections can be 
-identified by the symbol name (intern(concat collection-name-prefix name)). (default \"star-tabs-filter-collection\")."
+identified by the symbol name (intern (concat collection-name-prefix name)). (default \"star-tabs-filter-collection-\")."
   (let* ((use (plist-get collection-props :use))
 	 (enable-file-extension-filters (plist-get collection-props :enable-file-extension-filters))
 	 (hide-close-buttons (plist-get collection-props :hide-close-buttons))
@@ -414,7 +414,7 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
       (message "Collection name already exists"))))
 
 (defun star-tabs-filter-collection-names ()
-  "Return the names of all filter collections."
+  "Return a list of names of all collections."
   (mapcar 'car star-tabs-filter-collections))
 
 ;; FIXME currently creating collection while the list is rotated causes the collections to be in the wrong order
@@ -423,12 +423,12 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 ;; Or just ignore ??
 
 (defun star-tabs-remove-filter-collection (collection-name)
-  "Delete filter collection COLLECTION-NAME."
+  "Delete collection COLLECTION-NAME."
   (if (>= (length star-tabs-filter-collections) 2)
       (let ((prefix (star-tabs-get-filter-collection-prop-value :collection-name-prefix collection-name)))
-	;; makunbound will cause problems if we're removing the currently active collection, so first make another collection active.
+	;; makunbound will cause problems if we're removing the active collection, so first make another collection active.
 	;; BEWARE: If for some reason in the future, star-tabs-cycle-filter-collections has the ability to skip collections,
-	;; we might inadvertently, despite cycling, end up deleting COLLECTION-NAME when it's currently active. 
+	;; we might inadvertently, despite cycling, end up deleting COLLECTION-NAME when it's active. 
 	(when (eq collection-name (star-tabs-active-filter-collection-name))
 	  (star-tabs-cycle-filter-collections))
 	(setq star-tabs-filter-collections (remove
@@ -437,40 +437,43 @@ identified by the symbol name (intern(concat collection-name-prefix name)). (def
 	(makunbound collection-name))
   (message "Cannot delete last collection. Make another collection before attempting to delete this one.")))
 
-(defun star-tabs-cycle-filter-collections (&optional reverse inhibit-refresh)
-  "Cycle (move forward, or backward if REVERSE is non-nil) through filter collections.
-Also refresh tab bar if INHIBIT-REFRESH is non-nil."
+(defun star-tabs-cycle-filter-collections (&optional reverse inhibit-hook)
+  "Cycle (move forward, or backward if REVERSE is non-nil) through collections.
+Also run hook star-tabs-collection-change-hook if INHIBIT-HOOK is nil (default)."
   (interactive)
   (setq star-tabs-filter-collections (star-tabs-cycle-list-car star-tabs-filter-collections reverse))
-  (unless inhibit-refresh
+  (unless inhibit-hook
     (run-hooks 'star-tabs-collection-change-hook)))
 
 (defun star-tabs-active-filter-collection-name (&optional no-prefix)
-  "Return the name of the active filter collection."
+  "Return the name of the active collection."
   (if no-prefix
       (intern (star-tabs-get-filter-collection-prop-value :collection-name-no-prefix))
     (car (car star-tabs-filter-collections))))
 
 (defun star-tabs-get-filter-collection-prop-value (prop &optional collection-name)
-"Return the value of property PROP in filter collection COLLECTION-NAME. 
-COLLECTION-NAME defaults to the currently active filter collection."
+"Return the value of property PROP in collection COLLECTION-NAME. 
+COLLECTION-NAME defaults to the active collection."
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (plist-get (star-tabs-filter-collection-props collection-name) prop))
 
-(defun star-tabs-set-filter-collection-prop-value (prop value &optional collection-name)
-  "Set property PROP in filter collection COLLECTION-NAME to value VALUE, then refresh the tab bar. 
-COLLECTION-NAME defaults to the currently active filter collection."
+(defun star-tabs-set-filter-collection-prop-value (prop value &optional inhibit-hook collection-name)
+  "Set property PROP in collection COLLECTION-NAME to value VALUE. 
+Also run hook star-tabs-collection-property-change-hook if inhibit-hook is nil (default). 
+COLLECTION-NAME defaults to the active collection."
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (plist-put (star-tabs-filter-collection-props collection-name) prop value)
-  (run-hooks 'star-tabs-collection-property-change-hook))
+  (unless inhibit-hook
+    (run-hooks 'star-tabs-collection-property-change-hook)))
 
 (defun star-tabs-filter-collection-props (&optional collection-name)
-  "Return the properties of filter collection COLLECTION-NAME."
+  "Return the properties of collection COLLECTION-NAME.
+COLLECTION-NAME defaults to the active collection."
   (or collection-name (setq collection-name (star-tabs-active-filter-collection-name)))
   (alist-get collection-name star-tabs-filter-collections))
 
 (defun star-tabs-active-filter-collection-props ()
-  "Return the properties of the currently active filter collection."
+  "Return the properties of the active collection."
     (star-tabs-filter-collection-props (star-tabs-active-filter-collection-name)))
 
 
@@ -490,7 +493,7 @@ will be excluded from those matching the regexp in :include.
 -if only :exclude is set, all buffers except the ones matching the regexp in :exclude will be displayed.
 -if :auto-sort is set to 'recent-first (default nil), tabs in the filter will be arranged in the order in which they became current/active.
 -if :inhibit-refresh is nil (default), run hook star-tabs-collection-property-change-hook
--The filter will be added to filter collection :collection-name, which defaults to the currently active filter collection."
+-The filter will be added to collection :collection-name, which defaults to the active collection."
   ;; TODO add auto-sort expl. to readme
   (let* ((name (plist-get filter-props :name))
 	 (exclude (plist-get filter-props :exclude))
@@ -512,7 +515,7 @@ will be excluded from those matching the regexp in :include.
 	       (if last-filter-pos
 		   (set collection-name (star-tabs-insert-at-nth (eval collection-name) filter (1+ last-filter-pos)))
 		 (set collection-name (append (eval collection-name) (list filter))))
-	       (star-tabs-set-filter-collection-prop-value :last-filter name collection-name))
+	       (star-tabs-set-filter-collection-prop-value :last-filter name t collection-name))
       (message "Filter name already exists"))
     (unless inhibit-refresh
       (run-hooks 'star-tabs-collection-property-change-hook))))
@@ -520,7 +523,7 @@ will be excluded from those matching the regexp in :include.
 (defun star-tabs-remove-filter (filter-name &optional inhibit-refresh collection-name)
   "Remove filter group FILTER-NAME from collection COLLECTION-NAME.
 Also run hook star-tabs-collection-property-change-hook unless INHIBIT-REFRESH is non-nil.
-COLLECTION-NAME defaults to the currently active collection."
+COLLECTION-NAME defaults to the active collection."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   ;; When removing the last added filter, set the :last-filter property of the collection to the next-to-last
   ;; filter instead. This is to maintain the order in which the filter groups were added.
@@ -528,14 +531,17 @@ COLLECTION-NAME defaults to the currently active collection."
 	    filter-name)
     (star-tabs-set-filter-collection-prop-value :last-filter (star-tabs-left-of-elt
 							      (star-tabs-get-filter-names collection-name)
-							      filter-name)))
+
+							      filter-name)
+						t
+						collection-name))
   (set collection-name (assq-delete-all filter-name (eval collection-name)))
   (unless inhibit-refresh
     (run-hooks 'star-tabs-collection-property-change-hook)))
 
 (defun star-tabs-remove-all-filters (&optional inhibit-refresh collection-name)
   "Delete all filters in collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active collection.
+COLLECTION-NAME defaults to the active collection.
 Note that file extensions will be readded if activated."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   (let ((filters (star-tabs-get-filter-names)))
@@ -573,7 +579,7 @@ Also run hook star-tabs-filter-change-hook if INHIBIT-REFRESH is nil."
 					     (eval (star-tabs-active-filter-collection-name))
 					     reverse))
   (let ((filter-count (length (eval (star-tabs-active-filter-collection-name)))))
-    ;; Go through the list of filter groups in the active filter collection once, or until a non-empty filter group is found,
+    ;; Go through the list of filter groups in the active collection once, or until a non-empty filter group is found,
     ;; skipping to the next filter group if when the filter group is empty.
     (while (and (not (star-tabs-get-active-group-buffers))
 		(>= filter-count 0))
@@ -660,7 +666,7 @@ Also remove it from automatic inclusion, if applicable."
 (defun star-tabs-auto-sort (&optional filter-name collection-name sort-method)
   "Automatically sort filter group FILTER-NAME in collection COLLECTION-NAME.
 FILTER-NAME defaults to the active filter group.
-COLLECTION-NAME defaults to the active filter collection.
+COLLECTION-NAME defaults to the active collection.
 SORT-METHOD defaults to the filter property :auto-sort of FILTER-NAME, which by default is nil.
 If filter property :auto-sort is non-nil and SORT-METHOD is not specified, nothing will be sorted.\n
 The following will explain the different options for SORT-METHOD:
@@ -699,14 +705,14 @@ Also run hook star-tabs-collection-property-change-hook unless inhibit-hook is n
 ;; Get filter data 
 
 (defun star-tabs-get-filter-name (filter-name &optional collection-name)
-  "Return the filter FILTER-NAME in filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection."
+  "Return the filter group FILTER-NAME of collection COLLECTION-NAME.
+COLLECTION-NAME defaults to the active collection."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   (alist-get filter-name (eval collection-name)))
 
 (defun star-tabs-get-filter-names (&optional collection-name)
-  "Return all filter names in filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection."
+  "Return all filter group names in collection COLLECTION-NAME.
+COLLECTION-NAME defaults to the active collection."
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   (mapcar 'car (eval collection-name)))
 
@@ -858,8 +864,8 @@ Otherwise, if INCLUDE is nil, return a list of buffers that don't match any of t
     file-extensions))
 
 (defun star-tabs--add-file-extension-filter (extension-name &optional inhibit-refresh collection-name)
-  "Add an inclusive filter for file extension EXTENSION-NAME to filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection.
+  "Add an inclusive filter for file extension EXTENSION-NAME to collection COLLECTION-NAME.
+COLLECTION-NAME defaults to the active collection.
 Return non-nil if a filter was added, otherwise return nil."
   ;; REVIEW: Remove inhibit-refresh parameter?
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
@@ -879,8 +885,8 @@ Return non-nil if a filter was added, otherwise return nil."
     nil))
 
 (defun star-tabs--update-file-extension-filters (&optional inhibit-refresh collection-name)
-  "Update automatically added file extension filters in filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection.
+  "Update automatically added file extension filters in collection COLLECTION-NAME.
+COLLECTION-NAME defaults to the active collection.
 Return non-nil if a filter was added or removed, otherwise nil."
   ;; REVIEW: Remove inhibit-refresh parameter?
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
@@ -913,8 +919,8 @@ Return non-nil if a filter was added or removed, otherwise nil."
     extensions-updated-p))
 
 (defun star-tabs--remove-file-extension-filter (filter-name &optional inhibit-refresh collection-name)
-  "Remove automatically added file extension filter FILTER-NAME from filter collection COLLECTION-NAME.
-COLLECTION-NAME defaults to the currently active filter collection.
+  "Remove automatically added file extension filter FILTER-NAME from collection COLLECTION-NAME.
+COLLECTION-NAME defaults to the active collection.
 Return non-nil if a filter was removed, otherwise nil."
   ;; REVIEW: Remove inhibit-refresh parameter?
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
@@ -930,9 +936,9 @@ Return non-nil if a filter was removed, otherwise nil."
     nil))
 
 (defun star-tabs--remove-file-extension-filters (&optional inhibit-refresh collection-name)
-  "Remove all automatically added file extension filters from filter collection COLLECTION-NAME.
+  "Remove all automatically added file extension filters from collection COLLECTION-NAME.
 Return non-nil if a filter was removed, otherwise nil.
-COLLECTION-NAME defaults to the currently active filter collection."
+COLLECTION-NAME defaults to the active collection."
   ;; REVIEW: Remove inhibit-refresh paremater (these filters should only be removed by setting collection prop)?
   (setq collection-name (or collection-name (star-tabs-active-filter-collection-name)))
   (let ((file-extensions star-tabs-file-extension-filter-names)
@@ -965,14 +971,14 @@ Deactivate this feature by setting collection property :file-extension-filter-th
 ;; Buffer killing :*(
 
 (defun star-tabs-kill-all-buffers-in-filter (&optional filter-name)
-  "Kill all buffers in the filter group FILTER-NAME (defaults to the currently active filter)."
+  "Kill all buffers in the filter group FILTER-NAME (defaults to the active filter)."
   (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (let ((buffers (star-tabs-get-group-buffers filter-name)))
     (star-tabs--kill-buffers buffers)))
 
 (defun star-tabs-kill-all-unmodified-buffers-in-filter (&optional filter-name)
-  "Kill all unmodified buffers in the filter group FILTER-NAME (defaults to the currently active filter)."
+  "Kill all unmodified buffers in the filter group FILTER-NAME (defaults to the active filter)."
   (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (let* ((buffers (star-tabs-get-group-buffers filter-name))
@@ -984,7 +990,7 @@ Deactivate this feature by setting collection property :file-extension-filter-th
 
 (defun star-tabs-kill-all-inactive-buffers-in-filter (&optional filter-name)
   "Kill all buffers that are not shown in a window in the filter group FILTER-NAME.
-FILTER-NAME defaults to the currently active filter."
+FILTER-NAME defaults to the active filter."
   (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (let* ((buffers (star-tabs-get-group-buffers filter-name))
@@ -996,7 +1002,7 @@ FILTER-NAME defaults to the currently active filter."
 
 (defun star-tabs-kill-all-unmodified-inactive-buffers-in-filter (&optional filter-name)
   "Kill all unmodified buffers that are not shown in a window in the filter group FILTER-NAME.
-FILTER-NAME defaults to the currently active filter."
+FILTER-NAME defaults to the active filter."
   (interactive)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (let* ((buffers (star-tabs-get-group-buffers filter-name))
@@ -1618,7 +1624,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 
 (defun star-tabs--display-filter-name-temporarily (&optional filter-name)
   "Return filter name FILTER-NAME for temporary display in tab bar. 
-Unless set, FILTER-NAME defaults to the currently active filter name.
+Unless set, FILTER-NAME defaults to the active filter name.
 This function uses global helper variable star-tabs-filter-name-timer to keep track of the timer."
   ;; Force cancel on any other active timers set with this function.
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
@@ -1796,7 +1802,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)))
 
 (defun star-tabs-on-collection-change ()
-  "Run when the active filter collection changes."
+  "Run when the active collection changes."
   ;; TODO: (star-tabs--display-collection-name-temporarily) (and filter-name)
   ;; REVIEW: Make sure this works!
   (when star-tabs-debug-messages
@@ -1812,8 +1818,8 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 (defun star-tabs--add-and-remove-file-extension-filters (&optional inhibit-hook inhibit-refresh)
   "Add or remove file extension filters, based on the collection settings.\n
 File extension filters will be added on one of two conditions:
-1. The active filter collection has the property :enable-file-extension-filters set to non-nil
-2. The active filter collection has the property :enable-file-extension-filters set to nil,
+1. The active collection has the property :enable-file-extension-filters set to non-nil
+2. The active collection has the property :enable-file-extension-filters set to nil,
 and :file-extension-filter-threshold set above 0, and the total number of buffers (after applying global filters) exceeds that number."
   (setq star-tabs-add-file-extension-filters
 	(or (star-tabs-get-filter-collection-prop-value :enable-file-extension-filters) nil))
