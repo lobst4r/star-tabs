@@ -1313,6 +1313,85 @@ Properties related to the tab are:
 					 filter-name
 					 collection-name))
       tab-string)))
+(defun star-tabs--init-tab (buffer-name &optional filter-name collection-name)
+  "String elements for tab bar to be evaluated"
+  ;; TODO: Change docstring
+  ;; Close button:
+  ;; Conditionally display close button
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
+  (let* ((tab-name buffer-name)
+	 (tab-icon (star-tabs--select-icon buffer-name))
+	 (tab-icon-background `(if (equal ,tab-name (star-tabs-current-buffer-name))
+			      (face-background 'star-tabs-selected-tab)
+			    (face-background 'star-tabs-non-selected-tab)))
+	 (tab-icon-face `(:inherit ,(get-text-property 0 'face tab-icon)
+			   :background ,(eval tab-icon-background)))
+	 (tab-face `(if (equal ,tab-name (star-tabs-current-buffer-name))
+			(quote star-tabs-selected-tab)
+		      (quote star-tabs-non-selected-tab)))
+	 (tab-mouse-face `(if (equal ,tab-name (star-tabs-current-buffer-name))
+			      'star-tabs-mouse-selected
+			    'star-tabs-mouse-non-selected))
+	 (tab-number `(star-tabs--get-buffer-number (get-buffer ,tab-name)
+						    (quote ,filter-name)
+						    (quote ,collection-name)))
+	 (tab-number-string `(propertize (concat
+				       (number-to-string ,tab-number)
+				       star-tabs-number-name-separator)
+				      'keymap star-tabs-map-select-tab
+				      'face ,tab-face
+				      'mouse-face ,tab-mouse-face
+				      'buffer-name ,tab-name
+				      'buffer-number ,tab-number))
+	 (tab-name-string `(propertize (concat
+					,tab-name
+					star-tabs-name-modified-icon-separator)
+					'keymap star-tabs-map-select-tab
+					'face ,tab-face
+					'mouse-face ,tab-mouse-face
+					'buffer-name ,tab-name
+					'buffer-number ,tab-number))
+	 (tab-icon-string (if (stringp tab-icon)
+			     `(propertize ,tab-icon
+					 'face (quote ,tab-icon-face)
+					 'mouse-face ,tab-mouse-face)
+			    ""))
+	 (close-button `(propertize (concat (int-to-string ,tab-number)
+					    (if (not (star-tabs-get-collection-prop-value
+						      :hide-close-buttons (quote ,collection-name)))
+						star-tabs-close-buffer-icon
+					      ""))
+				    'keymap star-tabs-map-close-tab
+				    'face ,tab-face
+				    'mouse-face ,tab-mouse-face
+				    'buffer-name ,tab-name
+				    'buffer-number ,tab-number))
+	 (divider `(propertize " " 
+			       'keymap star-tabs-map-select-tab
+			       'face ,tab-face
+			       'mouse-face ,tab-mouse-face
+			       'buffer-name ,tab-name
+			       'buffer-number ,tab-number))
+	 (modified-icon `(propertize (if (and (not (string-match "^[[:space:]]" ,tab-name))
+					      (not (string-match "^*.*\\*$" ,tab-name))
+					      (not (star-tabs-buffer-read-only-p ,tab-name)))
+					 ;; Display (un)modified symbol:
+					 (concat  
+					  (if (buffer-modified-p (get-buffer ,tab-name))
+					      star-tabs-modified-buffer-icon
+					    star-tabs-unmodified-buffer-icon)
+					  (when (not(star-tabs-get-collection-prop-value
+						     :hide-close-buttons (quote ,collection-name)))
+					    star-tabs-modified-icon-close-button-separator))
+				       ;; Display nothing if it's an unreal buffer, system buffer, or read-only buffer:
+				       "")
+				     'keymap star-tabs-map-select-tab
+				     'face ,tab-face
+				     'mouse-face ,tab-mouse-face
+				     'buffer-name ,tab-name
+				     'buffer-number ,tab-number)))
+    `(concat ,divider ,tab-icon-string ,divider ,tab-number-string ,tab-name-string ,close-button ,divider ,modified-icon)))
 
 (defun star-tabs-get-tab (buffer &optional filter-name collection-name)
   "Return the tab corresponding to buffer BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME.
