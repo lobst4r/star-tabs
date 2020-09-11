@@ -1185,13 +1185,13 @@ Properties related to the tab are:
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (let* ((tab-buffer buffer)
-	 (tab-name `(buffer-name ,tab-buffer))
+	 (tab-name (buffer-name tab-buffer))
 	 (tab-icon (star-tabs--select-icon tab-buffer))
-	 (tab-icon-background `(if (equal ,tab-buffer (star-tabs-current-buffer))
+	 (tab-icon-background `(if (eq ,tab-buffer (star-tabs-current-buffer))
 			      (face-background 'star-tabs-selected-tab)
 			    (face-background 'star-tabs-non-selected-tab)))
-	 (tab-icon-face `(:inherit ,(get-text-property 0 'face tab-icon)
-			   :background ,(eval tab-icon-background)))
+	 (tab-icon-face `(list :inherit (get-text-property 0 'face ,tab-icon)
+			   :background ,tab-icon-background))
 	 (tab-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			(quote star-tabs-selected-tab)
 		      (quote star-tabs-non-selected-tab)))
@@ -1219,10 +1219,10 @@ Properties related to the tab are:
 					'mouse-face ,tab-mouse-face
 					'buffer-name ,tab-name
 					'buffer-number ,tab-number))
-	 (tab-icon-string `(if (stringp ,tab-icon)
-			     (propertize ,tab-icon 
-					 'face (quote ,tab-icon-face)
-					 'mouse-face ,tab-mouse-face)
+	 (tab-icon-string (if (stringp tab-icon)
+			      `(propertize ,tab-icon 
+					   'face ,tab-icon-face
+					   'mouse-face ,tab-mouse-face)
 			    ""))
 	 (close-button `(propertize (if (not (star-tabs-get-collection-prop-value
 					      :hide-close-buttons (quote ,collection-name)))
