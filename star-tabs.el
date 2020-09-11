@@ -1320,7 +1320,8 @@ Properties related to the tab are:
   ;; Conditionally display close button
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (let* ((tab-name buffer-name)
+  (let* ((tab-buffer (get-buffer buffer-name))
+	 (tab-name buffer-name)
 	 (tab-icon (star-tabs--select-icon buffer-name))
 	 (tab-icon-background `(if (equal ,tab-name (star-tabs-current-buffer-name))
 			      (face-background 'star-tabs-selected-tab)
@@ -1336,15 +1337,14 @@ Properties related to the tab are:
 	 (tab-number `(star-tabs--get-buffer-number (get-buffer ,tab-name)
 						    (quote ,filter-name)
 						    (quote ,collection-name)))
-	 (tab-number-string `(propertize (concat
-				       (number-to-string ,tab-number)
-				       star-tabs-number-name-separator)
-				      'keymap star-tabs-map-select-tab
-				      'face ,tab-face
-				      'mouse-face ,tab-mouse-face
-				      'buffer-name ,tab-name
-				      'buffer-number ,tab-number))
+	 (tab-number-string `(propertize (number-to-string ,tab-number)
+					 'keymap star-tabs-map-select-tab
+					 'face ,tab-face
+					 'mouse-face ,tab-mouse-face
+					 'buffer-name ,tab-name
+					 'buffer-number ,tab-number))
 	 (tab-name-string `(propertize (concat
+				       star-tabs-number-name-separator
 					,tab-name
 					star-tabs-name-modified-icon-separator)
 					'keymap star-tabs-map-select-tab
@@ -1357,11 +1357,10 @@ Properties related to the tab are:
 					 'face (quote ,tab-icon-face)
 					 'mouse-face ,tab-mouse-face)
 			    ""))
-	 (close-button `(propertize (concat (int-to-string ,tab-number)
-					    (if (not (star-tabs-get-collection-prop-value
-						      :hide-close-buttons (quote ,collection-name)))
-						star-tabs-close-buffer-icon
-					      ""))
+	 (close-button `(propertize (if (not (star-tabs-get-collection-prop-value
+					      :hide-close-buttons (quote ,collection-name)))
+					star-tabs-close-buffer-icon
+				      "")
 				    'keymap star-tabs-map-close-tab
 				    'face ,tab-face
 				    'mouse-face ,tab-mouse-face
@@ -1373,6 +1372,12 @@ Properties related to the tab are:
 			       'mouse-face ,tab-mouse-face
 			       'buffer-name ,tab-name
 			       'buffer-number ,tab-number))
+	 (tab-divider `(propertize " " 
+				  'keymap star-tabs-map-select-tab
+				  'face ,tab-face
+				  'mouse-face ,tab-mouse-face
+				  'buffer-name ,tab-name
+				  'buffer-number ,tab-number))
 	 (modified-icon `(propertize (if (and (not (string-match "^[[:space:]]" ,tab-name))
 					      (not (string-match "^*.*\\*$" ,tab-name))
 					      (not (star-tabs-buffer-read-only-p ,tab-name)))
@@ -1390,8 +1395,50 @@ Properties related to the tab are:
 				     'face ,tab-face
 				     'mouse-face ,tab-mouse-face
 				     'buffer-name ,tab-name
-				     'buffer-number ,tab-number)))
-    `(concat ,divider ,tab-icon-string ,divider ,tab-number-string ,tab-name-string ,close-button ,divider ,modified-icon)))
+				     'buffer-number ,tab-number))
+	 (tab-string `(concat ,divider ,tab-icon-string ,divider ,tab-number-string ,tab-name-string ,modified-icon ,close-button  ,tab-divider))
+	 (tab-string-cached (eval tab-string))
+	 (tab-digit-width (star-tabs-string-pixel-width (substring (eval tab-number-string) 0 1)))
+	 (tab-number-width `(* ,tab-digit-width (eval (length (int-to-string ,tab-number)))))
+	 (tab-column-width `(length (eval ,tab-string)))
+	 (tab-pixel-width-without-number (- (star-tabs-string-pixel-width tab-string-cached)
+					    (eval tab-number-width)))
+	 (tab-pixel-width `(+ ,tab-pixel-width-without-number
+					 ,tab-number-width))
+	 (tab `(,tab-buffer :tab-string-divider ,divider
+			    :tab-string-icon ,tab-icon-string
+			    :tab-string-name ,tab-name-string
+			    :tab-string-number ,tab-number-string
+			    :tab-string-modified-icon ,modified-icon
+			    :tab-string-close-button ,close-button
+			    :tab-string-tab-divider ,tab-divider
+			    :tab-number ,tab-number ; REVIEW: Maybe no need to store this here?
+			    :tab-name ,tab-name
+			    :tab-string ,tab-string
+			    :tab-string-cached ,tab-string-cached
+			    :tab-column-width ,tab-column-width
+			    :tab-pixel-width ,tab-pixel-width)))
+      ;; Add tab to the filter group property :tabs as an alist,
+      ;; where the key is the buffer and the value is a plist of tab properties.
+      (if (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs-test-5 filter-name collection-name))
+		 (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs-test-5 filter-name collection-name)) (cdr tab))
+	(star-tabs-set-filter-prop-value :tabs-test-5
+      					 (append (star-tabs-get-filter-prop-value :tabs-test-5 filter-name collection-name)
+      						 (list tab))
+      					 t
+					 filter-name
+					 collection-name))
+      tab-string-cached))
+
+(defun start-tabs-set-tab-prop-value (tab-or-buffer prop value &optional filter-name collection-name)
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
+  (let ((tab-props (or (not (bufferp tab-or-buffer))
+		       (star-tabs-get-tab tab-or-buffer))))
+    (plist-put tab-props
+	       prop
+	       value)
+  (star-tabs-get-tab (current-buffer))))
 
 (defun star-tabs-get-tab (buffer &optional filter-name collection-name)
   "Return the tab corresponding to buffer BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME.
