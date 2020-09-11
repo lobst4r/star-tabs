@@ -1103,6 +1103,9 @@ Return 0 if BUFFER is not in the active filter group."
     (dolist (filter filters)
       (setq filtered-buffers (star-tabs-filter-buffers filter
 						       star-tabs-active-buffers))
+      (dolist (buffer filtered-buffers)
+      	(if (not (member buffer (star-tabs-get-group-buffers filter)))
+      	    (star-tabs--init-tab buffer filter)))
       (star-tabs-set-filter-prop-value :buffer-list
 				       (star-tabs-update-list (star-tabs-get-filter-prop-value :buffer-list
 											       filter)
@@ -1164,7 +1167,7 @@ If the buffer was switched, also run hook star-tabs-buffer-switch-hook."
 
 ;;; Tab bar
 
-(defun star-tabs--init-tab (buffer-name &optional filter-name collection-name)
+(defun star-tabs--init-tab (buffer &optional filter-name collection-name)
   "Create/Update the tab, and return a propertized string that represents the tab, for buffer BUFFER-NAME with tab number NUMBER.
 Properties of the tab can be accessed using (star-tabs-get-tab-prop-value TAB-OR-BUFFER PROP FILTER-NAME COLLECTION-NAME).\n
 Properties related to the tab are:
@@ -1181,24 +1184,24 @@ Properties related to the tab are:
   ;; TODO: Update docstring
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (let* ((tab-buffer (get-buffer buffer-name))
-	 (tab-name buffer-name)
-	 (tab-icon (star-tabs--select-icon buffer-name))
-	 (tab-icon-background `(if (equal ,tab-name (star-tabs-current-buffer-name))
+  (let* ((tab-buffer buffer)
+	 (tab-name `(buffer-name ,tab-buffer))
+	 (tab-icon (star-tabs--select-icon tab-buffer))
+	 (tab-icon-background `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			      (face-background 'star-tabs-selected-tab)
 			    (face-background 'star-tabs-non-selected-tab)))
 	 (tab-icon-face `(:inherit ,(get-text-property 0 'face tab-icon)
 			   :background ,(eval tab-icon-background)))
-	 (tab-face `(if (equal ,tab-name (star-tabs-current-buffer-name))
+	 (tab-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			(quote star-tabs-selected-tab)
 		      (quote star-tabs-non-selected-tab)))
-	 (tab-mouse-face `(if (equal ,tab-name (star-tabs-current-buffer-name))
+	 (tab-mouse-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			      'star-tabs-mouse-selected
 			    'star-tabs-mouse-non-selected))
-	 (tab-divider-mouse-face `(if (equal ,tab-name (star-tabs-current-buffer-name))
+	 (tab-divider-mouse-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 				      'star-tabs-tab-divider-mouse-selected
 				    'star-tabs-tab-divider-mouse-non-selected))
-	 (tab-number `(star-tabs--get-buffer-number (get-buffer ,tab-name)
+	 (tab-number `(star-tabs--get-buffer-number ,tab-buffer
 						    (quote ,filter-name)
 						    (quote ,collection-name)))
 	 (tab-number-string `(propertize (number-to-string ,tab-number)
@@ -1216,8 +1219,8 @@ Properties related to the tab are:
 					'mouse-face ,tab-mouse-face
 					'buffer-name ,tab-name
 					'buffer-number ,tab-number))
-	 (tab-icon-string (if (stringp tab-icon)
-			     `(propertize ,tab-icon
+	 (tab-icon-string `(if (stringp ,tab-icon)
+			     (propertize ,tab-icon 
 					 'face (quote ,tab-icon-face)
 					 'mouse-face ,tab-mouse-face)
 			    ""))
@@ -1247,7 +1250,7 @@ Properties related to the tab are:
 					      (not (star-tabs-buffer-read-only-p ,tab-name)))
 					 ;; Display (un)modified symbol:
 					 (concat  
-					  (if (buffer-modified-p (get-buffer ,tab-name))
+					  (if (buffer-modified-p ,tab-buffer)
 					      star-tabs-modified-buffer-icon
 					    star-tabs-unmodified-buffer-icon)
 					  (when (not(star-tabs-get-collection-prop-value
@@ -1336,7 +1339,9 @@ If TAB-OR-BUFFER is a buffer, return the tab (including its properties) correspo
   ;; TODO: add checks for whether all-the-icons is installed (also make sure graphical elements are supported).
   ;; TODO: make height user-customizable.
   (with-current-buffer buffer
-   (all-the-icons-icon-for-mode major-mode :v-adjust 0.001 :height 0.8)))
+   (if (equal major-mode 'fundamental-mode)
+     (all-the-icons-icon-for-file (buffer-name buffer) :v-adjust 0.001 :height 0.8)
+   (all-the-icons-icon-for-mode major-mode :v-adjust 0.001 :height 0.8))))
 
 (defun star-tabs--set-tab-bar (&optional filter-name collection-name)
   "Set and return the tab bar of filter group FILTER-NAME of collection COLLECTION-NAME.
@@ -1430,16 +1435,38 @@ Properties related to the left margin are:
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (let ((counter 1))
     (dolist (buffer buffers)
-      (star-tabs--init-tab (buffer-name buffer) filter-name collection-name)
+      (star-tabs--init-tab buffer filter-name collection-name)
       (setq counter (1+ counter)))))
 
-;; (defun star-tabs--update-tab (buffer &optional filter-name collection-name)
-;;   "Create or update tab BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME."
-;;   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
-;;   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-;;   (let* ((new-tab-number (1+ (cl-position buffer (star-tabs-get-group-buffers filter-name
-;; 									      collection-name)))))
-;;     (star-tabs--create-tab (buffer-name buffer) new-tab-number)))
+(defun star-tabs--update-tab (buffer &optional filter-name collection-name)
+  "Create or update tab BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
+  (let ((tab-string (eval (star-tabs-get-tab-prop-value buffer :tab-string filter-name collection-name))))
+    (start-tabs-set-tab-prop-value buffer :tab-string-cached tab-string filter-name collection-name)
+    tab-string))
+
+
+;; When to init tab:
+;; - When there is a new buffer (init for all groups (maybe not for all collections?))
+;; - When there is a new filter(s)
+
+;; When to eval and cache tab:
+;; - Tab number changes
+;; - Tab mod state changes
+;; - Tab active state changes
+;; - Collection property change
+;; - 
+
+;; When to recalculate width:
+;;  
+;; 
+
+;; When to update individual tab:
+;; - When collection props change
+;; - When any of the static elements in the tab changes
+;;   - Icon
+;;   - 
 
 
 ;; Scrolling
@@ -1732,7 +1759,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (message "Real buffer list updated"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers) 
-  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
 
 (defun star-tabs-on-buffer-switch ()
@@ -1746,7 +1773,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   (when (equal (star-tabs-get-filter-prop-value :auto-sort) 'recent-first)
     (star-tabs-auto-sort))
   ;; Update and display tab bar.
-  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (if (star-tabs--tab-visible-p (star-tabs-current-buffer))
       (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)))
@@ -1761,7 +1788,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should automatically be set to t.
     (when star-tabs-debug-messages
       (message "Buffer Modified"))
-    (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+    ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
 
 
@@ -1771,7 +1798,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (message "Buffer Saved"))
   (when (member (current-buffer) star-tabs-active-buffers)
     (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should automatically be set to nil.
-    (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+    ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
 
 
@@ -1783,7 +1810,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   (when star-tabs-debug-messages
     (message "Filter Changed"))
   (star-tabs--display-filter-name-temporarily)
-  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (unless inhibit-refresh
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)))
 
@@ -1795,7 +1822,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (message "Collection Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers)
-  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 
@@ -1838,7 +1865,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
     (message "Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
   (star-tabs--filter-all-buffers)
-  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
 
 
@@ -1861,7 +1888,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
   "Run when a tab changes position in the tab bar."
   (when star-tabs-debug-messages
     (message "Tab moved"))
-  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 (defun star-tabs-on-timer-start ()
