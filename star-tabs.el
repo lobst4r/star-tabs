@@ -1164,7 +1164,7 @@ If the buffer was switched, also run hook star-tabs-buffer-switch-hook."
 
 ;;; Tab bar
 
-(defun star-tabs--create-tab (buffer-name number &optional filter-name collection-name)
+(defun star-tabs--init-tab (buffer-name &optional filter-name collection-name)
   "Create/Update the tab, and return a propertized string that represents the tab, for buffer BUFFER-NAME with tab number NUMBER.
 Properties of the tab can be accessed using (star-tabs-get-tab-prop-value TAB-OR-BUFFER PROP FILTER-NAME COLLECTION-NAME).\n
 Properties related to the tab are:
@@ -1178,146 +1178,7 @@ Properties related to the tab are:
   ;; TODO: Rename, update separators/dividers (and make sure they are customizable)
   ;; TODO: Reduce if-statements that check for current buffer.
   ;; FIXME: Icon shouldn't be highlighted on mouse-over.
-  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
-  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (let* ((name buffer-name)
-	 ;; Number and name:
-	 (number-and-name (propertize (concat
-				       (number-to-string number)
-				       star-tabs-number-name-separator
-				       name
-				       star-tabs-name-modified-icon-separator)
-				      'keymap star-tabs-map-select-tab
-				      'face 
-				      (if (equal name (star-tabs-current-buffer-name))
-					  'star-tabs-selected-tab
-					'star-tabs-non-selected-tab)
-				      'buffer-name name
-				      'mouse-face 
-				      (if (equal name (star-tabs-current-buffer-name))
-					  'star-tabs-mouse-selected
-					'star-tabs-mouse-non-selected)
-				      'buffer-number number))
-	 ;; Modified symbol:
-	 ;; Don't show (un)modified symbol for system buffers or read-only buffers.
-	 ;; TODO: move regexp into variables
-	 (modified-icon (propertize (if (and (not (string-match "^[[:space:]]" name))
-					     (not (string-match "^*.*\\*$" name))
-					     (not (star-tabs-buffer-read-only-p name)))
-					;; Display (un)modified symbol:
-					(concat  
-					 (if (buffer-modified-p (get-buffer name))
-					     star-tabs-modified-buffer-icon
-					   star-tabs-unmodified-buffer-icon)
-					 (when (not(star-tabs-get-collection-prop-value
-						    :hide-close-buttons collection-name))
-					   star-tabs-modified-icon-close-button-separator))
-				      ;; Display nothing if it's an unreal buffer, system buffer, or read-only buffer:
-				      "")
-				    'keymap star-tabs-map-select-tab
-				    'face 
-				    (if (equal name (star-tabs-current-buffer-name))
-					'star-tabs-selected-tab
-				      'star-tabs-non-selected-tab)
-				    'mouse-face 
-				    (if (equal name (star-tabs-current-buffer-name))
-					'star-tabs-mouse-selected
-				      'star-tabs-mouse-non-selected)
-				    'buffer-name name
-				    'buffer-number number))
-	 ;; Close button:
-	 ;; Conditionally display close button
-	 (close-button (propertize (if (not(star-tabs-get-collection-prop-value
-					    :hide-close-buttons collection-name))
-				       star-tabs-close-buffer-icon
-				     "")
-				   'keymap star-tabs-map-close-tab
-				   'face 
-				   (if (equal name (star-tabs-current-buffer-name))
-				       'star-tabs-selected-tab
-				     'star-tabs-non-selected-tab)
-				   'mouse-face 
-				   (if (equal name (star-tabs-current-buffer-name))
-				       'star-tabs-mouse-selected
-				     'star-tabs-mouse-non-selected)
-				   'buffer-name name
-				   'buffer-number number))
-	 ;; Icon:
-	 (icon-background (if (equal name (star-tabs-current-buffer-name))
-			      (face-background 'star-tabs-selected-tab)
-			    (face-background 'star-tabs-non-selected-tab)))
-	 (icon (star-tabs--select-icon name))
-	 (icon (when (stringp icon)
-		 (propertize icon
-			     'face `(:inherit ,(get-text-property 0 'face icon)
-					      :background ,icon-background)
-			      'mouse-face 
-			      (if (equal name (star-tabs-current-buffer-name))
-				  'star-tabs-mouse-selected
-				'star-tabs-mouse-non-selected))))
-	 ;; Space between elements of tab:
-	 (divider (propertize " " 
-			      'keymap star-tabs-map-select-tab
-			      'face 
-			      (if (equal name (star-tabs-current-buffer-name))
-				  'star-tabs-selected-tab
-				'star-tabs-non-selected-tab)
-			      'buffer-name name
-			      'mouse-face 
-			      (if (equal name (star-tabs-current-buffer-name))
-				  'star-tabs-mouse-selected
-				'star-tabs-mouse-non-selected)
-			      'buffer-number number))
-	 ;; Space between tabs:
-	 (tab-divider (propertize " " 
-				  'keymap star-tabs-map-select-tab
-				  'face 
-				  (if (equal name (star-tabs-current-buffer-name))
-				      'star-tabs-selected-tab
-				    'star-tabs-non-selected-tab)
-				  'mouse-face 
-				  (if (equal name (star-tabs-current-buffer-name))
-				      'star-tabs-tab-divider-mouse-selected
-				    'star-tabs-tab-divider-mouse-non-selected)
-				  'buffer-name name
-				  'buffer-number number)))
-    ;; Final tab:
-    (let* ((tab-buffer (get-buffer name))
-	   (tab-string (concat divider
-			       (when (stringp icon)
-				 icon)
-			       divider
-			       number-and-name
-			       modified-icon
-			       close-button
-			       tab-divider))
-	  (tab-number number)
-	  (tab-name name)
-	  (tab-column-width (length tab-string))
-	  (tab-pixel-width (star-tabs-string-pixel-width tab-string))
-	  (tab-modified-p (buffer-modified-p (get-buffer name)))
-	  (tab `(,tab-buffer :tab-number ,tab-number ; REVIEW: Maybe no need to store this here?
-			     :tab-name ,tab-name
-			     :tab-string ,tab-string
-			     :tab-column-width ,tab-column-width
-			     :tab-pixel-width ,tab-pixel-width
-			     :tab-modified-p ,tab-modified-p)))
-      ;; Add tab to the filter group property :tabs as an alist,
-      ;; where the key is the buffer and the value is a plist of tab properties.
-      (if (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name))
-		 (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name)) (cdr tab))
-	(star-tabs-set-filter-prop-value :tabs
-      					 (append (star-tabs-get-filter-prop-value :tabs filter-name collection-name)
-      						 (list tab))
-      					 t
-					 filter-name
-					 collection-name))
-      tab-string)))
-(defun star-tabs--init-tab (buffer-name &optional filter-name collection-name)
-  "String elements for tab bar to be evaluated"
-  ;; TODO: Change docstring
-  ;; Close button:
-  ;; Conditionally display close button
+  ;; TODO: Update docstring
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (let* ((tab-buffer (get-buffer buffer-name))
@@ -1334,6 +1195,9 @@ Properties related to the tab are:
 	 (tab-mouse-face `(if (equal ,tab-name (star-tabs-current-buffer-name))
 			      'star-tabs-mouse-selected
 			    'star-tabs-mouse-non-selected))
+	 (tab-divider-mouse-face `(if (equal ,tab-name (star-tabs-current-buffer-name))
+				      'star-tabs-tab-divider-mouse-selected
+				    'star-tabs-tab-divider-mouse-non-selected))
 	 (tab-number `(star-tabs--get-buffer-number (get-buffer ,tab-name)
 						    (quote ,filter-name)
 						    (quote ,collection-name)))
@@ -1375,7 +1239,7 @@ Properties related to the tab are:
 	 (tab-divider `(propertize " " 
 				  'keymap star-tabs-map-select-tab
 				  'face ,tab-face
-				  'mouse-face ,tab-mouse-face
+				  'mouse-face ,tab-divider-mouse-face
 				  'buffer-name ,tab-name
 				  'buffer-number ,tab-number))
 	 (modified-icon `(propertize (if (and (not (string-match "^[[:space:]]" ,tab-name))
@@ -1420,10 +1284,10 @@ Properties related to the tab are:
 			    :tab-pixel-width ,tab-pixel-width)))
       ;; Add tab to the filter group property :tabs as an alist,
       ;; where the key is the buffer and the value is a plist of tab properties.
-      (if (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs-test-5 filter-name collection-name))
-		 (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs-test-5 filter-name collection-name)) (cdr tab))
-	(star-tabs-set-filter-prop-value :tabs-test-5
-      					 (append (star-tabs-get-filter-prop-value :tabs-test-5 filter-name collection-name)
+      (if (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name))
+		 (setf (alist-get tab-buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name)) (cdr tab))
+	(star-tabs-set-filter-prop-value :tabs
+      					 (append (star-tabs-get-filter-prop-value :tabs filter-name collection-name)
       						 (list tab))
       					 t
 					 filter-name
@@ -1493,7 +1357,7 @@ Properties related to the tab bar are:
       (when (alist-get buffer (star-tabs-get-filter-prop-value :tabs))
 	(setq tab-bar-tabs (append tab-bar-tabs
 				   (list (star-tabs-get-tab buffer filter-name collection-name))))
-	(let* ((pixel-width (star-tabs-get-tab-prop-value buffer :tab-pixel-width filter-name collection-name)))
+	(let* ((pixel-width (eval (star-tabs-get-tab-prop-value buffer :tab-pixel-width filter-name collection-name))))
 	  (setq cumulative-pixel-width (append cumulative-pixel-width
 					       (list (+ pixel-width
 							(or (car (reverse cumulative-pixel-width))
@@ -1520,7 +1384,7 @@ The tab bar format can be accessed using (star-tabs-get-filter-prop-value :tab-b
     (dolist (tab tabs)
       (setq tab-bar-format
 	    (concat tab-bar-format
-		    (star-tabs-get-tab-prop-value tab :tab-string filter-name collection-name))))
+		    (eval (star-tabs-get-tab-prop-value tab :tab-string filter-name collection-name)))))
     ;; REVIEW: Add visible tabs prop? (maybe not a good idea since window width can change all the time, meaning we would still need to recalculate.)
     (star-tabs-set-filter-prop-value :tab-bar-format-first-tab-number (1+ start-number) t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar-format tab-bar-format t filter-name collection-name)
@@ -1566,8 +1430,16 @@ Properties related to the left margin are:
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (let ((counter 1))
     (dolist (buffer buffers)
-      (star-tabs--create-tab (buffer-name buffer) counter)
+      (star-tabs--init-tab (buffer-name buffer) filter-name collection-name)
       (setq counter (1+ counter)))))
+
+;; (defun star-tabs--update-tab (buffer &optional filter-name collection-name)
+;;   "Create or update tab BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME."
+;;   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+;;   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
+;;   (let* ((new-tab-number (1+ (cl-position buffer (star-tabs-get-group-buffers filter-name
+;; 									      collection-name)))))
+;;     (star-tabs--create-tab (buffer-name buffer) new-tab-number)))
 
 
 ;; Scrolling
