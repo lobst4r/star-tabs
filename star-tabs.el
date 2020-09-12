@@ -1185,7 +1185,7 @@ Properties related to the tab are:
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (let* ((tab-buffer buffer)
-	 (tab-name (buffer-name tab-buffer))
+	 (tab-name `(buffer-name ,tab-buffer))
 	 (tab-icon (star-tabs--select-icon tab-buffer))
 	 (tab-icon-background `(if (eq ,tab-buffer (star-tabs-current-buffer))
 			      (face-background 'star-tabs-selected-tab)
