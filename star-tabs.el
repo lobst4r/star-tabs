@@ -1099,19 +1099,24 @@ Return 0 if BUFFER is not in the active filter group."
   ;; TODO: Only apply filters to new buffers, and remove killed buffers, instead of doing it all
   ;;       for all buffers in all filter groups. Make sure all buffers are filtered for any new groups created though.
   (let ((filters (star-tabs-get-filter-names))
-	(filtered-buffers))
+	(filtered-buffers)
+	(new-buffers))
     (dolist (filter filters)
       (setq filtered-buffers (star-tabs-filter-buffers filter
 						       star-tabs-active-buffers))
       (dolist (buffer filtered-buffers)
       	(if (not (member buffer (star-tabs-get-group-buffers filter)))
-      	    (star-tabs--init-tab buffer filter)))
+      	    (setq new-buffers (append new-buffers (list buffer)))))
       (star-tabs-set-filter-prop-value :buffer-list
 				       (star-tabs-update-list (star-tabs-get-filter-prop-value :buffer-list
 											       filter)
 							      filtered-buffers)
 				       t
-				       filter))))
+				       filter)
+
+      (dolist (buffer new-buffers)
+	(star-tabs--init-tab buffer filter))
+      (setq new-buffers nil))))
 
 (defun star-tabs-get-group-buffers (&optional filter-name collection-name)
   "Return all buffers in the filter group FILTER-NAME of collection COLLECTION-NAME as a list."
