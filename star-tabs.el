@@ -456,7 +456,7 @@ COLLECTION-NAME defaults to the active collection."
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (plist-put (star-tabs-collection-props collection-name) prop value)
   (unless inhibit-hook
-    (run-hooks 'star-tabs-collection-property-change-hook)))
+    (run-hook-with-args 'star-tabs-collection-property-change-hook collection-name)))
 
 (defun star-tabs-collection-props (&optional collection-name)
   "Return the properties of collection COLLECTION-NAME.
@@ -510,7 +510,7 @@ will be excluded from those matching the regexp in :include.
 	       (star-tabs-set-collection-prop-value :last-filter name t collection-name))
       (message "Filter name already exists"))
     (unless inhibit-refresh
-      (run-hooks 'star-tabs-collection-property-change-hook))))
+      (run-hook-with-args 'star-tabs-collection-property-change-hook collection-name))))
 
 (defun star-tabs-remove-filter (filter-name &optional inhibit-refresh collection-name)
   "Remove filter group FILTER-NAME from collection COLLECTION-NAME.
@@ -529,7 +529,7 @@ COLLECTION-NAME defaults to the active collection."
 						collection-name))
   (set collection-name (assq-delete-all filter-name (eval collection-name)))
   (unless inhibit-refresh
-    (run-hooks 'star-tabs-collection-property-change-hook)))
+    (run-hook-with-args 'star-tabs-collection-property-change-hook collection-name)))
 
 (defun star-tabs-remove-all-filters (&optional inhibit-refresh collection-name)
   "Delete all filters in collection COLLECTION-NAME.
@@ -691,7 +691,7 @@ Also run hook star-tabs-collection-property-change-hook unless inhibit-hook is n
 	     prop
 	     value)
   (unless inhibit-hook
-    (run-hooks 'star-tabs-collection-property-change-hook)))
+    (run-hook-with-args 'star-tabs-collection-property-change-hook collection-name)))
 
 
 ;; Get filter data 
@@ -1910,16 +1910,19 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 	(star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
     extensions-updated-p))
 
-(defun star-tabs-on-collection-property-change ()
+(defun star-tabs-on-collection-property-change (collection-name)
   "Run when a collection property changes."
   ;; TODO: Add collection-name param 
   (when star-tabs-debug-messages
     (message "Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
   (star-tabs--filter-all-buffers)
-  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  (let ((filters (star-tabs-get-filter-names collection-name)))
+    (dolist (filter filters)
+    (star-tabs--update-tabs (star-tabs-get-group-buffers filter collection-name) filter collection-name)))
   ;;(star-tabs--recache-tabs (star-tabs-get-active-group-buffers) t)
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
+
 
 ;; Functions to run when enabling/disabling Star Tabs.
 
