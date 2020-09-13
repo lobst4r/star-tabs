@@ -491,14 +491,18 @@ will be excluded from those matching the regexp in :include.
 -if :inhibit-refresh is nil (default), run hook star-tabs-collection-property-change-hook
 -The filter will be added to collection :collection-name, which defaults to the active collection."
   ;; TODO add auto-sort expl. to readme
+  ;; TODO add always inlclude prop?
+  ;; TODO add doc for only-modified-buffers prop
   (let* ((name (plist-get filter-props :name))
 	 (exclude (plist-get filter-props :exclude))
 	 (include (plist-get filter-props :include))
 	 (collection-name (or (plist-get filter-props :collection) (star-tabs-active-collection-name)))
 	 (auto-sort (or (plist-get filter-props :auto-sort) nil))
+	 (only-modified-buffers (or (plist-get filter-props :only-modified-buffers) nil))
 	 (inhibit-refresh (or (plist-get filter-props :inhibit-refresh)))
 	 (filter `(,name :exclude ,exclude
 			 :include ,include
+			 :only-modified-buffers ,only-modified-buffers
 			 :auto-sort ,auto-sort))
 	 last-filter-pos)
     (if (not (member name (star-tabs-get-filter-names)))
@@ -560,6 +564,7 @@ Note that file extensions will be readded if activated."
   ;; Optionally add file extension filters.
   (when (star-tabs-get-collection-prop-value  :enable-file-extension-filters)
       (star-tabs--add-and-remove-file-extension-filters t)))
+
 
 
 ;; filter Interactions 
@@ -746,6 +751,7 @@ COLLECTION-NAME defaults to the active collection."
 	 (include (plist-get filter :include))
 	 (exclude (plist-get filter :exclude))
 	 (always-include (plist-get filter :always-include))
+	 (only-modified-buffers (plist-get filter :only-modified-buffers))
 	 (buffers buffer-list))
     ;; Return all buffers if neither :include nor :exclude are defined.
     (if (and
@@ -768,7 +774,12 @@ COLLECTION-NAME defaults to the active collection."
 	       include
 	       exclude)
 	  (setq buffers (star-tabs--apply-filter-list buffers include t always-include))
-	  (setq buffers (star-tabs--apply-filter-list (star-tabs-get-buffers buffers) exclude nil always-include)))))
+	  (setq buffers (star-tabs--apply-filter-list (star-tabs-get-buffers buffers) exclude nil always-include)))
+	(when only-modified-buffers
+	  (setq buffers (delq nil (mapcar (lambda (buffer)
+					    (when (buffer-modified-p buffer)
+					      buffer))
+					  buffers))))))
     buffers))
 
 (defun star-tabs--apply-filter-list (buffer-list regexps include always-include)
@@ -1832,6 +1843,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should automatically be set to t.
     (when star-tabs-debug-messages
       (message "Buffer Modified"))
+    (star-tabs--filter-all-buffers) ;; TODO: only update specific filter group
     (star-tabs-recache-tab (current-buffer) t)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'save-scroll)))
 
@@ -1842,8 +1854,10 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   (when (member (current-buffer) star-tabs-active-buffers)
     (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should automatically be set to nil.
     ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+    (star-tabs--filter-all-buffers) ;; TODO only update specific filter group
     (star-tabs-recache-tab (current-buffer) t)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'save-scroll)))
+
 
 ;; Functions to run when the active filter group or collection changes.
 
