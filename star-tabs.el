@@ -1306,11 +1306,11 @@ Properties related to the tab are:
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (let ((tab-props (or (not (bufferp tab-or-buffer))
-		       (star-tabs-get-tab tab-or-buffer))))
+		       (star-tabs-get-tab tab-or-buffer filter-name collection-name))))
     (plist-put tab-props
 	       prop
 	       value)
-  (star-tabs-get-tab (current-buffer))))
+  (star-tabs-get-tab tab-or-buffer filter-name collection-name)))
 
 (defun star-tabs-get-tab (buffer &optional filter-name collection-name)
   "Return the tab corresponding to buffer BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME.
@@ -1320,14 +1320,11 @@ If no tab is found, return nil."
   (alist-get buffer (star-tabs-get-filter-prop-value :tabs filter-name collection-name)))
 
 (defun star-tabs-get-tab-prop-value (tab-or-buffer prop &optional filter-name collection-name)
-  "Return value of property PROP of tab/buffer TAB-OR-BUFFER in filter group FILTER-name of collection COLLECTION-NAME.
+  "Return the value of property PROP of tab/buffer TAB-OR-BUFFER in filter group FILTER-name of collection COLLECTION-NAME.
 Return nil if either the property is not found, or if the tab doesn't exists."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (plist-get (if (bufferp tab-or-buffer)
-		 (star-tabs-get-tab tab-or-buffer filter-name collection-name)
-	       tab-or-buffer)
-	     prop))
+  (plist-get (star-tabs-get-tab-props tab-or-buffer filter-name collection-name) prop))
 
 (defun star-tabs-get-tab-props (tab-or-buffer &optional filter-name collection-name)
   "Return the properties of tab TAB-OR-BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME.
