@@ -1575,8 +1575,9 @@ Switch to the previous filter group if we're already scrolled all the way to the
     `(,start-tab ,tab-number)))
 
 (defun star-tabs-scroll-to-active-buffer ()
-  "Scroll to the tab of the active buffer, if it exists in in the tab bar."
+  "Scroll to the tab of the active buffer. Also switch filter if the buffer is not in the current group."
   (interactive)
+  (star-tabs-find-active-filter)
   (let ((count (car (star-tabs-scroll-to-buffer (star-tabs-current-buffer)))))
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) count)))
 
@@ -1837,7 +1838,6 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should automatically be set to t.
     (when star-tabs-debug-messages
       (message "Buffer Modified"))
-    ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
     (star-tabs-recache-tab (current-buffer) t)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
 
@@ -1850,7 +1850,6 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
     (star-tabs-recache-tab (current-buffer) t)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
-
 
 ;; Functions to run when the active filter group or collection changes.
 
