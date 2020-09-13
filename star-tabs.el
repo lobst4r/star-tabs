@@ -493,6 +493,7 @@ will be excluded from those matching the regexp in :include.
   ;; TODO add auto-sort expl. to readme
   ;; TODO add always inlclude prop?
   ;; TODO add doc for only-modified-buffers prop
+  ;; TODO add doc for use prop
   (let* ((name (plist-get filter-props :name))
 	 (exclude (plist-get filter-props :exclude))
 	 (include (plist-get filter-props :include))
@@ -500,6 +501,7 @@ will be excluded from those matching the regexp in :include.
 	 (auto-sort (or (plist-get filter-props :auto-sort) nil))
 	 (only-modified-buffers (or (plist-get filter-props :only-modified-buffers) nil))
 	 (inhibit-refresh (or (plist-get filter-props :inhibit-refresh)))
+	 (use (or (plist-get filter-props :use) nil))
 	 (filter `(,name :exclude ,exclude
 			 :include ,include
 			 :only-modified-buffers ,only-modified-buffers
@@ -515,7 +517,10 @@ will be excluded from those matching the regexp in :include.
 	       (if last-filter-pos
 		   (set collection-name (star-tabs-insert-at-nth (eval collection-name) filter (1+ last-filter-pos)))
 		 (set collection-name (append (eval collection-name) (list filter))))
-	       (star-tabs-set-collection-prop-value :last-filter name t collection-name))
+	       (star-tabs-set-collection-prop-value :last-filter name t collection-name)
+	       (when use
+		 (star-tabs--filter-all-buffers)
+		 (star-tabs-switch-to-filter name nil collection-name)))
       (message "Filter name already exists"))
     (unless inhibit-refresh
       (run-hook-with-args 'star-tabs-collection-property-change-hook collection-name))))
@@ -564,7 +569,6 @@ Note that file extensions will be readded if activated."
   ;; Optionally add file extension filters.
   (when (star-tabs-get-collection-prop-value  :enable-file-extension-filters)
       (star-tabs--add-and-remove-file-extension-filters t)))
-
 
 
 ;; filter Interactions 
