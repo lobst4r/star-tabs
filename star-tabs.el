@@ -1485,6 +1485,11 @@ If ALL-GROUPS is non-nil, update all tabs BUFFERS in all filter groups of collec
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
   (star-tabs--init-tab buffer filter-name collection-name))
 
+(defun star-tabs-update-current-tab ()
+  "Update the tab for the current buffer in the active group."
+  (interactive)
+  (star-tabs--init-tab (current-buffer)))
+
 
 ;; When to eval and cache tab string:
 ;; - Tab number changes
