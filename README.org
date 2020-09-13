@@ -11,7 +11,6 @@
 3. In your .emacs configuration file, add: 
 #+BEGIN_SRC emacs-lisp :tangle yes
 (require 'star-tabs)
-
 (star-tabs-tab-bar-mode t)
 #+END_SRC
 
@@ -52,25 +51,31 @@
 #+END_SRC
 
 * Introduction
-Star Tabs aims to be a highly customizable and functional tab bar solution for Emacs, with focus on efficient and fast buffer navigation using numbers to
-identify tabs. In the normal case, switching to any buffer is only 2-4 keystrokes away (its true power is unleashed in evil-mode!), and tabs can easily be arranged and displayed to your needs. 
+Star Tabs aims to be a highly customizable and functional tab bar solution for Emacs, with focus on 
+efficient and fast buffer navigation using numbers to identify tabs. In the normal case, switching to 
+any buffer is only 2-4 keystrokes away (its true power is unleashed in evil-mode!), and tabs can easily 
+be arranged and displayed to your needs. 
 
 * Features
-- Group and filter buffers however you want using regular expressions (or just use the default configuration).
-- Identify tabs by numbers, and switch buffer to any buffer with ease.
-- Switch between groups/filters easily.
+- Group and filter buffers however you want using regular expressions (or just use the default configuration!).
+- Identify tabs by numbers, and navigate to any buffer with ease.
+- Create multiple setups and configurations, and switch between them easily, using group collections.
 - Customize the look and feel of the tab bar.
+- Move and arrange tabs to your liking.
 - Optional icon support using [[https://github.com/domtronn/all-the-icons.el][all-the-icons]].
-- Full mouse support (if you really need it). 
-- Add and exclude any buffer to/from any group/filter.
+- Mouse support. 
+- Add and exclude any buffer to and from any group with ease.
+- TODO: Multiple options for automatic tab sorting. 
+- Navigate the tab bar, and switch groups without leaving the current buffer.
+- Automatic scrolling behavior that feels natural.
+- TODO: Emacs 27 tab bar support.
 
 * Usage
 Most navigation in Star Tabs can be done with only two commands: ~star-tabs-cycle-filters~ and ~star-tabs-switch-to-buffer~.
-Thus, it's probably a good idea to bind these two functions to easy-to-access keys, and as few keys as possible in case you use keychords.
+Thus, it's probably a good idea to bind these two functions to keys that you can reach with ease, and as few keys as possible in case you use keychords.
 I personally use ~`~ for ~star-tabs-cycle-filters~ and ~RET~ for ~star-tabs-switch-to-buffer~ in evil normal mode.
 
 ** Usage Examples
-
 *** Switch buffer the Star Tabs way
 1. Find the tab that corresponds to the buffer you want to switch to.
    - If the buffer is in the tab bar, but not visible, scroll the tab bar using ~star-tabs-scroll-tab-bar-forward~ or ~star-tabs-scroll-tab-bar-backward~.
@@ -88,7 +93,7 @@ Here's one way to do it:
    - Note that changing the position of a tab in one group might currently affect its position in other groups;
      this is due to how the ordering of the buffers works at the present.
 3. Move the tab right or left in the tab bar using the functions ~star-tabs-move-tab-right~ and ~star-tabs-move-tab-left~ respectively. 
-   - Moving the last tab in the tab bar to the right will move it back to the beginning, like a cycle.
+   - Moving the last tab in the tab bar to the right will move it back to the beginning, like in a cycle.
    - Similarily, moving the first tab in the tab bar to the left will move it to the end.
 
 
@@ -105,6 +110,7 @@ Here's one way to do it:
 | ~star-tabs-cycle-filter-collections~                       | Cycle through group/filter collections.                                                                     |
 | ~star-tabs-scroll-tab-bar-forward~                         | Scroll tab bar forward (2 tabs at a time by default).                                                       |
 | ~star-tabs-scroll-tab-bar-backward~                        | Scroll tab bar backward (2 tabs at a time by default).                                                      |
+| ~star-tabs-scroll-to-active-buffer~                        | Scroll to the tab of the active buffer. Also switch filter if the buffer is not in the current group.       |
 | ~star-tabs-kill-all-buffers-in-filter~                     | Kill all buffers in the active filter group.                                                                |
 | ~star-tabs-kill-all-unmodified-buffers-in-filter~          | Kill all unmodified buffers in the active filter group.                                                     |
 | ~star-tabs-kill-all-inactive-buffers-in-filter~            | Kill all buffers in the active filter group that aren't shown in a window.                                  |
@@ -112,6 +118,7 @@ Here's one way to do it:
 | ~star-tabs-move-tab-right~                                 | Move the current tab one step to the right in the tab bar.                                                  |
 | ~star-tabs-move-tab-left~                                  | Move the current tab one step to the left in the tab bar.                                                   |
 | ~star-tabs-move-current-tab-to-first~                      | Move the current buffer to the first tab in the tab bar.                                                    |
+| ~star-tabs-update-current-tab~                             | Update the tab for the current buffer in the active group.                                                  |
 |                                                            |                                                                                                             |
 
 * Customization 
@@ -126,6 +133,9 @@ Most values shown in the examples below are default values.
 #+BEGIN_SRC emacs-lisp :tangle yes
 ;; Foreground color for tab bar filter name.
 (setq star-tabs-tab-bar-filter-name-foreground "#ef21b3")
+
+;; Foreground color for the tab bar collection name.
+(setq star-tabs-tab-bar-collection-name-foreground "#7cd164")
 
 ;; Background color for selected tab.
 (setq star-tabs-tab-bar-selected-background "#202020")
@@ -201,12 +211,13 @@ Most values shown in the examples below are default values.
 ;; Buffers with the space prefix (\" \") are automatically filtered before this filter is applied, and thus need not
 ;; be added to this list.
 ;; This filter is applied after star-tabs-global-inclusion-prefix-filter.
-(setq star-tabs-global-exclusion-prefix-filter '("magit-" "magit:" "*Help" "*WoM")
+(add-to-list 'star-tabs-global-exclusion-prefix-filter '("buffer-name-prefix")
 #+END_SRC
 
 ** Collections
-A collection is a bunch (a group, if you will) of groups/filters. Most customization in Star Tabs is done by setting the properties of a collection.
-There is no hard limit on how many collections you can create, but realistically you probably won't be using more than one or two for a project. 
+A collection is a collection of filter groups. Most customization in Star Tabs is 
+done by setting the properties of a collection. There is no hard limit on how many collections you can create,
+but realistically you probably won't be using more than one or two for a project. 
 
 In order to create a filter, run this code, or add it to your .emacs configuration file:
 #+BEGIN_SRC emacs-lisp :tangle yes
@@ -231,24 +242,31 @@ In order to create a filter, run this code, or add it to your .emacs configurati
 | ~:disable-scroll-to-filter (bool)~       | If ~nil~ (default), go to beginning of next group, or end of previous group in the tab bar "scrolling past the edge".                                                                              |
 |                                          |                                                                                                                                                                                                       |
 
-** Filters
-A filter is a list, or multiple lists, of regular expressions used to include or exclude (or both include and exclude) buffers with names that match the regular expressions.
-In case both ~:include~ and ~:exclude~ are set, first include buffers using the regular expressions from ~:include~, then from those buffers, exclude buffers using the list from ~:exclude~
+** Filters Groups
+A filter is a list, or multiple lists, of regular expressions used to include or exclude (or both include and exclude)
+buffers with names that match the regular expressions. In case both ~:include~ and ~:exclude~ are set,
+Star Tabs will first include buffers using the regular expressions from ~:include~, then from those buffers, 
+exclude buffers using the list from ~:exclude~. 
 
-| Property                                              | Description                                                                                                                                   |
-|-------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------|
-| ~:name (symbol...TODO: change to string?)~            | Name of the filter.                                                                                                                           |
-| ~:exclude  (list of regexps)~                         | List of regular expressions. Any buffer with a name matched by a regexp in this list will be excluded from the group.                         |
-| ~:include (list of regexps)~                          | List of regular expressions. Any buffer with a name matched by a regexp in this list will be included in the group.                           |
-| ~:always-include (regexp)~                            | Buffers matching this regular expression will always be included in the group, even if they were excluded by the list specified in ~:exclude~ |
-| ~:collection-name (symbol...TODO: change to string?)~ | The name of the collection the filter should be added to. If not set, it defaults to ~(star-tabs-active-filter-collection-name)~              |
-| ~:auto-sort (symbol)~                                 | Automatically sort the filter group. For more info about the available sorting methods, refer to the section on sorting                       |
-|                                                       |                                                                                                                                               |
+A *filter group* is the resulting list of buffers and tabs after the filter has been applied to the global list of real buffers.
+
+The following properties can be set when creating a filter using ~(star-tabs-add-filter)~:
+
+| Property                                              | Description                                                                                                                                                                    |
+|-------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ~:name (symbol...TODO: change to string?)~            | Name of the filter.                                                                                                                                                            |
+| ~:exclude  (list of regexps)~                         | List of regular expressions. Any buffer with a name matched by a regexp in this list will be excluded from the filter group.                                                   |
+| ~:include (list of regexps)~                          | List of regular expressions. Any buffer with a name matched by a regexp in this list will be included in the filter group.                                                    |
+| ~:always-include (regexp)~                            | Buffers matching this regular expression will always be included in the filter group, even if they were excluded by the regexp(s) specified in ~:exclude~.               |
+| ~:auto-sort (symbol)~                                 | Automatically sort the filter group. For more info about the available sorting methods, refer to the section on sorting                                                        |
+| ~:collection-name (symbol...TODO: change to string?)~ | The name of the collection the filter should be added to. If not set, it defaults to ~(star-tabs-active-filter-collection-name)~. This is not a property of the filter itself. |
+| ~:inhibit-refresh (bool)~                             | If non-nil, don't refresh the tab bar when creating the filter. This is not a property of the filter itself                                                                    |
+
+Filters also have automatically set properties that form its tab bar and filter group. 
 
 ** Sorting/Reordering tabs
-Automatic sorting of tabs can be done by setting the ~:auto-sort~ option in the filter group. By default, automatic sorting is diabled
-(tabs will reflect the order in which the buffers were created, however).
-*Note that currently, reordering of tabs in one group might affect ordering in other groups if the same buffers are in multiple groups.*
+Automatic sorting of the tabs in a filter group can be done by setting the ~:auto-sort~ property in the filter. By default, 
+automatic sorting is diabled (tabs will reflect the order in which the buffers were created, however).
 
 The available sorting methods are as follows:
 
@@ -263,12 +281,12 @@ To enable automatic sorting in the active filter group, or to change sorting met
 (star-tabs-set-filter-prop-value :auto-sort 'sorting-method) ; change "sorting-method" to the name of the sorting method you would like to use.
 #+END_SRC
 
-Automatic sorting can also be enabled when creating a filter group:
+Automatic sorting can also be enabled when creating a filter:
 #+BEGIN_SRC emacs-lisp
 (star-tabs-add-filter
   :name 'my-filter
-  :exclude '("^[[:space:]]" "^*.*\\*$") 
-  :auto-sort 'recent-first) ; :auto-sort is nil by default
+  :exclude '("\.el$") ;; Buffers with names that end with ".el" will be excluded from the filter group.
+  :auto-sort 'recent-first) ; :auto-sort is nil by default.
 #+END_SRC
 
 To disable automatic sorting in the active filter group, use the following command:
@@ -277,29 +295,28 @@ To disable automatic sorting in the active filter group, use the following comma
 #+END_SRC
 
 
-
 * Questions and Answers
 
 ** There are unwanted/strange tabs in my tab bar. How do I hide them?
-First, make sure you are in the correct tab group/filter. You can see the name of the currently active filter using command:
+First, make sure you are in the group or tab bar you want to hide the tab in. You can see the name of the currently active filter group using command:
 #+BEGIN_SRC emacs-lisp :tangle yes
-M-x star-tabs-active-filter-name
+M-x star-tabs-print-active-filter-name
 #+END_SRC
 
-If you're in the wrong group/filter, cycle filters using the following command until you find the correct filter:
+If you're in the wrong group, cycle filter groups using the following command until you find the correct filter group:
 #+BEGIN_SRC emacs-lisp :tangle yes
 M-x star-tabs-cycle-filters
 #+END_SRC
 
-If you're in the correct group/filter and you want to hide a tab, open the buffer of the tab you want to hide and run the command:
+If you're in the correct group and you want to hide a tab, open the buffer of the tab you want to hide and run the command:
 #+BEGIN_SRC emacs-lisp :tangle yes
 M-x star-tabs-exclude-current-buffer-from-current-filter
 #+END_SRC
-This will hide the buffer from the current group/filter.
+This will hide the tab in the current filter group.
 
 Alternatively you can run the following elisp command, specifying the buffer name and filter name yourself:
 #+BEGIN_SRC emacs-lisp :tangle yes
-(star-tabs-exclude-from-filter (get-buffer buffer-name) filter-name)
+(star-tabs-exclude-from-filter (get-buffer "buffer-name") 'filter-name)
 #+END_SRC
 
 ** How do I enable/disable groups for file extensions?
@@ -314,15 +331,16 @@ To remove groups for file extensions for the current collection, run the followi
 #+END_SRC
 
 Alternatively, you can enable file extension filters only when the total number of real buffers reaches or exceeds a certain threshold.
-This can be useful if you want as few groups as possible when you don't have a lot of active buffers, but want to mitigate some of the disorganization
-that might follow a growing number of buffers. To do this, run the following code or add it to your emacs configuration file:
+This can be useful if you want as few groups as possible when you don't have a lot of active buffers, 
+but want to mitigate some of the disorganization that might follow a large or growing amount of buffers. 
+To do this, run the following code, or add it to your emacs configuration file:
 #+BEGIN_SRC emacs-lisp :tangle yes
 (star-tabs-set-filter-collection-prop-value :enable-file-extension-filters nil) ; This must be nil when using threshold.
 (star-tabs-set-filter-collection-prop-value :file-extension-filter-threshold 15)
 #+END_SRC
 
 If you have disabled file extension filters by setting the property ~:enable-file-extension-filters~ to ~nil~, but they are still showing,
-make sure ~:file-extension-filter-threshold~ is set to ~0~ as well.
+make sure the property ~:file-extension-filter-threshold~ is set to ~0~ as well.
 
 ** Is this a fork of an existing project?
 No. Although there are other good projects that accomplish similar things, I chose to start from scratch because this is a relatively small project and
@@ -336,11 +354,11 @@ so you might only end up with one or two groups with just a handful of tabs in e
 That being said, Star Tabs is not a complete solution that is going work efficiently in all cases for everybody.
 
 ** Star Tabs is slowing down Emacs. Why?
-In case you are experiencing slow-downs, it is likely because of conflicts or poor interactions with other extensions. 
+In case you are experiencing slow-downs, it is likely because of conflicts or poor interactions with other extensions and packages. 
 More specifically, Star Tabs is set to update or refresh on certain triggers. Among those triggers are switching between, and creating, buffers.
-It's common for extensions to use their own buffers to do things in the background, and they are usually of no interest to the user.
+It's common for extensions to create and use their own buffers to do things in the background, and these buffers are usually of no interest to the user.
 Although I've done my best to identify and tell Star Tabs to ignore these unreal buffers, some extension won't follow the normal naming conventions, 
-which means the buffers have to be manually identified.
+which means that the buffers have to be manually identified.
 
 There may of course be other reasons for the slow-down, but it will likely still have something to do with excessive refreshing of the tab bar 
 (countless of hours spent debugging has taught me this...). To help bring more clarity into what may be the root of the problem, one good place
@@ -353,7 +371,7 @@ to start is by activating the debug messages:
 A message will be displayed every time the tab bar refreshes, explaining what caused the refresh, along with the name of the buffer the refresh
 took place in.
 
-If you notice an odd buffer name here, chances are that it is the cause. What you want to do now is tell Star Tabs to ignore it, which
+If you notice an odd buffer name here, chances are good that it is the cause, or part of it. What you want to do now is tell Star Tabs to ignore it, which
 is done by adding the name (or a prefix by which you can identify it) to the global exclusion list:
 
 #+BEGIN_SRC emacs-lisp
@@ -363,7 +381,7 @@ is done by adding the name (or a prefix by which you can identify it) to the glo
 
 In the above example, we told Star Tabs to ignore all buffers with a name starting with "magit".
 
-If you identify extensions causing problems with Star Tabs, please leave a bug report.
+If you find any packages that causes problems with Star Tabs, please leave a bug report.
 
   
 ** What's the difference between a filter and a group?
