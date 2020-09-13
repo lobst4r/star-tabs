@@ -1846,6 +1846,9 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 	    (when (member buffer (star-tabs-get-group-buffers filter))
 	      (setq filters-to-be-updated (append filters-to-be-updated (list filter))))))))
     (star-tabs--filter-all-buffers)
+    ;; Switch filter if the active filter group is empty
+    (when (not (star-tabs-get-active-group-buffers))
+      (star-tabs-cycle-filters t))
     (dolist (filter filters-to-be-updated)
       (star-tabs--recache-tabs (star-tabs-get-group-buffers filter) nil (star-tabs-active-collection-name) filter)))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'save-scroll))
@@ -1882,6 +1885,8 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (when star-tabs-debug-messages
       (message "Buffer Modified"))
     (star-tabs--filter-all-buffers) ;; TODO: only update specific filter group
+    (when (not (star-tabs-get-active-group-buffers))
+      (star-tabs-cycle-filters t))
     (star-tabs-recache-tab (current-buffer) t)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'save-scroll)))
 
@@ -1893,6 +1898,8 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should automatically be set to nil.
     ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
     (star-tabs--filter-all-buffers) ;; TODO only update specific filter group
+    (when (not (star-tabs-get-active-group-buffers))
+      (star-tabs-cycle-filters t))
     (star-tabs-recache-tab (current-buffer) t)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'save-scroll)))
 
