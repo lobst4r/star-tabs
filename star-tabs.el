@@ -798,12 +798,12 @@ COLLECTION-NAME defaults to the active collection."
 	       include
 	       exclude)
 	  (setq buffers (star-tabs--apply-filter-list buffers include t always-include))
-	  (setq buffers (star-tabs--apply-filter-list (star-tabs-get-buffers buffers) exclude nil always-include)))
+	  (setq buffers (star-tabs--apply-filter-list (star-tabs-get-buffers buffers) exclude nil always-include)))))
 	(when only-modified-buffers
 	  (setq buffers (delq nil (mapcar (lambda (buffer)
 					    (when (buffer-modified-p buffer)
 					      buffer))
-					  buffers))))))
+					  buffers))))
     buffers))
 
 (defun star-tabs--apply-filter-list (buffer-list regexps include always-include)
