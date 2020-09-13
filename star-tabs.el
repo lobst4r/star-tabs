@@ -727,6 +727,7 @@ Also run hook star-tabs-collection-property-change-hook unless inhibit-hook is n
       (run-hooks 'star-tabs-filter-switch-hook))))
 
 (defun star-tabs-all-modified-buffers ()
+  "Create a filter group with all modified buffers, then switch to it."
   (interactive)
   (star-tabs-add-filter
    :name 'modified-buffers
@@ -734,8 +735,10 @@ Also run hook star-tabs-collection-property-change-hook unless inhibit-hook is n
    :only-modified-buffers t))
 
 (defun star-tabs-remove-all-modified-buffers-group ()
+  "Remove the filter created with `star-tabs-all-modified-buffers'."
   (interactive)
   (star-tabs-remove-filter 'modified-buffers))
+
 
 
 ;; Get filter data 
