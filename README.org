@@ -119,7 +119,8 @@ Here's one way to do it:
 | ~star-tabs-move-tab-left~                                  | Move the current tab one step to the left in the tab bar.                                                   |
 | ~star-tabs-move-current-tab-to-first~                      | Move the current buffer to the first tab in the tab bar.                                                    |
 | ~star-tabs-update-current-tab~                             | Update the tab for the current buffer in the active group.                                                  |
-|                                                            |                                                                                                             |
+| ~star-tabs-all-modified-buffers~                           | Create and display a filter group with all modified buffers.                                                |
+| ~star-tabs-remove-all-modified-buffers-group~              | Remove the filter created with ~star-tabs-all-modified-buffers~.                                            |
 
 * Customization 
 ** Global Settings
