@@ -809,13 +809,13 @@ Otherwise, if INCLUDE is nil, return a list of buffers that don't match any of t
   (or include (setq include nil))
   (delq nil (mapcar (lambda (buffer)
 		      (if (not (member nil (mapcar (lambda (prefix)
-						     (funcall #'star-tabs-buffer-prefix-p prefix buffer))
+						     (funcall #'star-tabs-buffer-name-prefix-p prefix buffer))
 						   prefix-list)))
 			  (if include nil buffer)
 			(if include buffer nil)))
 		    buffer-list)))
 
-(defun star-tabs-buffer-prefix-p (prefix buffer)
+(defun star-tabs-buffer-name-prefix-p (prefix buffer)
   "Return buffer BUFFER if its name has the prefix PREFIX. Otherwise, return nil."
   (if (string-prefix-p prefix (buffer-name buffer))
       nil  
@@ -1095,7 +1095,6 @@ Return 0 if BUFFER is not in the active filter group."
 		(run-hook-with-args 'star-tabs-buffer-list-update-hook new-buffers killed-buffers)
 		t))
 	  nil)))))
-
 
 (defun star-tabs--filter-all-buffers ()
   "Apply filters to all real buffers in, and set create separate buffer lists for, all filter groups in the active collection."
