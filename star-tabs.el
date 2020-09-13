@@ -517,11 +517,11 @@ will be excluded from those matching the regexp in :include.
 	       (if last-filter-pos
 		   (set collection-name (star-tabs-insert-at-nth (eval collection-name) filter (1+ last-filter-pos)))
 		 (set collection-name (append (eval collection-name) (list filter))))
-	       (star-tabs-set-collection-prop-value :last-filter name t collection-name)
-	       (when use
-		 (star-tabs--filter-all-buffers)
-		 (star-tabs-switch-to-filter name nil collection-name)))
+	       (star-tabs-set-collection-prop-value :last-filter name t collection-name))
       (message "Filter name already exists"))
+    (when use
+      (star-tabs--filter-all-buffers)
+      (star-tabs-switch-to-filter name nil collection-name))
     (unless inhibit-refresh
       (run-hook-with-args 'star-tabs-collection-property-change-hook collection-name))))
 
