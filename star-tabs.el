@@ -1302,10 +1302,11 @@ Properties related to the tab are:
 					 collection-name))
       tab-string-cached))
 
-(defun start-tabs-set-tab-prop-value (tab-or-buffer prop value &optional filter-name collection-name)
+(defun star-tabs-set-tab-prop-value (tab-or-buffer prop value &optional filter-name collection-name)
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (let ((tab-props (or (not (bufferp tab-or-buffer))
+  (let ((tab-props (or (when (not (bufferp tab-or-buffer))
+			 tab-or-buffer)
 		       (star-tabs-get-tab tab-or-buffer filter-name collection-name))))
     (plist-put tab-props
 	       prop
