@@ -260,9 +260,10 @@ The following properties can be set when creating a filter using ~(star-tabs-add
 | ~:include (list of regexps)~                          | List of regular expressions. Any buffer with a name matched by a regexp in this list will be included in the filter group.                                                     |
 | ~:always-include (regexp)~                            | Buffers matching this regular expression will always be included in the filter group, even if they were excluded by the regexp(s) specified in ~:exclude~.                     |
 | ~:auto-sort (symbol)~                                 | Automatically sort the filter group. For more info about the available sorting methods, refer to the section on sorting.                                                       |
-| ~:only-modified-buffers~                              | If ~non-nil~, exclude all buffers in a non-modified state (i.e. show only modified buffers).                                                                                   |
+| ~:only-modified-buffers (bool)~                       | If ~non-nil~, exclude all buffers in a non-modified state (i.e. show only modified buffers).                                                                                   |
 | ~:collection-name (symbol...TODO: change to string?)~ | The name of the collection the filter should be added to. If not set, it defaults to ~(star-tabs-active-filter-collection-name)~. This is not a property of the filter itself. |
 | ~:inhibit-refresh (bool)~                             | If ~non-nil~, don't refresh the tab bar when creating the filter. This is not a property of the filter itself.                                                                 |
+| ~:use (bool)~                                         | If ~non-nil~, switch to the new filter group when adding it, if it has any tabs. This is not a property of the filter itself. |
 
 Filters also have automatically set properties that form its tab bar and filter group. 
 
