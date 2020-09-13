@@ -1490,24 +1490,6 @@ If ALL-GROUPS is non-nil, update all tabs BUFFERS in all filter groups of collec
   (star-tabs--init-tab (current-buffer)))
 
 
-;; When to eval and cache tab string:
-;; - Tab number changes
-;; - Tab mod state changes
-;; - Tab active state changes
-;; - Collection property change
-;; - Name changes
-
-;; When to recalculate width (both pixel and col):
-;; - Collection prop change
-;; -  
-
-;; When to update individual tab:
-;; - When collection props change
-;; - When any of the static elements in the tab changes
-;;   - Icon
-;;   - 
-
-
 ;; Scrolling
 
 (defun star-tabs-scroll-tab-bar (&optional backward count)
