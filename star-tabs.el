@@ -702,6 +702,26 @@ Also run hook star-tabs-collection-property-change-hook unless inhibit-hook is n
   (unless inhibit-hook
     (run-hook-with-args 'star-tabs-collection-property-change-hook collection-name)))
 
+(defun star-tabs-switch-to-filter (filter-name &optional inhibit-hook collection-name recursive)
+  ;; TODO: Add ability to switch collections as well.
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
+  (when (member filter-name (star-tabs-get-filter-names collection-name))
+    (let ((filter-count (length (star-tabs-get-filter-names collection-name)))
+	  (current-filter (star-tabs-get-active-filter-name)))
+      (while (and (not (eq (star-tabs-get-active-filter-name)
+			   filter-name))
+		  (>= filter-count 0))
+	(star-tabs-cycle-filters nil t)
+	(setq filter-count (1- filter-count)))
+      (when (and (not (eq filter-name (star-tabs-get-active-filter-name)))
+		 (not (eq current-filter (star-tabs-get-active-filter-name)))
+		 (not recursive))
+	;; REVIEW: can this cause inf. loops?
+	(star-tabs-switch-to-filter current-filter t collection-name t)))
+    ;; FIXME: this will trigger even if we remain in the same filter group (not really a big problem though).
+    (unless inhibit-hook
+      (run-hooks 'star-tabs-filter-switch-hook))))
+
 
 ;; Get filter data 
 
