@@ -1468,7 +1468,6 @@ If ALL-GROUPS is non-nil, update all tabs BUFFER in all filter groups of collect
 If ALL-GROUPS is non-nil, update all tabs BUFFERS in all filter groups of collection COLLECTION-NAME."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (message "Or here?")
   (dolist (buffer buffers)
     (star-tabs-recache-tab buffer all-groups collection-name filter-name)))
 
