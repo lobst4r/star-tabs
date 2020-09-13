@@ -376,7 +376,9 @@ Any elements in OLD-LIST not in NEW-LIST will be removed."
 :enable-file-extension-filters - if non-nil, enable filter groups in the collection for all file extensions 
 among currently open buffers (default nil).
 :collection-name-prefix - the prefix of the name of the collection, used in variable names. Individual collections can be 
-identified by the symbol name (intern (concat collection-name-prefix name)). (default \"star-tabs-collection-\")."
+identified by the symbol name (intern (concat collection-name-prefix name)). (default \"star-tabs-collection-\").
+:hide-extension-names - If non-nil, file extension names in buffer names will be hidden in tabs. Note that this won't change the name
+of the buffers; just how the names are displayed in the tabs. "
   ;; TODO: Update documentation for :disable-scroll-to-filter
   (let* ((use (plist-get collection-props :use))
 	 (enable-file-extension-filters (plist-get collection-props :enable-file-extension-filters))
@@ -384,6 +386,7 @@ identified by the symbol name (intern (concat collection-name-prefix name)). (de
 	 (display-filter-name (plist-get collection-props :display-filter-name))
 	 (file-extension-filter-threshold (or (plist-get collection-props :file-extension-filter-threshold) 0))
 	 (disable-scroll-to-filter (plist-get collection-props :disable-scroll-to-filter))
+	 (hide-extension-names (plist-get collection-props :hide-extension-names))
 	 (collection-name-prefix (or (plist-get collection-props :collection-name-prefix) "star-tabs-collection-"))
 	 (name-no-prefix (plist-get collection-props :name))
 	 (name (intern (concat collection-name-prefix (plist-get collection-props :name))))
@@ -391,6 +394,7 @@ identified by the symbol name (intern (concat collection-name-prefix name)). (de
 			     :display-filter-name ,display-filter-name
 			     :file-extension-filter-threshold ,file-extension-filter-threshold
 			     :disable-scroll-to-filter ,disable-scroll-to-filter
+			     :hide-extension-names ,hide-extension-names
 			     :collection-name-prefix ,collection-name-prefix
 			     :collection-name-no-prefix ,name-no-prefix
 			     :last-filter nil)))
@@ -1233,8 +1237,12 @@ Properties related to the tab are:
 					 'buffer-name ,tab-name
 					 'buffer-number ,tab-number))
 	 (tab-name-string `(propertize (concat
-				       star-tabs-number-name-separator
-					,tab-name
+					star-tabs-number-name-separator
+					(if (star-tabs-get-collection-prop-value :hide-extension-names (quote ,collection-name))
+					    (progn (string-match "\\(^.+\\)\\(\\..*$\\)" ,tab-name)
+						   (or (match-string 1 ,tab-name)
+						       ,tab-name))
+					  ,tab-name)
 					star-tabs-name-modified-icon-separator)
 					'keymap star-tabs-map-select-tab
 					'face ,tab-face
@@ -1488,24 +1496,6 @@ If ALL-GROUPS is non-nil, update all tabs BUFFERS in all filter groups of collec
   "Update the tab for the current buffer in the active group."
   (interactive)
   (star-tabs--init-tab (current-buffer)))
-
-
-;; When to eval and cache tab string:
-;; - Tab number changes
-;; - Tab mod state changes
-;; - Tab active state changes
-;; - Collection property change
-;; - Name changes
-
-;; When to recalculate width (both pixel and col):
-;; - Collection prop change
-;; -  
-
-;; When to update individual tab:
-;; - When collection props change
-;; - When any of the static elements in the tab changes
-;;   - Icon
-;;   - 
 
 
 ;; Scrolling

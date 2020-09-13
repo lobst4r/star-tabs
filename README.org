@@ -227,6 +227,7 @@ In order to create a filter, run this code, or add it to your .emacs configurati
   :enable-file-extension-filters t 
   :file-extension-filter-threshold 0
   :hide-close-buttons t
+  :hide-extension-names t
   :display-filter-name t)
 #+END_SRC
 
@@ -239,8 +240,8 @@ In order to create a filter, run this code, or add it to your .emacs configurati
 | ~:hide-close-buttons (bool)~             | If ~non-nil~, hide the tab close button icons.                                                                                                                                                        |
 | ~:display-filter-name (bool)~            | If ~non-nil~, always display the name of the filter/group left of the tabs in the tab bar. Otherwise, only display the filter/group name temporarily when switching filters/groups                    |
 | ~:use (bool)~                            | If ~non-nil~, switch to the collection upon creation.                                                                                                                                                 |
-| ~:disable-scroll-to-filter (bool)~       | If ~nil~ (default), go to beginning of next group, or end of previous group in the tab bar "scrolling past the edge".                                                                              |
-|                                          |                                                                                                                                                                                                       |
+| ~:disable-scroll-to-filter (bool)~       | If ~nil~ (default), go to beginning of next group, or end of previous group in the tab bar "scrolling past the edge".                                                                                 |
+| ~:hide-extension-names~                  | If ~non-nil~, file extension names in buffer names will be hidden in tabs. Note that this won't change the name of the buffers; just how the names are displayed in the tabs.                         |
 
 ** Filters Groups
 A filter is a list, or multiple lists, of regular expressions used to include or exclude (or both include and exclude)
