@@ -1089,10 +1089,13 @@ Return 0 if BUFFER is not in the active filter group."
 	;; Otherwise, return nil. 
 	(if (not (seq-set-equal-p star-tabs-active-buffers buffer-list))
 	    (progn
-	      (setq star-tabs-active-buffers (star-tabs-update-list star-tabs-active-buffers buffer-list))
-	      (run-hooks 'star-tabs-buffer-list-update-hook)
-	      t)
+	      (let ((killed-buffers (seq-difference star-tabs-active-buffers buffer-list))
+		    (new-buffers (seq-difference buffer-list star-tabs-active-buffers)))
+		(setq star-tabs-active-buffers (star-tabs-update-list star-tabs-active-buffers buffer-list))
+		(run-hook-with-args 'star-tabs-buffer-list-update-hook new-buffers killed-buffers)
+		t))
 	  nil)))))
+
 
 (defun star-tabs--filter-all-buffers ()
   "Apply filters to all real buffers in, and set create separate buffer lists for, all filter groups in the active collection."
@@ -1159,18 +1162,33 @@ If the buffer was switched, also run hook star-tabs-buffer-switch-hook."
 	     (not (string-prefix-p " " (buffer-name (current-buffer))))
 	     (member (current-buffer) star-tabs-active-buffers))
     (if (not (equal star-tabs-current-buffer (current-buffer)))
+	(let ((last-active-buffer star-tabs-current-buffer)
+	      (new-active-buffer (current-buffer)))
 	(progn
 	  ;; Refresh the filter-name timer if it was running when the buffer switched.
 	  ;; REVIEW: Do this for collection-name timer as well?
 	  (when star-tabs-tab-bar-filter-name
 	    (star-tabs--display-filter-name-temporarily))
 	  (setq star-tabs-current-buffer (current-buffer))
-	  (run-hooks 'star-tabs-buffer-switch-hook)
-	  t)
+	  (run-hook-with-args 'star-tabs-buffer-switch-hook last-active-buffer new-active-buffer)
+	  t))
       nil)))
 
 
 ;;; Tab bar
+
+;; Format string ("%s %d")
+
+(defun star-tabs--eval-tab (buffer &optional filter-name collection-name)
+  "Return a string representation of tab BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME." 
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
+  (let ((tab-number (1+ (cl-position buffer
+				     (star-tabs-get-group-buffers filter-name
+								  collection-name)))))
+
+    
+    ))
 
 (defun star-tabs--init-tab (buffer &optional filter-name collection-name)
   "Create/Update the tab, and return a propertized string that represents the tab, for buffer BUFFER-NAME with tab number NUMBER.
@@ -1392,7 +1410,7 @@ The tab bar format can be accessed using (star-tabs-get-filter-prop-value :tab-b
     (dolist (tab tabs)
       (setq tab-bar-format
 	    (concat tab-bar-format
-		    (eval (star-tabs-get-tab-prop-value tab :tab-string filter-name collection-name)))))
+		    (eval (star-tabs-get-tab-prop-value tab :tab-string-cached filter-name collection-name)))))
     ;; REVIEW: Add visible tabs prop? (maybe not a good idea since window width can change all the time, meaning we would still need to recalculate.)
     (star-tabs-set-filter-prop-value :tab-bar-format-first-tab-number (1+ start-number) t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar-format tab-bar-format t filter-name collection-name)
@@ -1431,39 +1449,54 @@ Properties related to the left margin are:
     (star-tabs-set-filter-prop-value :tab-bar-left-margin tab-bar-left-margin t filter-name collection-name)
     tab-bar-left-margin))
 
+(defun star-tabs-recache-tab (buffer &optional all-groups collection-name filter-name)
+  "Update the cached string representation of tab BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME.
+If ALL-GROUPS is non-nil, update all tabs BUFFER in all filter groups of collection COLLECTION-NAME."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
+  (let ((filters (star-tabs-get-filter-names)))
+    (if all-groups
+	(dolist (filter filters)
+	  (let ((tab-string (eval (star-tabs-get-tab-prop-value buffer :tab-string filter collection-name))))
+	    (star-tabs-set-tab-prop-value buffer :tab-string-cached tab-string filter collection-name)
+	    tab-string))
+      (let ((tab-string (eval (star-tabs-get-tab-prop-value buffer :tab-string filter-name collection-name))))
+	(star-tabs-set-tab-prop-value buffer :tab-string-cached tab-string filter-name collection-name)))))
+
+(defun star-tabs--recache-tabs (buffers &optional all-groups collection-name filter-name)
+  "Update the cached string representation of tabs BUFFERS in filter group FILTER-NAME of collection COLLECTION-NAME.
+If ALL-GROUPS is non-nil, update all tabs BUFFERS in all filter groups of collection COLLECTION-NAME."
+  (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
+  (or collection-name (setq collection-name (star-tabs-active-collection-name)))
+  (message "Or here?")
+  (dolist (buffer buffers)
+    (star-tabs-recache-tab buffer all-groups collection-name filter-name)))
+
 (defun star-tabs--update-tabs (buffers &optional filter-name collection-name)
   "Update tabs BUFFERS in the active filter group."
   ;; TODO: revamp how tabs are updated. 
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (let ((counter 1))
-    (dolist (buffer buffers)
-      (star-tabs--init-tab buffer filter-name collection-name)
-      (setq counter (1+ counter)))))
+  (dolist (buffer buffers)
+    (star-tabs--init-tab buffer filter-name collection-name)))
 
-(defun star-tabs--update-tab (buffer &optional filter-name collection-name)
+(defun star-tabs-update-tab (buffer &optional filter-name collection-name)
   "Create or update tab BUFFER in filter group FILTER-NAME of collection COLLECTION-NAME."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (let ((tab-string (eval (star-tabs-get-tab-prop-value buffer :tab-string filter-name collection-name))))
-    (start-tabs-set-tab-prop-value buffer :tab-string-cached tab-string filter-name collection-name)
-    tab-string))
+  (star-tabs--init-tab buffer filter-name collection-name))
 
 
-;; When to init tab:
-;; - When there is a new buffer (init for all groups (maybe not for all collections?))
-;; - When there is a new filter(s)
-
-;; When to eval and cache tab:
+;; When to eval and cache tab string:
 ;; - Tab number changes
 ;; - Tab mod state changes
 ;; - Tab active state changes
 ;; - Collection property change
-;; - 
+;; - Name changes
 
-;; When to recalculate width:
-;;  
-;; 
+;; When to recalculate width (both pixel and col):
+;; - Collection prop change
+;; -  
 
 ;; When to update individual tab:
 ;; - When collection props change
@@ -1755,17 +1788,26 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   (star-tabs--update-buffer-list)
   (star-tabs--buffer-switched-p)) 
 
-(defun star-tabs-on-buffer-list-update ()
+(defun star-tabs-on-buffer-list-update (new-buffers killed-buffers)
   "Run when the list of real buffers updates."
-  ;; TODO: Add parameter for new/killed buffers
   (when star-tabs-debug-messages
     (message "Real buffer list updated"))
   (star-tabs--add-and-remove-file-extension-filters t t)
-  (star-tabs--filter-all-buffers) 
-  ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  (let ((filters-to-be-updated nil))
+    ;; If there are killed buffers, find which groups they belonged to so that we can refresh the other tabs
+    ;; in those groups (mainly their numbers).
+    (when killed-buffers
+      (let ((filters (star-tabs-get-filter-names)))
+	(dolist (buffer killed-buffers)
+	  (dolist (filter filters)
+	    (when (member buffer (star-tabs-get-group-buffers filter))
+	      (setq filters-to-be-updated (append filters-to-be-updated (list filter))))))))
+    (star-tabs--filter-all-buffers)
+    (dolist (filter filters-to-be-updated)
+      (star-tabs--recache-tabs (star-tabs-get-group-buffers filter) nil (star-tabs-active-collection-name) filter)))
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
 
-(defun star-tabs-on-buffer-switch ()
+(defun star-tabs-on-buffer-switch (last-active-buffer new-active-buffer)
   "Run when the current real buffer is switched."
   (when star-tabs-debug-messages
     (message "Buffer Switched: %s" (buffer-name (current-buffer))))
@@ -1777,9 +1819,14 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
     (star-tabs-auto-sort))
   ;; Update and display tab bar.
   ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  (when (member last-active-buffer star-tabs-active-buffers)
+    ;; Don't recache last active tab if it was killed.
+    (star-tabs-recache-tab last-active-buffer t)) 
+  (star-tabs-recache-tab new-active-buffer t)
   (if (star-tabs--tab-visible-p (star-tabs-current-buffer))
       (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer)))
+
 ;; TODO: scroll-to-current-buffer should be 'keep-scroll if the tab is already visible.
 
 
@@ -1787,13 +1834,13 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 
 (defun star-tabs-when-buffer-first-modified ()
   "Run when a buffer goes from an unmodified state to a modified state."
-  (when (member (current-buffer) star-tabs-active-buffers)
+  (when (member (current-buffer) star-tabs-active-buffers) ;; REVIEW: Will this trigger if another buffer is modified?
     (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should automatically be set to t.
     (when star-tabs-debug-messages
       (message "Buffer Modified"))
     ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+    (star-tabs-recache-tab (current-buffer) t)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
-
 
 (defun star-tabs-when-buffer-first-saved ()
   "Run when a buffer goes from a modified state to an unmodified state."
@@ -1802,6 +1849,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   (when (member (current-buffer) star-tabs-active-buffers)
     (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should automatically be set to nil.
     ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+    (star-tabs-recache-tab (current-buffer) t)
     (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll)))
 
 
@@ -1864,13 +1912,14 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 
 (defun star-tabs-on-collection-property-change ()
   "Run when a collection property changes."
+  ;; TODO: Add collection-name param 
   (when star-tabs-debug-messages
     (message "Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
   (star-tabs--filter-all-buffers)
-  ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  (star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  ;;(star-tabs--recache-tabs (star-tabs-get-active-group-buffers) t)
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'keep-scroll))
-
 
 ;; Functions to run when enabling/disabling Star Tabs.
 
@@ -1892,6 +1941,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
   (when star-tabs-debug-messages
     (message "Tab moved"))
   ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
+  (star-tabs--recache-tabs (star-tabs-get-active-group-buffers) nil)
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
 
 (defun star-tabs-on-timer-start ()
@@ -1930,7 +1980,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (add-hook 'star-tabs-collection-property-change-hook #'star-tabs-on-collection-property-change)
 ;; (add-hook 'star-tabs-disable-tab-bar-hook #'star-tabs-on-disable-tab-bar)
 ;; (add-hook 'star-tabs-init-hook #'star-tabs-init)
-(add-hook 'star-tabs-buffer-list-update-hook #'star-tabs-on-buffer-list-update)
+(add-hook 'star-tabs-buffer-list-update-hook #'star-tabs-on-buffer-list-update t)
 ;; (add-hook 'star-tabs-timer-end-hook #'star-tabs-on-timer-end)
 ;; (add-hook 'star-tabs-timer-start-hook #'star-tabs-on-timer-start)
 (add-hook 'star-tabs-collection-switch-hook #'star-tabs-on-collection-switch)
