@@ -2042,6 +2042,43 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (add-hook 'star-tabs-buffer-switch-hook #'star-tabs-on-buffer-switch)
 
 
+(defun star-tabs--mirror-xpm (xpm-data ncolors height)
+  "Mirrors xpm image XPM-DATA with height HEIGHT and NCOLORS number of colors.
+Note: This function require that the xpm image data is formatted in a specific way:\n
+The 3 first rows are:
+1: the /* XPM */ line
+2: static char* <variable_name>[]= {
+3: <Values>
+The rows 4 to (+ 3 ncolors) are:
+4 to (+ 3 ncolors): <Colors>
+The remaining lines are: <Pixels>
+except for the last line, which should be \"};\""
+  (save-excursion
+    (with-temp-buffer
+      (insert xpm-data)
+      (let* ((img-string (split-string (buffer-string) "\n"))
+	    (start-line 0) 
+	    (end-line (+ (+ 3 ncolors) height))
+	    (reverse-img ""))
+	;; XPM header, values, and color descriptions: 
+	(while (> (+ 3 ncolors) start-line)
+	  (setq reverse-img (concat reverse-img
+				    (nth start-line img-string)
+				    "\n"))
+	  (setq start-line (1+ start-line)))
+	;; Pixels
+	(while (> end-line start-line)
+	  (if (not (equal (- end-line start-line) 1))
+	      (setq reverse-img (concat reverse-img
+					(substring (reverse (nth start-line img-string)) 1)
+					",\n" ))
+	    (setq reverse-img (concat reverse-img
+					(reverse (nth start-line img-string))
+					"\n" )))
+	  (setq start-line (1+ start-line)))
+	;; Close the variable declaration
+	(setq reverse-img (concat reverse-img"};"))
+	reverse-img))))
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
