@@ -2086,6 +2086,48 @@ except for the last line, which should be \"};\""
     ;; Close the variable declaration
     (setq reverse-img (concat reverse-img"};"))
     reverse-img))
+(defun star-tabs--fill-xpm (xpm-data target-height)
+  "Fill the bottom of xpm image XPM-DATA with rows of \".\" characters to make it height TARGET-HEIGHT."
+  (let* ((xpm-values (star-tabs--parse-xpm-values xpm-data))
+	 (width (nth 0 xpm-values))
+	 (height (nth 1 xpm-values))
+	 (ncolors (nth 2 xpm-values))
+	 (cpp (nth 3 xpm-values))
+	 (new-values (format "\"%s %s %s %s\"," width (max height target-height) ncolors cpp))
+	 (xpm-split (split-string xpm-data "\n"))
+	 (xpm-header-values-colors "")
+	 (xpm-header-values-colors (dotimes (iter (+ 3 ncolors) xpm-header-values-colors)
+				     (setq xpm-header-values-colors (concat xpm-header-values-colors
+									    (if (not (equal iter 2))
+										(nth iter xpm-split)
+									      new-values)
+									    "\n"
+									    ))))
+	 (xpm-pixels "")
+	 (xpm-pixels (dotimes (iter height xpm-pixels)
+		       (setq xpm-pixels (concat xpm-pixels
+						(nth (+ iter 3 ncolors) xpm-split)
+						(when (not (= (+ 1 iter 3 ncolors ) (+ 3 ncolors height)))
+									      "\n")))))
+	 (fill-pixel ".")
+	 (fill-pixels "")
+	 (fill-pixels-row (format "\"%s\"" (dotimes (_num width fill-pixels)
+					     (setq fill-pixels (concat fill-pixels fill-pixel)))))
+	 (fill-pixels-full "" )
+	 (fill-pixels-full (format "%s"
+				   (dotimes (num (- target-height height) fill-pixels-full)
+				     (setq fill-pixels-full (concat fill-pixels-full
+								    fill-pixels-row
+								    (unless (= (1+ num) (- target-height height))
+								      ",")
+								    "\n")))))
+	 (fill-pixels-full (concat fill-pixels-full
+				   "};")))
+    (concat xpm-header-values-colors
+	    (if (> target-height height)
+		(concat xpm-pixels ",\n")
+	      (concat xpm-pixels "\n"))
+	    fill-pixels-full)))
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
