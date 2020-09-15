@@ -2042,8 +2042,15 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (add-hook 'star-tabs-buffer-switch-hook #'star-tabs-on-buffer-switch)
 
 
-(defun star-tabs--mirror-xpm (xpm-data ncolors height)
-  "Mirrors xpm image XPM-DATA with height HEIGHT and NCOLORS number of colors.
+(defun star-tabs--parse-xpm-values (xpm-data)
+  "Return a list of values for width, height, ncolors and cpp of xpm image XPM-DATA."
+  (let* ((xpm-values (nth 2 (split-string xpm-data "\n"))))
+    (save-match-data
+      (string-match "\\([0-9]+\\).*?\\([0-9]+\\).*?\\([0-9]+\\).*?\\([0-9]+\\)" xpm-values)
+      (mapcar 'string-to-number (split-string (match-string 0 xpm-values))))))
+
+(defun star-tabs--mirror-xpm (xpm-data)
+  "Mirror xpm image XPM-DATA. 
 Note: This function require that the xpm image data is formatted in a specific way:\n
 The 3 first rows are:
 1: the /* XPM */ line
@@ -2053,32 +2060,32 @@ The rows 4 to (+ 3 ncolors) are:
 4 to (+ 3 ncolors): <Colors>
 The remaining lines are: <Pixels>
 except for the last line, which should be \"};\""
-  (save-excursion
-    (with-temp-buffer
-      (insert xpm-data)
-      (let* ((img-string (split-string (buffer-string) "\n"))
-	    (start-line 0) 
-	    (end-line (+ (+ 3 ncolors) height))
-	    (reverse-img ""))
-	;; XPM header, values, and color descriptions: 
-	(while (> (+ 3 ncolors) start-line)
+  (let* ((img-string (split-string xpm-data "\n"))
+	 (xpm-values (star-tabs--parse-xpm-values xpm-data))
+	 (height (nth 1 xpm-values))
+	 (ncolors (nth 2 xpm-values))
+	 (start-line 0) 
+	 (end-line (+ (+ 3 ncolors) height))
+	 (reverse-img ""))
+    ;; XPM header, values, and color descriptions: 
+    (while (> (+ 3 ncolors) start-line)
+      (setq reverse-img (concat reverse-img
+				(nth start-line img-string)
+				"\n"))
+      (setq start-line (1+ start-line)))
+    ;; Pixels
+    (while (> end-line start-line)
+      (if (not (equal (- end-line start-line) 1))
 	  (setq reverse-img (concat reverse-img
-				    (nth start-line img-string)
-				    "\n"))
-	  (setq start-line (1+ start-line)))
-	;; Pixels
-	(while (> end-line start-line)
-	  (if (not (equal (- end-line start-line) 1))
-	      (setq reverse-img (concat reverse-img
-					(substring (reverse (nth start-line img-string)) 1)
-					",\n" ))
-	    (setq reverse-img (concat reverse-img
-					(reverse (nth start-line img-string))
-					"\n" )))
-	  (setq start-line (1+ start-line)))
-	;; Close the variable declaration
-	(setq reverse-img (concat reverse-img"};"))
-	reverse-img))))
+				    (substring (reverse (nth start-line img-string)) 1)
+				    ",\n" ))
+	(setq reverse-img (concat reverse-img
+				  (reverse (nth start-line img-string))
+				  "\n" )))
+      (setq start-line (1+ start-line)))
+    ;; Close the variable declaration
+    (setq reverse-img (concat reverse-img"};"))
+    reverse-img))
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
