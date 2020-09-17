@@ -41,15 +41,16 @@ This variable is currently not used.")
   "Tab bar divider that separates the name of the active filter group and the first tab.")
 
 
+
 ;; Tab icons
 
-(defvar star-tabs-modified-buffer-icon "*"
+(defvar star-tabs-modified-buffer-icon "\u229a"
   "Tab 'icon' for modified buffers.")
 
 (defvar star-tabs-unmodified-buffer-icon "+"
   "Tab 'icon' for unmodified buffers.")
 
-(defvar star-tabs-close-buffer-icon "x"
+(defvar star-tabs-close-buffer-icon "\u2a2f"
   "Tab 'icon' for the tab close button.")
 
 
@@ -190,7 +191,7 @@ This is a helper variable for the automatic file extension filter groups."
 (defvar star-tabs-tab-bar-height 210
   "Height of the tab bar.")
 
-(defvar star-tabs-tab-bar-text-height 155
+(defvar star-tabs-tab-bar-text-height 155 
   "Text height for tabs.")
 
 (defvar star-tabs-tab-bar-filter-name-foreground "#ef21b3"
@@ -205,12 +206,20 @@ This is a helper variable for the automatic file extension filter groups."
 (defvar star-tabs-tab-bar-selected-foreground "#a3c9e7"
   "Foreground color for the selected tab.")
 
-(defvar star-tabs-tab-bar-non-selected-background "#262626"
+;; (defvar star-tabs-tab-bar-non-selected-background "#262626"
+;;   "Background color for non-selected tabs.")
+
+(defvar star-tabs-tab-bar-non-selected-background "#FF7F00"
   "Background color for non-selected tabs.")
 
 (defvar star-tabs-tab-bar-non-selected-foreground "#e1e1e1"
   "Foreground color for non-selected tabs.")
 
+(defvar star-tabs-modified-icon-non-selected-foreground "#2614e1"
+  "Foreground color for non-selected tabs.")
+
+(defvar star-tabs-modified-icon-selected-foreground "#e12614"
+  "Foreground color for the selected tab.")
 
 ;; Faces
 
@@ -268,6 +277,21 @@ This is a helper variable for the automatic file extension filter groups."
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
   "Face to be displayed when hovering over a non-selected tab with the mouse in the tab bar.")
+
+(defface star-tabs-non-selected-modified-icon
+  `((t (
+	:background ,star-tabs-tab-bar-non-selected-background
+	:foreground ,star-tabs-modified-icon-non-selected-foreground
+	:height ,star-tabs-tab-bar-text-height)))
+  "Face for displaying the non-selected tab in the tab bar.")
+
+(defface star-tabs-selected-modified-icon
+  `((t
+     (
+      :background ,star-tabs-tab-bar-selected-background
+      :foreground ,star-tabs-modified-icon-selected-foreground
+      :height ,star-tabs-tab-bar-text-height)))
+  "Face for displaying the selected tab in the tab bar.")
 
 (defface star-tabs-non-selected-tab
   `((t (
@@ -1270,6 +1294,9 @@ Properties related to the tab are:
 	 (tab-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			(quote star-tabs-selected-tab)
 		      (quote star-tabs-non-selected-tab)))
+	 (modified-icon-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
+				  (quote star-tabs-selected-modified-icon)
+				(quote star-tabs-non-selected-modified-icon)))
 	 (tab-mouse-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			      'star-tabs-mouse-selected
 			    'star-tabs-mouse-non-selected))
@@ -1331,18 +1358,23 @@ Properties related to the tab are:
 					 (concat  
 					  (if (buffer-modified-p ,tab-buffer)
 					      star-tabs-modified-buffer-icon
-					    star-tabs-unmodified-buffer-icon)
-					  (when (not(star-tabs-get-collection-prop-value
-						     :hide-close-buttons (quote ,collection-name)))
-					    star-tabs-modified-icon-close-button-separator))
+					    star-tabs-unmodified-buffer-icon))
 				       ;; Display nothing if it's an unreal buffer, system buffer, or read-only buffer:
 				       "")
 				     'keymap star-tabs-map-select-tab
-				     'face ,tab-face
+				     'face ,modified-icon-face
 				     'mouse-face ,tab-mouse-face
 				     'buffer-name ,tab-name
 				     'buffer-number ,tab-number))
-	 (tab-string `(concat ,divider ,tab-icon-string ,divider ,tab-number-string ,tab-name-string ,modified-icon ,close-button  ,tab-divider))
+	 (tab-string `(concat ,divider
+			      ,tab-icon-string
+			      ,divider
+			      ,tab-number-string
+			      ,tab-name-string
+			      (if (buffer-modified-p ,tab-buffer)
+				  ,modified-icon
+				,close-button)
+			      ,tab-divider))
 	 (tab-string-cached (eval tab-string))
 	 (tab-digit-width (star-tabs-string-pixel-width (substring (eval tab-number-string) 0 1)))
 	 (tab-number-width `(* ,tab-digit-width (eval (length (int-to-string ,tab-number)))))
@@ -2042,8 +2074,104 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (add-hook 'star-tabs-buffer-switch-hook #'star-tabs-on-buffer-switch)
 
 
+(defun star-tabs--parse-xpm-values (xpm-data)
+  "Return a list of values for width, height, ncolors and cpp of xpm image XPM-DATA."
+  (let* ((xpm-values (nth 2 (split-string xpm-data "\n"))))
+    (save-match-data
+      (string-match "\\([0-9]+\\).*?\\([0-9]+\\).*?\\([0-9]+\\).*?\\([0-9]+\\)" xpm-values)
+      (mapcar 'string-to-number (split-string (match-string 0 xpm-values))))))
+
+(defun star-tabs--mirror-xpm (xpm-data)
+  "Mirror xpm image XPM-DATA. 
+Note: This function require that the xpm image data is formatted in a specific way:\n
+The 3 first rows are:
+1: the /* XPM */ line
+2: static char* <variable_name>[]= {
+3: <Values>
+The rows 4 to (+ 3 ncolors) are:
+4 to (+ 3 ncolors): <Colors>
+The remaining lines are: <Pixels>
+except for the last line, which should be \"};\""
+  (let* ((img-string (split-string xpm-data "\n"))
+	 (xpm-values (star-tabs--parse-xpm-values xpm-data))
+	 (height (nth 1 xpm-values))
+	 (ncolors (nth 2 xpm-values))
+	 (start-line 0) 
+	 (end-line (+ (+ 3 ncolors) height))
+	 (reverse-img ""))
+    ;; XPM header, values, and color descriptions: 
+    (while (> (+ 3 ncolors) start-line)
+      (setq reverse-img (concat reverse-img
+				(nth start-line img-string)
+				"\n"))
+      (setq start-line (1+ start-line)))
+    ;; Pixels
+    (while (> end-line start-line)
+      (if (not (equal (- end-line start-line) 1))
+	  (setq reverse-img (concat reverse-img
+				    (substring (reverse (nth start-line img-string)) 1)
+				    ",\n" ))
+	(setq reverse-img (concat reverse-img
+				  (reverse (nth start-line img-string))
+				  "\n" )))
+      (setq start-line (1+ start-line)))
+    ;; Close the variable declaration
+    (setq reverse-img (concat reverse-img"};"))
+    reverse-img))
+(defun star-tabs--fill-xpm (xpm-data target-height)
+  "Fill the bottom of xpm image XPM-DATA with rows of \".\" characters to make it height TARGET-HEIGHT."
+  (let* ((xpm-values (star-tabs--parse-xpm-values xpm-data))
+	 (width (nth 0 xpm-values))
+	 (height (nth 1 xpm-values))
+	 (ncolors (nth 2 xpm-values))
+	 (cpp (nth 3 xpm-values))
+	 (new-values (format "\"%s %s %s %s\"," width (max height target-height) ncolors cpp))
+	 (xpm-split (split-string xpm-data "\n"))
+	 (xpm-header-values-colors "")
+	 (xpm-header-values-colors (dotimes (iter (+ 3 ncolors) xpm-header-values-colors)
+				     (setq xpm-header-values-colors (concat xpm-header-values-colors
+									    (if (not (equal iter 2))
+										(nth iter xpm-split)
+									      new-values)
+									    "\n"
+									    ))))
+	 (xpm-pixels "")
+	 (xpm-pixels (dotimes (iter height xpm-pixels)
+		       (setq xpm-pixels (concat xpm-pixels
+						(nth (+ iter 3 ncolors) xpm-split)
+						(when (not (= (+ 1 iter 3 ncolors ) (+ 3 ncolors height)))
+									      "\n")))))
+	 (fill-pixel ".")
+	 (fill-pixels "")
+	 (fill-pixels-row (format "\"%s\"" (dotimes (_num width fill-pixels)
+					     (setq fill-pixels (concat fill-pixels fill-pixel)))))
+	 (fill-pixels-full "" )
+	 (fill-pixels-full (format "%s"
+				   (dotimes (num (- target-height height) fill-pixels-full)
+				     (setq fill-pixels-full (concat fill-pixels-full
+								    fill-pixels-row
+								    (unless (= (1+ num) (- target-height height))
+								      ",")
+								    "\n")))))
+	 (fill-pixels-full (concat fill-pixels-full
+				   "};")))
+    (concat xpm-header-values-colors
+	    (if (> target-height height)
+		(concat xpm-pixels ",\n")
+	      (concat xpm-pixels "\n"))
+	    fill-pixels-full)))
+
+(defun star-tabs--create-image (xpm-data &optional image-face)
+  "Create an image using XPM-DATA for use in the header line. 
+If set, apply face IMAGE-FACE to the image."
+  (propertize " "
+	      'display (create-image xpm-data 'xpm t :ascent 'center)
+	      'face image-face))
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
+
+
+
 
 
