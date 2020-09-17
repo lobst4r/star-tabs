@@ -2128,6 +2128,12 @@ except for the last line, which should be \"};\""
 		(concat xpm-pixels ",\n")
 	      (concat xpm-pixels "\n"))
 	    fill-pixels-full)))
+(defun star-tabs--create-image (xpm-data &optional image-face)
+  "Create an image using XPM-DATA for use in the header line. 
+If set, apply face IMAGE-FACE to the image."
+  (propertize " "
+	      'display (create-image xpm-data 'xpm t :ascent 'center)
+	      'face image-face))
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
