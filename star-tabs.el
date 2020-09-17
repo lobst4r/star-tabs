@@ -41,15 +41,16 @@ This variable is currently not used.")
   "Tab bar divider that separates the name of the active filter group and the first tab.")
 
 
+
 ;; Tab icons
 
-(defvar star-tabs-modified-buffer-icon "*"
+(defvar star-tabs-modified-buffer-icon "\u229a"
   "Tab 'icon' for modified buffers.")
 
 (defvar star-tabs-unmodified-buffer-icon "+"
   "Tab 'icon' for unmodified buffers.")
 
-(defvar star-tabs-close-buffer-icon "x"
+(defvar star-tabs-close-buffer-icon "\u2a2f"
   "Tab 'icon' for the tab close button.")
 
 
@@ -190,7 +191,7 @@ This is a helper variable for the automatic file extension filter groups."
 (defvar star-tabs-tab-bar-height 210
   "Height of the tab bar.")
 
-(defvar star-tabs-tab-bar-text-height 155
+(defvar star-tabs-tab-bar-text-height 155 
   "Text height for tabs.")
 
 (defvar star-tabs-tab-bar-filter-name-foreground "#ef21b3"
@@ -205,12 +206,20 @@ This is a helper variable for the automatic file extension filter groups."
 (defvar star-tabs-tab-bar-selected-foreground "#a3c9e7"
   "Foreground color for the selected tab.")
 
-(defvar star-tabs-tab-bar-non-selected-background "#262626"
+;; (defvar star-tabs-tab-bar-non-selected-background "#262626"
+;;   "Background color for non-selected tabs.")
+
+(defvar star-tabs-tab-bar-non-selected-background "#FF7F00"
   "Background color for non-selected tabs.")
 
 (defvar star-tabs-tab-bar-non-selected-foreground "#e1e1e1"
   "Foreground color for non-selected tabs.")
 
+(defvar star-tabs-modified-icon-non-selected-foreground "#2614e1"
+  "Foreground color for non-selected tabs.")
+
+(defvar star-tabs-modified-icon-selected-foreground "#e12614"
+  "Foreground color for the selected tab.")
 
 ;; Faces
 
@@ -268,6 +277,21 @@ This is a helper variable for the automatic file extension filter groups."
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
   "Face to be displayed when hovering over a non-selected tab with the mouse in the tab bar.")
+
+(defface star-tabs-non-selected-modified-icon
+  `((t (
+	:background ,star-tabs-tab-bar-non-selected-background
+	:foreground ,star-tabs-modified-icon-non-selected-foreground
+	:height ,star-tabs-tab-bar-text-height)))
+  "Face for displaying the non-selected tab in the tab bar.")
+
+(defface star-tabs-selected-modified-icon
+  `((t
+     (
+      :background ,star-tabs-tab-bar-selected-background
+      :foreground ,star-tabs-modified-icon-selected-foreground
+      :height ,star-tabs-tab-bar-text-height)))
+  "Face for displaying the selected tab in the tab bar.")
 
 (defface star-tabs-non-selected-tab
   `((t (
@@ -1270,6 +1294,9 @@ Properties related to the tab are:
 	 (tab-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			(quote star-tabs-selected-tab)
 		      (quote star-tabs-non-selected-tab)))
+	 (modified-icon-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
+				  (quote star-tabs-selected-modified-icon)
+				(quote star-tabs-non-selected-modified-icon)))
 	 (tab-mouse-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			      'star-tabs-mouse-selected
 			    'star-tabs-mouse-non-selected))
@@ -1331,18 +1358,23 @@ Properties related to the tab are:
 					 (concat  
 					  (if (buffer-modified-p ,tab-buffer)
 					      star-tabs-modified-buffer-icon
-					    star-tabs-unmodified-buffer-icon)
-					  (when (not(star-tabs-get-collection-prop-value
-						     :hide-close-buttons (quote ,collection-name)))
-					    star-tabs-modified-icon-close-button-separator))
+					    star-tabs-unmodified-buffer-icon))
 				       ;; Display nothing if it's an unreal buffer, system buffer, or read-only buffer:
 				       "")
 				     'keymap star-tabs-map-select-tab
-				     'face ,tab-face
+				     'face ,modified-icon-face
 				     'mouse-face ,tab-mouse-face
 				     'buffer-name ,tab-name
 				     'buffer-number ,tab-number))
-	 (tab-string `(concat ,divider ,tab-icon-string ,divider ,tab-number-string ,tab-name-string ,modified-icon ,close-button  ,tab-divider))
+	 (tab-string `(concat ,divider
+			      ,tab-icon-string
+			      ,divider
+			      ,tab-number-string
+			      ,tab-name-string
+			      (if (buffer-modified-p ,tab-buffer)
+				  ,modified-icon
+				,close-button)
+			      ,tab-divider))
 	 (tab-string-cached (eval tab-string))
 	 (tab-digit-width (star-tabs-string-pixel-width (substring (eval tab-number-string) 0 1)))
 	 (tab-number-width `(* ,tab-digit-width (eval (length (int-to-string ,tab-number)))))
@@ -2128,6 +2160,7 @@ except for the last line, which should be \"};\""
 		(concat xpm-pixels ",\n")
 	      (concat xpm-pixels "\n"))
 	    fill-pixels-full)))
+
 (defun star-tabs--create-image (xpm-data &optional image-face)
   "Create an image using XPM-DATA for use in the header line. 
 If set, apply face IMAGE-FACE to the image."
@@ -2137,5 +2170,8 @@ If set, apply face IMAGE-FACE to the image."
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
+
+
+
 
 
