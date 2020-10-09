@@ -206,13 +206,13 @@ This is a helper variable for the automatic file extension filter groups."
 (defvar star-tabs-tab-bar-selected-foreground "#a3c9e7"
   "Foreground color for the selected tab.")
 
-;; (defvar star-tabs-tab-bar-non-selected-background "#262626"
-;;   "Background color for non-selected tabs.")
-
-(defvar star-tabs-tab-bar-non-selected-background "#FF7F00"
+(defvar star-tabs-tab-bar-non-selected-background "#464646"
   "Background color for non-selected tabs.")
 
-(defvar star-tabs-tab-bar-non-selected-foreground "#e1e1e1"
+;; (defvar star-tabs-tab-bar-non-selected-background "#FF7F00"
+;;   "Background color for non-selected tabs.")
+
+(defvar star-tabs-tab-bar-non-selected-foreground "#b1b1b1"
   "Foreground color for non-selected tabs.")
 
 (defvar star-tabs-modified-icon-non-selected-foreground "#2614e1"
