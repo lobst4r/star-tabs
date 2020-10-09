@@ -228,14 +228,21 @@ This is a helper variable for the automatic file extension filter groups."
 (defface star-tabs-tab-bar-left-margin
   `(( t
       (
-       :height ,star-tabs-tab-bar-height
-       :background ,star-tabs-tab-bar-non-selected-background)))
+ ;      :height ,star-tabs-tab-bar-height
+       :background ,star-tabs-tab-bar-background)))
   "Face for the left margin of the header-line which is used for determining the height of the header-line.")
+
+(defface star-tabs-tab-bar-empty-space
+  `(( t
+      (
+ ;      :height ,star-tabs-tab-bar-height
+       :background ,star-tabs-tab-bar-background)))
+  "Face for the unused space of the right of the header-line.")
 
 (defface star-tabs-filter-name
   `((t
      (
-      :background ,star-tabs-tab-bar-non-selected-background
+      :background ,star-tabs-tab-bar-background
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
   "Face for displaying the filter name in the tab bar.")
@@ -243,7 +250,7 @@ This is a helper variable for the automatic file extension filter groups."
 (defface star-tabs-collection-name
   `((t
      (
-      :background ,star-tabs-tab-bar-non-selected-background
+      :background ,star-tabs-tab-bar-background
       :foreground ,star-tabs-tab-bar-collection-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
   "Face for displaying the collection name in the tab bar.")
@@ -1289,10 +1296,10 @@ Properties related to the tab are:
 	 (tab-name `(buffer-name ,tab-buffer))
 	 (tab-icon (star-tabs--select-icon tab-buffer))
 	 (tab-icon-background `(if (eq ,tab-buffer (star-tabs-current-buffer))
-			      (face-background 'star-tabs-selected-tab)
-			    (face-background 'star-tabs-non-selected-tab)))
+				   (face-background 'star-tabs-selected-tab)
+				 (face-background 'star-tabs-non-selected-tab)))
 	 (tab-icon-face `(list :inherit (get-text-property 0 'face ,tab-icon)
-			   :background ,tab-icon-background))
+			       :background ,tab-icon-background))
 	 (tab-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			(quote star-tabs-selected-tab)
 		      (quote star-tabs-non-selected-tab)))
@@ -1322,11 +1329,11 @@ Properties related to the tab are:
 						       ,tab-name))
 					  ,tab-name)
 					star-tabs-name-modified-icon-separator)
-					'keymap star-tabs-map-select-tab
-					'face ,tab-face
-					'mouse-face ,tab-mouse-face
-					'buffer-name ,tab-name
-					'buffer-number ,tab-number))
+				       'keymap star-tabs-map-select-tab
+				       'face ,tab-face
+				       'mouse-face ,tab-mouse-face
+				       'buffer-name ,tab-name
+				       'buffer-number ,tab-number))
 	 (tab-icon-string (if (stringp tab-icon)
 			      `(propertize ,tab-icon 
 					   'face ,tab-icon-face
@@ -1348,11 +1355,11 @@ Properties related to the tab are:
 			       'buffer-name ,tab-name
 			       'buffer-number ,tab-number))
 	 (tab-divider `(propertize " " 
-				  'keymap star-tabs-map-select-tab
-				  'face ,tab-face
-				  'mouse-face ,tab-divider-mouse-face
-				  'buffer-name ,tab-name
-				  'buffer-number ,tab-number))
+				   'keymap star-tabs-map-select-tab
+				   'face ,tab-face
+				   'mouse-face ,tab-divider-mouse-face
+				   'buffer-name ,tab-name
+				   'buffer-number ,tab-number))
 	 (modified-icon `(propertize (if (and (not (string-match "^[[:space:]]" ,tab-name))
 					      (not (string-match "^*.*\\*$" ,tab-name))
 					      (not (star-tabs-buffer-read-only-p ,tab-name)))
@@ -1384,7 +1391,7 @@ Properties related to the tab are:
 	 (tab-pixel-width-without-number (- (star-tabs-string-pixel-width tab-string-cached)
 					    (eval tab-number-width)))
 	 (tab-pixel-width `(+ ,tab-pixel-width-without-number
-					 ,tab-number-width))
+			      ,tab-number-width))
 	 (tab `(,tab-buffer :tab-string-divider ,divider
 			    :tab-string-icon ,tab-icon-string
 			    :tab-string-name ,tab-name-string
@@ -1744,7 +1751,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 (defun star-tabs--header-line-white-space ()
   "Return white space as a string to fill out the unoccupied part, if any, of the tab bar."
   (let ((empty-space (/ (star-tabs--header-line-remaining-space)
-			(window-font-width nil 'star-tabs-non-selected-tab)))
+			(window-font-width nil 'star-tabs-tab-bar-empty-space)))
 	(white-space ""))
     (while (> empty-space 0)
       (setq white-space (concat " " white-space))
