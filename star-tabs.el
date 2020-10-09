@@ -221,6 +221,8 @@ This is a helper variable for the automatic file extension filter groups."
 (defvar star-tabs-modified-icon-selected-foreground "#e12614"
   "Foreground color for the selected tab.")
 
+(defvar star-tabs-tab-bar-background "#363636"
+  "Background color for the tab bar.")
 ;; Faces
 
 (defface star-tabs-tab-bar-left-margin
