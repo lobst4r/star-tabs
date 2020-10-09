@@ -2142,7 +2142,6 @@ except for the last line, which should be \"};\""
     (setq reverse-img (concat reverse-img"};"))
     reverse-img))
 
-(defun star-tabs--fill-xpm (xpm-data target-height)
 (defun star-tabs--fill-xpm (xpm-data target-height &optional fill-direction)
   "Fill the bottom of xpm image XPM-DATA with rows of \".\" characters to make it height TARGET-HEIGHT."
   (or fill-direction (setq fill-direction 'bottom))
