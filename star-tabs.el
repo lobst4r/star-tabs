@@ -2143,7 +2143,9 @@ except for the last line, which should be \"};\""
     reverse-img))
 
 (defun star-tabs--fill-xpm (xpm-data target-height)
+(defun star-tabs--fill-xpm (xpm-data target-height &optional fill-direction)
   "Fill the bottom of xpm image XPM-DATA with rows of \".\" characters to make it height TARGET-HEIGHT."
+  (or fill-direction (setq fill-direction 'bottom))
   (let* ((xpm-values (star-tabs--parse-xpm-values xpm-data))
 	 (width (nth 0 xpm-values))
 	 (height (nth 1 xpm-values))
@@ -2164,26 +2166,48 @@ except for the last line, which should be \"};\""
 		       (setq xpm-pixels (concat xpm-pixels
 						(nth (+ iter 3 ncolors) xpm-split)
 						(when (not (= (+ 1 iter 3 ncolors ) (+ 3 ncolors height)))
-									      "\n")))))
+						  "\n")))))
 	 (fill-pixel ".")
 	 (fill-pixels "")
-	 (fill-pixels-row (format "\"%s\"" (dotimes (_num width fill-pixels)
-					     (setq fill-pixels (concat fill-pixels fill-pixel)))))
-	 (fill-pixels-full "" )
-	 (fill-pixels-full (format "%s"
-				   (dotimes (num (- target-height height) fill-pixels-full)
-				     (setq fill-pixels-full (concat fill-pixels-full
-								    fill-pixels-row
+	 (fill-pixels-top-row (nth (+ 3 ncolors) xpm-split))
+	 (fill-pixels-top-full "")
+	 (fill-pixels-top-full (format "%s"
+					  (dotimes (num (- target-height height) fill-pixels-top-full)
+					    (setq fill-pixels-top-full (concat fill-pixels-top-full
+										  fill-pixels-top-row
+										  "\n")))))
+	 (fill-pixels-bottom-row (nth (+ 2 ncolors height) xpm-split))
+	 (fill-pixels-bottom-full "")
+	 (fill-pixels-bottom-full (format "%s"
+				   (dotimes (num (- target-height height) fill-pixels-bottom-full)
+				     (setq fill-pixels-bottom-full (concat fill-pixels-bottom-full
+								    fill-pixels-bottom-row
 								    (unless (= (1+ num) (- target-height height))
 								      ",")
 								    "\n")))))
-	 (fill-pixels-full (concat fill-pixels-full
+	 (fill-pixels-bottom-full (concat fill-pixels-bottom-full
 				   "};")))
-    (concat xpm-header-values-colors
-	    (if (> target-height height)
-		(concat xpm-pixels ",\n")
-	      (concat xpm-pixels "\n"))
-	    fill-pixels-full)))
+    ;; (message "Test-Top: %s" fill-pixels-top-row)
+    ;; (message "Bottom: %s" fill-pixels-bottom-row)
+    ;; (message "Row : %s" fill-pixels-row)
+    (cond
+     ((equal fill-direction 'top)
+      (concat xpm-header-values-colors
+	      fill-pixels-top-full
+	      xpm-pixels
+	      "\n};"))
+     ((equal fill-direction 'bottom)
+      (concat xpm-header-values-colors
+	      (if (> target-height height)
+		  (concat xpm-pixels ",\n")
+		(concat xpm-pixels "\n"))
+	      fill-pixels-bottom-full))
+     (t
+      (concat xpm-header-values-colors
+	      (if (> target-height height)
+		  (concat xpm-pixels ",\n")
+		(concat xpm-pixels "\n"))
+	      fill-pixels-bottom-full)))))
 
 (defun star-tabs--vertical-bar (height color)
   (let* ((xpm-img-header (format "/* XPM */\nstatic char * test_xpm[]= {\n\"5 %s 1 1\",\n\"* c %s\",\n" height color))
