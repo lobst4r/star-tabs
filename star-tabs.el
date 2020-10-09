@@ -1303,6 +1303,15 @@ Properties related to the tab are:
 	 (tab-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			(quote star-tabs-selected-tab)
 		      (quote star-tabs-non-selected-tab)))
+	 (tab-separator-left `(star-tabs--create-image (star-tabs--mirror-xpm (star-tabs--fill-xpm
+									      (if (eq ,tab-buffer (star-tabs-current-buffer))
+										  star-tabs-tab-border-slant-selected
+										star-tabs-tab-border-slant-non-selected)
+									      40))))
+	 (tab-separator-right `(star-tabs--create-image (star-tabs--fill-xpm (if (eq ,tab-buffer (star-tabs-current-buffer))
+										  star-tabs-tab-border-slant-selected
+									      star-tabs-tab-border-slant-non-selected)
+									    40)))
 	 (modified-icon-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 				  (quote star-tabs-selected-modified-icon)
 				(quote star-tabs-non-selected-modified-icon)))
@@ -1375,7 +1384,8 @@ Properties related to the tab are:
 				     'mouse-face ,tab-mouse-face
 				     'buffer-name ,tab-name
 				     'buffer-number ,tab-number))
-	 (tab-string `(concat ,divider
+	 (tab-string `(concat ,tab-separator-left
+			      ,divider
 			      ,tab-icon-string
 			      ,divider
 			      ,tab-number-string
@@ -1383,7 +1393,8 @@ Properties related to the tab are:
 			      (if (buffer-modified-p ,tab-buffer)
 				  ,modified-icon
 				,close-button)
-			      ,tab-divider))
+			      ,tab-divider
+			      ,tab-separator-right))
 	 (tab-string-cached (eval tab-string))
 	 (tab-digit-width (star-tabs-string-pixel-width (substring (eval tab-number-string) 0 1)))
 	 (tab-number-width `(* ,tab-digit-width (eval (length (int-to-string ,tab-number)))))
@@ -1522,25 +1533,28 @@ Properties related to the left margin are:
 :tab-bar-left-margin-column-width - Width in columns of the left margin."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (let* ((left-margin-fill (propertize star-tabs-left-margin
-				      'face 'star-tabs-tab-bar-left-margin))
-	(left-margin-collection-name (when star-tabs-tab-bar-collection-name 
-				       (propertize
-					(let ((collection-name star-tabs-tab-bar-collection-name))
-					  (concat (upcase (symbol-name collection-name))
-						  star-tabs-filter-name-number-separator))
-				       'face 'star-tabs-collection-name)))
-	(left-margin-filter-name (when (and (plist-get (star-tabs-active-collection-props) :display-filter-name)
-					    star-tabs-tab-bar-filter-name)
-				   (propertize 
-				    (let ((filter-name star-tabs-tab-bar-filter-name))
-				      (concat (upcase (symbol-name filter-name))
-					      star-tabs-filter-name-number-separator))
-				    'face 'star-tabs-filter-name)))
-	(tab-bar-left-margin (concat left-margin-fill
-				     (or left-margin-collection-name "")
-				     (or left-margin-filter-name "")))
-	(tab-bar-left-margin-width (star-tabs-string-pixel-width tab-bar-left-margin)))
+  ;; The vertical bar controls the tab bar height.
+  (let* ((left-margin-vertical-bar (star-tabs--vertical-bar 40 star-tabs-tab-bar-background))
+	 (left-margin-fill (propertize star-tabs-left-margin
+				       'face 'star-tabs-tab-bar-left-margin))
+	 (left-margin-collection-name (when star-tabs-tab-bar-collection-name 
+					(propertize
+					 (let ((collection-name star-tabs-tab-bar-collection-name))
+					   (concat (upcase (symbol-name collection-name))
+						   star-tabs-filter-name-number-separator))
+					 'face 'star-tabs-collection-name)))
+	 (left-margin-filter-name (when (and (plist-get (star-tabs-active-collection-props) :display-filter-name)
+					     star-tabs-tab-bar-filter-name)
+				    (propertize 
+				     (let ((filter-name star-tabs-tab-bar-filter-name))
+				       (concat (upcase (symbol-name filter-name))
+					       star-tabs-filter-name-number-separator))
+				     'face 'star-tabs-filter-name)))
+	 (tab-bar-left-margin (concat left-margin-fill
+				      left-margin-vertical-bar
+				      (or left-margin-collection-name "")
+				      (or left-margin-filter-name "")))
+	 (tab-bar-left-margin-width (star-tabs-string-pixel-width tab-bar-left-margin)))
     (star-tabs-set-filter-prop-value :tab-bar-left-margin-width tab-bar-left-margin-width t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar-left-margin-column-width (length tab-bar-left-margin) t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar-left-margin tab-bar-left-margin t filter-name collection-name)
@@ -1757,7 +1771,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
       (setq white-space (concat " " white-space))
       (setq empty-space (1- empty-space)))
     (propertize white-space
-		'face 'star-tabs-non-selected-tab))) 
+		'face 'star-tabs-tab-bar-empty-space))) 
 
 (defun star-tabs--display-filter-name-temporarily (&optional filter-name)
   "Return filter name FILTER-NAME for temporary display in tab bar. 
@@ -2127,6 +2141,7 @@ except for the last line, which should be \"};\""
     ;; Close the variable declaration
     (setq reverse-img (concat reverse-img"};"))
     reverse-img))
+
 (defun star-tabs--fill-xpm (xpm-data target-height)
   "Fill the bottom of xpm image XPM-DATA with rows of \".\" characters to make it height TARGET-HEIGHT."
   (let* ((xpm-values (star-tabs--parse-xpm-values xpm-data))
@@ -2170,12 +2185,57 @@ except for the last line, which should be \"};\""
 	      (concat xpm-pixels "\n"))
 	    fill-pixels-full)))
 
+(defun star-tabs--vertical-bar (height color)
+  (let* ((xpm-img-header (format "/* XPM */\nstatic char * test_xpm[]= {\n\"5 %s 1 1\",\n\"* c %s\",\n" height color))
+	(xpm-img-pixels "\"*****\",\n")
+	(xpm-img-pixels-last "\"*****\"\n};")
+	(xpm-img xpm-img-header))
+    (dotimes (_num (1- height))
+      (setq xpm-img (concat xpm-img xpm-img-pixels)))
+    (setq xpm-img (concat xpm-img xpm-img-pixels-last))
+    (propertize " " 'display (create-image xpm-img 'xpm t :ascent 'center ))))
+
 (defun star-tabs--create-image (xpm-data &optional image-face)
   "Create an image using XPM-DATA for use in the header line. 
 If set, apply face IMAGE-FACE to the image."
   (propertize " "
 	      'display (create-image xpm-data 'xpm t :ascent 'center)
 	      'face image-face))
+
+(setq star-tabs-tab-border-slant-selected (format "/* XPM */
+static char * test_xpm[]=  {
+\"10 10 2 1\",
+\". c %s\",
+\"* c %s\",
+\"**********\",
+\".*********\",
+\"...*******\",
+\".....*****\",
+\"......****\",
+\".......***\",
+\"........**\",
+\".........*\",
+\"..........\",
+\"..........\"
+};"  star-tabs-tab-bar-selected-background star-tabs-tab-bar-background))
+
+(setq star-tabs-tab-border-slant-non-selected (format "/* XPM */
+static char * test_xpm[]=  {
+\"10 10 2 1\",
+\". c %s\",
+\"* c %s\",
+\"**********\",
+\".*********\",
+\"...*******\",
+\".....*****\",
+\"......****\",
+\".......***\",
+\"........**\",
+\".........*\",
+\"..........\",
+\"..........\"
+};"  star-tabs-tab-bar-non-selected-background star-tabs-tab-bar-background))
+
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
