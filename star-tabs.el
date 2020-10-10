@@ -440,7 +440,7 @@ of the buffers; just how the names are displayed in the tabs. "
 		 (while (not (eq (star-tabs-active-collection-name) name))
 		   (star-tabs-cycle-collections t t))
 		 (run-hooks 'star-tabs-collection-switch-hook)))
-      (message "Collection name already exists"))))
+      (message "STAR-TABS: Collection name already exists"))))
 
 (defun star-tabs-collection-names ()
   "Return a list of names of all collections."
@@ -464,7 +464,7 @@ of the buffers; just how the names are displayed in the tabs. "
 				     (nth (cl-position collection-name (star-tabs-collection-names)) star-tabs-collections)
 				     star-tabs-collections))
 	(makunbound collection-name))
-  (message "Cannot delete last collection. Make another collection before attempting to delete this one.")))
+  (message "STAR-TABS: Cannot delete last collection. Make another collection before attempting to delete this one.")))
 
 (defun star-tabs-cycle-collections (&optional reverse inhibit-hook)
   "Cycle (move forward, or backward if REVERSE is non-nil) through collections.
@@ -551,7 +551,7 @@ will be excluded from those matching the regexp in :include.
 		   (set collection-name (star-tabs-insert-at-nth (eval collection-name) filter (1+ last-filter-pos)))
 		 (set collection-name (append (eval collection-name) (list filter))))
 	       (star-tabs-set-collection-prop-value :last-filter name t collection-name))
-      (message "Filter name already exists"))
+      (message "STAR-TABS: Filter name already exists"))
     (when use
       (star-tabs--filter-all-buffers)
       (star-tabs-switch-to-filter name nil collection-name))
@@ -699,7 +699,7 @@ Also remove it from automatic inclusion, if applicable."
   "Output the active filter name as a message."
   ;; REVIEW: Probably not needed.
   (interactive)
-  (message "Active filter name: %s" (star-tabs-get-active-filter-name)))
+  (message "STAR-TABS: Active filter name: %s" (star-tabs-get-active-filter-name)))
 
 (defun star-tabs-auto-sort (&optional filter-name collection-name sort-method)
   "Automatically sort filter group FILTER-NAME in collection COLLECTION-NAME.
@@ -1749,7 +1749,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
       (star-tabs--set-tab-bar)
       ;; Determine how much to, and if we should scroll.
       (if star-tabs-debug-messages
-	  (message "SCROLL: %s" scroll))
+	  (message "STAR-TABS: SCROLL: %s" scroll))
       ;; REVIEW: Make sure scroll max (and min?) values are always enforced.
       (or scroll (setq scroll 0))
       (unless (integerp scroll)
@@ -1813,6 +1813,7 @@ This function uses global helper variable star-tabs-collection-name-timer to kee
 (defun star-tabs--string-truncated-p (string)
   "Return t if the width of string STRING is greater than the width of the current window.
 Otherwise, return the number of truncated pixels."
+  ;; REVIEW: Deprecated ?
   (let ((tab-bar-width (star-tabs-string-pixel-width string)) 
 	(window-width (window-pixel-width)))
     (if (>
@@ -1889,7 +1890,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 (defun star-tabs-on-buffer-list-update (new-buffers killed-buffers)
   "Run when the list of real buffers updates."
   (when star-tabs-debug-messages
-    (message "Real buffer list updated"))
+    (message "STAR-TABS: Real buffer list updated"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (let ((filters-to-be-updated nil))
     ;; If there are killed buffers, find which groups they belonged to so that we can refresh the other tabs
@@ -1911,7 +1912,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 (defun star-tabs-on-buffer-switch (last-active-buffer new-active-buffer)
   "Run when the current real buffer is switched."
   (when star-tabs-debug-messages
-    (message "Buffer Switched: %s" (buffer-name (current-buffer))))
+    (message "STAR-TABS: Buffer Switched: %s" (buffer-name (current-buffer))))
   ;; Find a filter for the new buffer.
   (when (star-tabs-find-active-filter t)
     (star-tabs-on-filter-switch t))
@@ -1938,7 +1939,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   (when (member (current-buffer) star-tabs-active-buffers) ;; REVIEW: Will this trigger if another buffer is modified?
     (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should automatically be set to t.
     (when star-tabs-debug-messages
-      (message "Buffer Modified"))
+      (message "STAR-TABS: Buffer Modified"))
     (star-tabs--filter-all-buffers) ;; TODO: only update specific filter group
     (when (not (star-tabs-get-active-group-buffers))
       (star-tabs-cycle-filters t))
@@ -1948,7 +1949,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 (defun star-tabs-when-buffer-first-saved ()
   "Run when a buffer goes from a modified state to an unmodified state."
   (when star-tabs-debug-messages
-    (message "Buffer Saved"))
+    (message "STAR-TABS: Buffer Saved"))
   (when (member (current-buffer) star-tabs-active-buffers)
     (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should automatically be set to nil.
     ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
@@ -1965,7 +1966,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   "Run when the active filter group changes."
   ;; Review: Probably not triggered when changing collections (which subsequently will change the active filter)
   (when star-tabs-debug-messages
-    (message "Filter Changed"))
+    (message "STAR-TABS: Filter Changed"))
   (star-tabs--display-filter-name-temporarily)
   ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (unless inhibit-refresh
@@ -1976,7 +1977,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   ;; TODO: (star-tabs--display-collection-name-temporarily) (and filter-name)
   ;; REVIEW: Make sure this works!
   (when star-tabs-debug-messages
-    (message "Collection Changed"))
+    (message "STAR-TABS: Collection Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers)
   ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
@@ -2009,7 +2010,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 	(setq extensions-updated-p (or (star-tabs--remove-file-extension-filters) extensions-updated-p))))
     (when extensions-updated-p
       (when star-tabs-debug-messages
-	(message "File Extension List/Filters Updated"))
+	(message "STAR-TABS: File Extension List/Filters Updated"))
       (unless inhibit-hook
 	(run-hooks 'star-tabs-collection-property-change-hook))
       (unless inhibit-refresh
@@ -2020,7 +2021,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
   "Run when a collection property changes."
   ;; TODO: Add collection-name param 
   (when star-tabs-debug-messages
-    (message "Collection Property Changed"))
+    (message "STAR-TABS: Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
   (star-tabs--filter-all-buffers)
   (let ((filters (star-tabs-get-filter-names collection-name)))
@@ -2035,12 +2036,12 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (defun star-tabs-init ()
   "Run when Star Tabs first loads"
   (when star-tabs-debug-messages
-    (message "Star Tabs initializing...")))
+    (message "STAR-TABS: Star Tabs initializing...")))
 
 (defun star-tabs-on-disable-tab-bar ()
   "Run when Star Tabs Mode goes from enabled to disabled."
   (when star-tabs-debug-messages
-    (message "Star Tabs disabled")))
+    (message "STAR-TABS: Star Tabs disabled")))
 
 
 ;; Misc. functions to run with hooks.
@@ -2048,7 +2049,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (defun star-tabs-on-tab-move ()
   "Run when a tab changes position in the tab bar."
   (when star-tabs-debug-messages
-    (message "Tab moved"))
+    (message "STAR-TABS: Tab moved"))
   ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (star-tabs--recache-tabs (star-tabs-get-active-group-buffers) nil)
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
@@ -2056,12 +2057,12 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (defun star-tabs-on-timer-start ()
   "Run when a Star Tabs timer starts."
   (when star-tabs-debug-messages
-    (message "Star Tabs Timer Started")))
+    (message "STAR-TABS: Star Tabs Timer Started")))
 
 (defun star-tabs-on-timer-end ()
   "Run when a Star Tabs timer ends."
   (when star-tabs-debug-messages
-    (message "Star Tabs Timer Started")))
+    (message "STAR-TABS: Star Tabs Timer Started")))
 
 
 ;;; Modes
