@@ -2142,9 +2142,14 @@ except for the last line, which should be \"};\""
     (setq reverse-img (concat reverse-img"};"))
     reverse-img))
 
+;; If bottom: Replicate the last line of pixels at the bottom until height is target-height.
+;; If top: Replicate the first line of pixels at the top until height is target-height. 
+;; If middle: Replicate the middle line in the middle until height is target-height
+;; If Top and Bottom: Replicate top and bottom uniformly.
+;; If Top Middle Bottom: Replicate top, middle and bottom uniformly.
 (defun star-tabs--fill-xpm (xpm-data target-height &optional fill-direction)
   "Fill the bottom of xpm image XPM-DATA with rows of \".\" characters to make it height TARGET-HEIGHT."
-  (or fill-direction (setq fill-direction 'bottom))
+  (or fill-direction (setq fill-direction 'middle))
   (let* ((xpm-values (star-tabs--parse-xpm-values xpm-data))
 	 (width (nth 0 xpm-values))
 	 (height (nth 1 xpm-values))
@@ -2160,6 +2165,20 @@ except for the last line, which should be \"};\""
 									      new-values)
 									    "\n"
 									    ))))
+	 (xpm-pixels-top-half "")
+	 (xpm-pixels-top-half (dotimes (iter (/ height 2) xpm-pixels-top-half)
+		       (setq xpm-pixels-top-half (concat xpm-pixels-top-half
+						(nth (+ iter 3 ncolors) xpm-split)
+						  "\n"))))
+	 (xpm-pixels-bottom-half "")
+	 (xpm-pixels-bottom-half (dotimes (iter (if (equal (mod height 2) 0)
+						    (/ height 2)
+						  (1+ (/ height 2)))
+						xpm-pixels-bottom-half)
+		       (setq xpm-pixels-bottom-half (concat xpm-pixels-bottom-half
+						(nth (+ iter 3 ncolors (/ height 2)) xpm-split)
+						(when (not (= (+ 1 iter 3 ncolors (/ height 2)) (+ 3 ncolors height)))
+						  "\n")))))
 	 (xpm-pixels "")
 	 (xpm-pixels (dotimes (iter height xpm-pixels)
 		       (setq xpm-pixels (concat xpm-pixels
@@ -2175,6 +2194,13 @@ except for the last line, which should be \"};\""
 					    (setq fill-pixels-top-full (concat fill-pixels-top-full
 										  fill-pixels-top-row
 										  "\n")))))
+	 (fill-pixels-middle-row (nth (+ 3 ncolors (/ height 2)) xpm-split))
+	 (fill-pixels-middle-full "")
+	 (fill-pixels-middle-full (format "%s"
+				       (dotimes (num (- target-height height) fill-pixels-middle-full)
+					 (setq fill-pixels-middle-full (concat fill-pixels-middle-full
+									    fill-pixels-middle-row
+									    "\n")))))
 	 (fill-pixels-bottom-row (nth (+ 2 ncolors height) xpm-split))
 	 (fill-pixels-bottom-full "")
 	 (fill-pixels-bottom-full (format "%s"
@@ -2186,14 +2212,40 @@ except for the last line, which should be \"};\""
 								    "\n")))))
 	 (fill-pixels-bottom-full (concat fill-pixels-bottom-full
 				   "};")))
-    ;; (message "Test-Top: %s" fill-pixels-top-row)
-    ;; (message "Bottom: %s" fill-pixels-bottom-row)
+    ;; (message "Top half:\n%s" xpm-pixels-top-half)
+    ;; (message "Bottom half:\n%s" (concat xpm-pixels-bottom-half "\n"))
+    ;; ;; (message (format "Full: \n%s" xpm-pixels))
+    ;; ;; (message "HVC: \n%s" xpm-header-values-colors)
+    ;; (message "FULLPLUSNEWLINE: \n%s" (concat xpm-pixels "\n"))
+    ;; ;; (message "FULL again: \n%s" (concat xpm-pixels "\n"))
+    ;; ;; (message "Origin: \n%s" xpm-data)
+    ;; ;; (message "Test bottom full: \n%s" (concat xpm-header-values-colors
+    ;; ;; 	      (if (> target-height height)
+    ;; ;; 		  (concat xpm-pixels ",\n")
+    ;; ;; 		(concat xpm-pixels "\n"))
+    ;; ;; 	      fill-pixels-bottom-full))
+    ;; ;; (message "Test-Top: %s" fill-pixels-top-row)
+    ;; ;; (message "Bottom: %s" fill-pixels-bottom-row)
+    ;;  (message "Middle: %s" fill-pixels-middle-row)
+    ;;  (message "Middle Full: \n%s"
+    ;; 	      (concat xpm-header-values-colors
+    ;; 		      xpm-pixels-top-half
+    ;; 		      fill-pixels-middle-full
+    ;; 		      xpm-pixels-bottom-half
+    ;; 		      "\n};")
+    ;; 	      )
     ;; (message "Row : %s" fill-pixels-row)
     (cond
      ((equal fill-direction 'top)
       (concat xpm-header-values-colors
 	      fill-pixels-top-full
 	      xpm-pixels
+	      "\n};"))
+     ((equal fill-direction 'middle)
+      (concat xpm-header-values-colors
+	      xpm-pixels-top-half
+	      fill-pixels-middle-full
+	      xpm-pixels-bottom-half
 	      "\n};"))
      ((equal fill-direction 'bottom)
       (concat xpm-header-values-colors
