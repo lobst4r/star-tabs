@@ -421,6 +421,7 @@ of the buffers; just how the names are displayed in the tabs. "
 	 (disable-scroll-to-filter (plist-get collection-props :disable-scroll-to-filter))
 	 (hide-extension-names (plist-get collection-props :hide-extension-names))
 	 (collection-name-prefix (or (plist-get collection-props :collection-name-prefix) "star-tabs-collection-"))
+	 (border-style (or (plist-get collection-props :border-style) 'slanted))
 	 (name-no-prefix (plist-get collection-props :name))
 	 (name (intern (concat collection-name-prefix (plist-get collection-props :name))))
 	 (collection `(,name :enable-file-extension-filters ,enable-file-extension-filters
@@ -430,6 +431,7 @@ of the buffers; just how the names are displayed in the tabs. "
 			     :hide-extension-names ,hide-extension-names
 			     :collection-name-prefix ,collection-name-prefix
 			     :collection-name-no-prefix ,name-no-prefix
+			     :border-style ,border-style
 			     :last-filter nil)))
     (if (not (member name (star-tabs-collection-names)))
 	(progn (set name nil) 
@@ -1303,14 +1305,25 @@ Properties related to the tab are:
 	 (tab-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			(quote star-tabs-selected-tab)
 		      (quote star-tabs-non-selected-tab)))
+	 (tab-border-style (star-tabs-get-collection-prop-value :border-style))
+	 (tab-border-xpm-selected (cond
+				   ((eq tab-border-style 'rounded)
+				    star-tabs-tab-border-round-selected)
+				   ((eq tab-border-style 'slanted)
+				    star-tabs-tab-border-slant-selected)))
+	 (tab-border-xpm-non-selected (cond
+				       ((eq tab-border-style 'rounded)
+					star-tabs-tab-border-round-non-selected)
+				       ((eq tab-border-style 'slanted)
+					star-tabs-tab-border-slant-non-selected)))
 	 (tab-separator-left `(star-tabs--create-image (star-tabs--mirror-xpm (star-tabs--fill-xpm
 									      (if (eq ,tab-buffer (star-tabs-current-buffer))
-										  star-tabs-tab-border-slant-selected
-										star-tabs-tab-border-slant-non-selected)
+										  ,tab-border-xpm-selected
+										,tab-border-xpm-non-selected)
 									      40))))
 	 (tab-separator-right `(star-tabs--create-image (star-tabs--fill-xpm (if (eq ,tab-buffer (star-tabs-current-buffer))
-										  star-tabs-tab-border-slant-selected
-									      star-tabs-tab-border-slant-non-selected)
+										 ,tab-border-xpm-selected
+									      ,tab-border-xpm-non-selected)
 									    40)))
 	 (modified-icon-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 				  (quote star-tabs-selected-modified-icon)
@@ -2150,7 +2163,7 @@ except for the last line, which should be \"};\""
 ;; If Top Middle Bottom: Replicate top, middle and bottom uniformly.
 (defun star-tabs--fill-xpm (xpm-data target-height &optional fill-direction)
   "Fill the bottom of xpm image XPM-DATA with rows of \".\" characters to make it height TARGET-HEIGHT."
-  (or fill-direction (setq fill-direction 'middle))
+  (or fill-direction (setq fill-direction 'bottom))
   (let* ((xpm-values (star-tabs--parse-xpm-values xpm-data))
 	 (width (nth 0 xpm-values))
 	 (height (nth 1 xpm-values))
