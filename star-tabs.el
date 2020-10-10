@@ -2278,6 +2278,9 @@ If set, apply face IMAGE-FACE to the image."
 	      'display (create-image xpm-data 'xpm t :ascent 'center)
 	      'face image-face))
 
+
+(defvar star-tabs-tab-border-slant-selected ""
+  "XPM data for slanted selected tab borders.")
 (setq star-tabs-tab-border-slant-selected (format "/* XPM */
 static char * test_xpm[]=  {
 \"10 10 2 1\",
@@ -2285,16 +2288,18 @@ static char * test_xpm[]=  {
 \"* c %s\",
 \"**********\",
 \".*********\",
+\"..********\",
 \"...*******\",
+\"....******\",
 \".....*****\",
 \"......****\",
 \".......***\",
 \"........**\",
-\".........*\",
-\"..........\",
-\"..........\"
+\".........*\"
 };"  star-tabs-tab-bar-selected-background star-tabs-tab-bar-background))
 
+(defvar star-tabs-tab-border-slant-non-selected ""
+  "XPM data for slanted non-selected tab borders.")
 (setq star-tabs-tab-border-slant-non-selected (format "/* XPM */
 static char * test_xpm[]=  {
 \"10 10 2 1\",
@@ -2302,15 +2307,16 @@ static char * test_xpm[]=  {
 \"* c %s\",
 \"**********\",
 \".*********\",
+\"..********\",
 \"...*******\",
+\"....******\",
 \".....*****\",
 \"......****\",
 \".......***\",
 \"........**\",
-\".........*\",
-\"..........\",
-\"..........\"
+\".........*\"
 };"  star-tabs-tab-bar-non-selected-background star-tabs-tab-bar-background))
+
 
 (provide 'star-tabs)
 
