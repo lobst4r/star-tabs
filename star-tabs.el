@@ -41,7 +41,6 @@ This variable is currently not used.")
   "Tab bar divider that separates the name of the active filter group and the first tab.")
 
 
-
 ;; Tab icons
 
 (defvar star-tabs-modified-buffer-icon "\u229a"
@@ -413,6 +412,7 @@ identified by the symbol name (intern (concat collection-name-prefix name)). (de
 :hide-extension-names - If non-nil, file extension names in buffer names will be hidden in tabs. Note that this won't change the name
 of the buffers; just how the names are displayed in the tabs. "
   ;; TODO: Update documentation for :disable-scroll-to-filter
+  ;; TODO: Update documentation for :border-style
   (let* ((use (plist-get collection-props :use))
 	 (enable-file-extension-filters (plist-get collection-props :enable-file-extension-filters))
 	 (hide-close-buttons (plist-get collection-props :hide-close-buttons))
@@ -595,7 +595,8 @@ Note that file extensions will be readded if activated."
   (star-tabs-create-collection
    :name "default-collection"
    :use t
-   :enable-file-extension-filters t 
+   :enable-file-extension-filters t
+   :hide-extension-names t
    :display-filter-name t)
   (star-tabs-add-filter
    :name 'default
@@ -2122,7 +2123,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
   "Mirror xpm image XPM-DATA. 
 Note: This function require that the xpm image data is formatted in a specific way:\n
 The 3 first rows are:
-1: the /* XPM */ line
+1: /* XPM */ 
 2: static char* <variable_name>[]= {
 3: <Values>
 The rows 4 to (+ 3 ncolors) are:
@@ -2371,7 +2372,6 @@ static char * test_xpm[]=  {
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
-
 
 
 
