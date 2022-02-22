@@ -41,7 +41,6 @@ This variable is currently not used.")
   "Tab bar divider that separates the name of the active filter group and the first tab.")
 
 
-
 ;; Tab icons
 
 (defvar star-tabs-modified-buffer-icon "\u229a"
@@ -206,13 +205,13 @@ This is a helper variable for the automatic file extension filter groups."
 (defvar star-tabs-tab-bar-selected-foreground "#a3c9e7"
   "Foreground color for the selected tab.")
 
-;; (defvar star-tabs-tab-bar-non-selected-background "#262626"
-;;   "Background color for non-selected tabs.")
-
-(defvar star-tabs-tab-bar-non-selected-background "#FF7F00"
+(defvar star-tabs-tab-bar-non-selected-background "#464646"
   "Background color for non-selected tabs.")
 
-(defvar star-tabs-tab-bar-non-selected-foreground "#e1e1e1"
+;; (defvar star-tabs-tab-bar-non-selected-background "#FF7F00"
+;;   "Background color for non-selected tabs.")
+
+(defvar star-tabs-tab-bar-non-selected-foreground "#b1b1b1"
   "Foreground color for non-selected tabs.")
 
 (defvar star-tabs-modified-icon-non-selected-foreground "#2614e1"
@@ -221,19 +220,28 @@ This is a helper variable for the automatic file extension filter groups."
 (defvar star-tabs-modified-icon-selected-foreground "#e12614"
   "Foreground color for the selected tab.")
 
+(defvar star-tabs-tab-bar-background "#363636"
+  "Background color for the tab bar.")
 ;; Faces
 
 (defface star-tabs-tab-bar-left-margin
   `(( t
       (
-       :height ,star-tabs-tab-bar-height
-       :background ,star-tabs-tab-bar-non-selected-background)))
+ ;      :height ,star-tabs-tab-bar-height
+       :background ,star-tabs-tab-bar-background)))
   "Face for the left margin of the header-line which is used for determining the height of the header-line.")
+
+(defface star-tabs-tab-bar-empty-space
+  `(( t
+      (
+ ;      :height ,star-tabs-tab-bar-height
+       :background ,star-tabs-tab-bar-background)))
+  "Face for the unused space of the right of the header-line.")
 
 (defface star-tabs-filter-name
   `((t
      (
-      :background ,star-tabs-tab-bar-non-selected-background
+      :background ,star-tabs-tab-bar-background
       :foreground ,star-tabs-tab-bar-filter-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
   "Face for displaying the filter name in the tab bar.")
@@ -241,7 +249,7 @@ This is a helper variable for the automatic file extension filter groups."
 (defface star-tabs-collection-name
   `((t
      (
-      :background ,star-tabs-tab-bar-non-selected-background
+      :background ,star-tabs-tab-bar-background
       :foreground ,star-tabs-tab-bar-collection-name-foreground
       :height ,star-tabs-tab-bar-text-height)))
   "Face for displaying the collection name in the tab bar.")
@@ -404,6 +412,7 @@ identified by the symbol name (intern (concat collection-name-prefix name)). (de
 :hide-extension-names - If non-nil, file extension names in buffer names will be hidden in tabs. Note that this won't change the name
 of the buffers; just how the names are displayed in the tabs. "
   ;; TODO: Update documentation for :disable-scroll-to-filter
+  ;; TODO: Update documentation for :border-style
   (let* ((use (plist-get collection-props :use))
 	 (enable-file-extension-filters (plist-get collection-props :enable-file-extension-filters))
 	 (hide-close-buttons (plist-get collection-props :hide-close-buttons))
@@ -412,6 +421,7 @@ of the buffers; just how the names are displayed in the tabs. "
 	 (disable-scroll-to-filter (plist-get collection-props :disable-scroll-to-filter))
 	 (hide-extension-names (plist-get collection-props :hide-extension-names))
 	 (collection-name-prefix (or (plist-get collection-props :collection-name-prefix) "star-tabs-collection-"))
+	 (border-style (or (plist-get collection-props :border-style) 'slanted))
 	 (name-no-prefix (plist-get collection-props :name))
 	 (name (intern (concat collection-name-prefix (plist-get collection-props :name))))
 	 (collection `(,name :enable-file-extension-filters ,enable-file-extension-filters
@@ -421,6 +431,7 @@ of the buffers; just how the names are displayed in the tabs. "
 			     :hide-extension-names ,hide-extension-names
 			     :collection-name-prefix ,collection-name-prefix
 			     :collection-name-no-prefix ,name-no-prefix
+			     :border-style ,border-style
 			     :last-filter nil)))
     (if (not (member name (star-tabs-collection-names)))
 	(progn (set name nil) 
@@ -431,7 +442,7 @@ of the buffers; just how the names are displayed in the tabs. "
 		 (while (not (eq (star-tabs-active-collection-name) name))
 		   (star-tabs-cycle-collections t t))
 		 (run-hooks 'star-tabs-collection-switch-hook)))
-      (message "Collection name already exists"))))
+      (message "STAR-TABS: Collection name already exists"))))
 
 (defun star-tabs-collection-names ()
   "Return a list of names of all collections."
@@ -455,7 +466,7 @@ of the buffers; just how the names are displayed in the tabs. "
 				     (nth (cl-position collection-name (star-tabs-collection-names)) star-tabs-collections)
 				     star-tabs-collections))
 	(makunbound collection-name))
-  (message "Cannot delete last collection. Make another collection before attempting to delete this one.")))
+  (message "STAR-TABS: Cannot delete last collection. Make another collection before attempting to delete this one.")))
 
 (defun star-tabs-cycle-collections (&optional reverse inhibit-hook)
   "Cycle (move forward, or backward if REVERSE is non-nil) through collections.
@@ -542,7 +553,7 @@ will be excluded from those matching the regexp in :include.
 		   (set collection-name (star-tabs-insert-at-nth (eval collection-name) filter (1+ last-filter-pos)))
 		 (set collection-name (append (eval collection-name) (list filter))))
 	       (star-tabs-set-collection-prop-value :last-filter name t collection-name))
-      (message "Filter name already exists"))
+      (message "STAR-TABS: Filter name already exists"))
     (when use
       (star-tabs--filter-all-buffers)
       (star-tabs-switch-to-filter name nil collection-name))
@@ -584,7 +595,8 @@ Note that file extensions will be readded if activated."
   (star-tabs-create-collection
    :name "default-collection"
    :use t
-   :enable-file-extension-filters t 
+   :enable-file-extension-filters t
+   :hide-extension-names t
    :display-filter-name t)
   (star-tabs-add-filter
    :name 'default
@@ -690,7 +702,7 @@ Also remove it from automatic inclusion, if applicable."
   "Output the active filter name as a message."
   ;; REVIEW: Probably not needed.
   (interactive)
-  (message "Active filter name: %s" (star-tabs-get-active-filter-name)))
+  (message "STAR-TABS: Active filter name: %s" (star-tabs-get-active-filter-name)))
 
 (defun star-tabs-auto-sort (&optional filter-name collection-name sort-method)
   "Automatically sort filter group FILTER-NAME in collection COLLECTION-NAME.
@@ -1287,13 +1299,33 @@ Properties related to the tab are:
 	 (tab-name `(buffer-name ,tab-buffer))
 	 (tab-icon (star-tabs--select-icon tab-buffer))
 	 (tab-icon-background `(if (eq ,tab-buffer (star-tabs-current-buffer))
-			      (face-background 'star-tabs-selected-tab)
-			    (face-background 'star-tabs-non-selected-tab)))
+				   (face-background 'star-tabs-selected-tab)
+				 (face-background 'star-tabs-non-selected-tab)))
 	 (tab-icon-face `(list :inherit (get-text-property 0 'face ,tab-icon)
-			   :background ,tab-icon-background))
+			       :background ,tab-icon-background))
 	 (tab-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 			(quote star-tabs-selected-tab)
 		      (quote star-tabs-non-selected-tab)))
+	 (tab-border-style (star-tabs-get-collection-prop-value :border-style))
+	 (tab-border-xpm-selected (cond
+				   ((eq tab-border-style 'rounded)
+				    star-tabs-tab-border-round-selected)
+				   ((eq tab-border-style 'slanted)
+				    star-tabs-tab-border-slant-selected)))
+	 (tab-border-xpm-non-selected (cond
+				       ((eq tab-border-style 'rounded)
+					star-tabs-tab-border-round-non-selected)
+				       ((eq tab-border-style 'slanted)
+					star-tabs-tab-border-slant-non-selected)))
+	 (tab-separator-left `(star-tabs--create-image (star-tabs--mirror-xpm (star-tabs--fill-xpm
+									      (if (eq ,tab-buffer (star-tabs-current-buffer))
+										  ,tab-border-xpm-selected
+										,tab-border-xpm-non-selected)
+									      40))))
+	 (tab-separator-right `(star-tabs--create-image (star-tabs--fill-xpm (if (eq ,tab-buffer (star-tabs-current-buffer))
+										 ,tab-border-xpm-selected
+									      ,tab-border-xpm-non-selected)
+									    40)))
 	 (modified-icon-face `(if (equal ,tab-buffer (star-tabs-current-buffer))
 				  (quote star-tabs-selected-modified-icon)
 				(quote star-tabs-non-selected-modified-icon)))
@@ -1320,11 +1352,11 @@ Properties related to the tab are:
 						       ,tab-name))
 					  ,tab-name)
 					star-tabs-name-modified-icon-separator)
-					'keymap star-tabs-map-select-tab
-					'face ,tab-face
-					'mouse-face ,tab-mouse-face
-					'buffer-name ,tab-name
-					'buffer-number ,tab-number))
+				       'keymap star-tabs-map-select-tab
+				       'face ,tab-face
+				       'mouse-face ,tab-mouse-face
+				       'buffer-name ,tab-name
+				       'buffer-number ,tab-number))
 	 (tab-icon-string (if (stringp tab-icon)
 			      `(propertize ,tab-icon 
 					   'face ,tab-icon-face
@@ -1346,11 +1378,11 @@ Properties related to the tab are:
 			       'buffer-name ,tab-name
 			       'buffer-number ,tab-number))
 	 (tab-divider `(propertize " " 
-				  'keymap star-tabs-map-select-tab
-				  'face ,tab-face
-				  'mouse-face ,tab-divider-mouse-face
-				  'buffer-name ,tab-name
-				  'buffer-number ,tab-number))
+				   'keymap star-tabs-map-select-tab
+				   'face ,tab-face
+				   'mouse-face ,tab-divider-mouse-face
+				   'buffer-name ,tab-name
+				   'buffer-number ,tab-number))
 	 (modified-icon `(propertize (if (and (not (string-match "^[[:space:]]" ,tab-name))
 					      (not (string-match "^*.*\\*$" ,tab-name))
 					      (not (star-tabs-buffer-read-only-p ,tab-name)))
@@ -1366,7 +1398,8 @@ Properties related to the tab are:
 				     'mouse-face ,tab-mouse-face
 				     'buffer-name ,tab-name
 				     'buffer-number ,tab-number))
-	 (tab-string `(concat ,divider
+	 (tab-string `(concat ,tab-separator-left
+			      ,divider
 			      ,tab-icon-string
 			      ,divider
 			      ,tab-number-string
@@ -1374,7 +1407,8 @@ Properties related to the tab are:
 			      (if (buffer-modified-p ,tab-buffer)
 				  ,modified-icon
 				,close-button)
-			      ,tab-divider))
+			      ,tab-divider
+			      ,tab-separator-right))
 	 (tab-string-cached (eval tab-string))
 	 (tab-digit-width (star-tabs-string-pixel-width (substring (eval tab-number-string) 0 1)))
 	 (tab-number-width `(* ,tab-digit-width (eval (length (int-to-string ,tab-number)))))
@@ -1382,7 +1416,7 @@ Properties related to the tab are:
 	 (tab-pixel-width-without-number (- (star-tabs-string-pixel-width tab-string-cached)
 					    (eval tab-number-width)))
 	 (tab-pixel-width `(+ ,tab-pixel-width-without-number
-					 ,tab-number-width))
+			      ,tab-number-width))
 	 (tab `(,tab-buffer :tab-string-divider ,divider
 			    :tab-string-icon ,tab-icon-string
 			    :tab-string-name ,tab-name-string
@@ -1513,25 +1547,28 @@ Properties related to the left margin are:
 :tab-bar-left-margin-column-width - Width in columns of the left margin."
   (or filter-name (setq filter-name (star-tabs-get-active-filter-name)))
   (or collection-name (setq collection-name (star-tabs-active-collection-name)))
-  (let* ((left-margin-fill (propertize star-tabs-left-margin
-				      'face 'star-tabs-tab-bar-left-margin))
-	(left-margin-collection-name (when star-tabs-tab-bar-collection-name 
-				       (propertize
-					(let ((collection-name star-tabs-tab-bar-collection-name))
-					  (concat (upcase (symbol-name collection-name))
-						  star-tabs-filter-name-number-separator))
-				       'face 'star-tabs-collection-name)))
-	(left-margin-filter-name (when (and (plist-get (star-tabs-active-collection-props) :display-filter-name)
-					    star-tabs-tab-bar-filter-name)
-				   (propertize 
-				    (let ((filter-name star-tabs-tab-bar-filter-name))
-				      (concat (upcase (symbol-name filter-name))
-					      star-tabs-filter-name-number-separator))
-				    'face 'star-tabs-filter-name)))
-	(tab-bar-left-margin (concat left-margin-fill
-				     (or left-margin-collection-name "")
-				     (or left-margin-filter-name "")))
-	(tab-bar-left-margin-width (star-tabs-string-pixel-width tab-bar-left-margin)))
+  ;; The vertical bar controls the tab bar height.
+  (let* ((left-margin-vertical-bar (star-tabs--vertical-bar 40 star-tabs-tab-bar-background))
+	 (left-margin-fill (propertize star-tabs-left-margin
+				       'face 'star-tabs-tab-bar-left-margin))
+	 (left-margin-collection-name (when star-tabs-tab-bar-collection-name 
+					(propertize
+					 (let ((collection-name star-tabs-tab-bar-collection-name))
+					   (concat (upcase (symbol-name collection-name))
+						   star-tabs-filter-name-number-separator))
+					 'face 'star-tabs-collection-name)))
+	 (left-margin-filter-name (when (and (plist-get (star-tabs-active-collection-props) :display-filter-name)
+					     star-tabs-tab-bar-filter-name)
+				    (propertize 
+				     (let ((filter-name star-tabs-tab-bar-filter-name))
+				       (concat (upcase (symbol-name filter-name))
+					       star-tabs-filter-name-number-separator))
+				     'face 'star-tabs-filter-name)))
+	 (tab-bar-left-margin (concat left-margin-fill
+				      left-margin-vertical-bar
+				      (or left-margin-collection-name "")
+				      (or left-margin-filter-name "")))
+	 (tab-bar-left-margin-width (star-tabs-string-pixel-width tab-bar-left-margin)))
     (star-tabs-set-filter-prop-value :tab-bar-left-margin-width tab-bar-left-margin-width t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar-left-margin-column-width (length tab-bar-left-margin) t filter-name collection-name)
     (star-tabs-set-filter-prop-value :tab-bar-left-margin tab-bar-left-margin t filter-name collection-name)
@@ -1726,7 +1763,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
       (star-tabs--set-tab-bar)
       ;; Determine how much to, and if we should scroll.
       (if star-tabs-debug-messages
-	  (message "SCROLL: %s" scroll))
+	  (message "STAR-TABS: SCROLL: %s" scroll))
       ;; REVIEW: Make sure scroll max (and min?) values are always enforced.
       (or scroll (setq scroll 0))
       (unless (integerp scroll)
@@ -1742,13 +1779,13 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
 (defun star-tabs--header-line-white-space ()
   "Return white space as a string to fill out the unoccupied part, if any, of the tab bar."
   (let ((empty-space (/ (star-tabs--header-line-remaining-space)
-			(window-font-width nil 'star-tabs-non-selected-tab)))
+			(window-font-width nil 'star-tabs-tab-bar-empty-space)))
 	(white-space ""))
     (while (> empty-space 0)
       (setq white-space (concat " " white-space))
       (setq empty-space (1- empty-space)))
     (propertize white-space
-		'face 'star-tabs-non-selected-tab))) 
+		'face 'star-tabs-tab-bar-empty-space))) 
 
 (defun star-tabs--display-filter-name-temporarily (&optional filter-name)
   "Return filter name FILTER-NAME for temporary display in tab bar. 
@@ -1790,6 +1827,7 @@ This function uses global helper variable star-tabs-collection-name-timer to kee
 (defun star-tabs--string-truncated-p (string)
   "Return t if the width of string STRING is greater than the width of the current window.
 Otherwise, return the number of truncated pixels."
+  ;; REVIEW: Deprecated ?
   (let ((tab-bar-width (star-tabs-string-pixel-width string)) 
 	(window-width (window-pixel-width)))
     (if (>
@@ -1866,7 +1904,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 (defun star-tabs-on-buffer-list-update (new-buffers killed-buffers)
   "Run when the list of real buffers updates."
   (when star-tabs-debug-messages
-    (message "Real buffer list updated"))
+    (message "STAR-TABS: Real buffer list updated"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (let ((filters-to-be-updated nil))
     ;; If there are killed buffers, find which groups they belonged to so that we can refresh the other tabs
@@ -1888,7 +1926,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 (defun star-tabs-on-buffer-switch (last-active-buffer new-active-buffer)
   "Run when the current real buffer is switched."
   (when star-tabs-debug-messages
-    (message "Buffer Switched: %s" (buffer-name (current-buffer))))
+    (message "STAR-TABS: Buffer Switched: %s" (buffer-name (current-buffer))))
   ;; Find a filter for the new buffer.
   (when (star-tabs-find-active-filter t)
     (star-tabs-on-filter-switch t))
@@ -1915,7 +1953,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   (when (member (current-buffer) star-tabs-active-buffers) ;; REVIEW: Will this trigger if another buffer is modified?
     (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should automatically be set to t.
     (when star-tabs-debug-messages
-      (message "Buffer Modified"))
+      (message "STAR-TABS: Buffer Modified"))
     (star-tabs--filter-all-buffers) ;; TODO: only update specific filter group
     (when (not (star-tabs-get-active-group-buffers))
       (star-tabs-cycle-filters t))
@@ -1925,7 +1963,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
 (defun star-tabs-when-buffer-first-saved ()
   "Run when a buffer goes from a modified state to an unmodified state."
   (when star-tabs-debug-messages
-    (message "Buffer Saved"))
+    (message "STAR-TABS: Buffer Saved"))
   (when (member (current-buffer) star-tabs-active-buffers)
     (set-buffer-modified-p nil) ; HACK: Make sure that buffer-modified-p is set to nil even though it should automatically be set to nil.
     ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
@@ -1942,7 +1980,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   "Run when the active filter group changes."
   ;; Review: Probably not triggered when changing collections (which subsequently will change the active filter)
   (when star-tabs-debug-messages
-    (message "Filter Changed"))
+    (message "STAR-TABS: Filter Changed"))
   (star-tabs--display-filter-name-temporarily)
   ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (unless inhibit-refresh
@@ -1953,7 +1991,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   ;; TODO: (star-tabs--display-collection-name-temporarily) (and filter-name)
   ;; REVIEW: Make sure this works!
   (when star-tabs-debug-messages
-    (message "Collection Changed"))
+    (message "STAR-TABS: Collection Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t)
   (star-tabs--filter-all-buffers)
   ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
@@ -1986,7 +2024,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 	(setq extensions-updated-p (or (star-tabs--remove-file-extension-filters) extensions-updated-p))))
     (when extensions-updated-p
       (when star-tabs-debug-messages
-	(message "File Extension List/Filters Updated"))
+	(message "STAR-TABS: File Extension List/Filters Updated"))
       (unless inhibit-hook
 	(run-hooks 'star-tabs-collection-property-change-hook))
       (unless inhibit-refresh
@@ -1997,7 +2035,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
   "Run when a collection property changes."
   ;; TODO: Add collection-name param 
   (when star-tabs-debug-messages
-    (message "Collection Property Changed"))
+    (message "STAR-TABS: Collection Property Changed"))
   (star-tabs--add-and-remove-file-extension-filters t t) ; File extension filter groups will only be added if set to do so.
   (star-tabs--filter-all-buffers)
   (let ((filters (star-tabs-get-filter-names collection-name)))
@@ -2012,12 +2050,12 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (defun star-tabs-init ()
   "Run when Star Tabs first loads"
   (when star-tabs-debug-messages
-    (message "Star Tabs initializing...")))
+    (message "STAR-TABS: Star Tabs initializing...")))
 
 (defun star-tabs-on-disable-tab-bar ()
   "Run when Star Tabs Mode goes from enabled to disabled."
   (when star-tabs-debug-messages
-    (message "Star Tabs disabled")))
+    (message "STAR-TABS: Star Tabs disabled")))
 
 
 ;; Misc. functions to run with hooks.
@@ -2025,7 +2063,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (defun star-tabs-on-tab-move ()
   "Run when a tab changes position in the tab bar."
   (when star-tabs-debug-messages
-    (message "Tab moved"))
+    (message "STAR-TABS: Tab moved"))
   ;;(star-tabs--update-tabs (star-tabs-get-active-group-buffers))
   (star-tabs--recache-tabs (star-tabs-get-active-group-buffers) nil)
   (star-tabs--set-header-line (star-tabs-get-active-group-buffers) 'scroll-to-current-buffer))
@@ -2033,12 +2071,12 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 (defun star-tabs-on-timer-start ()
   "Run when a Star Tabs timer starts."
   (when star-tabs-debug-messages
-    (message "Star Tabs Timer Started")))
+    (message "STAR-TABS: Star Tabs Timer Started")))
 
 (defun star-tabs-on-timer-end ()
   "Run when a Star Tabs timer ends."
   (when star-tabs-debug-messages
-    (message "Star Tabs Timer Started")))
+    (message "STAR-TABS: Star Tabs Timer Started")))
 
 
 ;;; Modes
@@ -2085,7 +2123,7 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
   "Mirror xpm image XPM-DATA. 
 Note: This function require that the xpm image data is formatted in a specific way:\n
 The 3 first rows are:
-1: the /* XPM */ line
+1: /* XPM */ 
 2: static char* <variable_name>[]= {
 3: <Values>
 The rows 4 to (+ 3 ncolors) are:
@@ -2118,8 +2156,15 @@ except for the last line, which should be \"};\""
     ;; Close the variable declaration
     (setq reverse-img (concat reverse-img"};"))
     reverse-img))
-(defun star-tabs--fill-xpm (xpm-data target-height)
+
+;; If bottom: Replicate the last line of pixels at the bottom until height is target-height.
+;; If top: Replicate the first line of pixels at the top until height is target-height. 
+;; If middle: Replicate the middle line in the middle until height is target-height
+;; If Top and Bottom: Replicate top and bottom uniformly.
+;; If Top Middle Bottom: Replicate top, middle and bottom uniformly.
+(defun star-tabs--fill-xpm (xpm-data target-height &optional fill-direction)
   "Fill the bottom of xpm image XPM-DATA with rows of \".\" characters to make it height TARGET-HEIGHT."
+  (or fill-direction (setq fill-direction 'bottom))
   (let* ((xpm-values (star-tabs--parse-xpm-values xpm-data))
 	 (width (nth 0 xpm-values))
 	 (height (nth 1 xpm-values))
@@ -2135,31 +2180,110 @@ except for the last line, which should be \"};\""
 									      new-values)
 									    "\n"
 									    ))))
+	 (xpm-pixels-top-half "")
+	 (xpm-pixels-top-half (dotimes (iter (/ height 2) xpm-pixels-top-half)
+		       (setq xpm-pixels-top-half (concat xpm-pixels-top-half
+						(nth (+ iter 3 ncolors) xpm-split)
+						  "\n"))))
+	 (xpm-pixels-bottom-half "")
+	 (xpm-pixels-bottom-half (dotimes (iter (if (equal (mod height 2) 0)
+						    (/ height 2)
+						  (1+ (/ height 2)))
+						xpm-pixels-bottom-half)
+		       (setq xpm-pixels-bottom-half (concat xpm-pixels-bottom-half
+						(nth (+ iter 3 ncolors (/ height 2)) xpm-split)
+						(when (not (= (+ 1 iter 3 ncolors (/ height 2)) (+ 3 ncolors height)))
+						  "\n")))))
 	 (xpm-pixels "")
 	 (xpm-pixels (dotimes (iter height xpm-pixels)
 		       (setq xpm-pixels (concat xpm-pixels
 						(nth (+ iter 3 ncolors) xpm-split)
 						(when (not (= (+ 1 iter 3 ncolors ) (+ 3 ncolors height)))
-									      "\n")))))
+						  "\n")))))
 	 (fill-pixel ".")
 	 (fill-pixels "")
-	 (fill-pixels-row (format "\"%s\"" (dotimes (_num width fill-pixels)
-					     (setq fill-pixels (concat fill-pixels fill-pixel)))))
-	 (fill-pixels-full "" )
-	 (fill-pixels-full (format "%s"
-				   (dotimes (num (- target-height height) fill-pixels-full)
-				     (setq fill-pixels-full (concat fill-pixels-full
-								    fill-pixels-row
+	 (fill-pixels-top-row (nth (+ 3 ncolors) xpm-split))
+	 (fill-pixels-top-full "")
+	 (fill-pixels-top-full (format "%s"
+					  (dotimes (num (- target-height height) fill-pixels-top-full)
+					    (setq fill-pixels-top-full (concat fill-pixels-top-full
+										  fill-pixels-top-row
+										  "\n")))))
+	 (fill-pixels-middle-row (nth (+ 3 ncolors (/ height 2)) xpm-split))
+	 (fill-pixels-middle-full "")
+	 (fill-pixels-middle-full (format "%s"
+				       (dotimes (num (- target-height height) fill-pixels-middle-full)
+					 (setq fill-pixels-middle-full (concat fill-pixels-middle-full
+									    fill-pixels-middle-row
+									    "\n")))))
+	 (fill-pixels-bottom-row (nth (+ 2 ncolors height) xpm-split))
+	 (fill-pixels-bottom-full "")
+	 (fill-pixels-bottom-full (format "%s"
+				   (dotimes (num (- target-height height) fill-pixels-bottom-full)
+				     (setq fill-pixels-bottom-full (concat fill-pixels-bottom-full
+								    fill-pixels-bottom-row
 								    (unless (= (1+ num) (- target-height height))
 								      ",")
 								    "\n")))))
-	 (fill-pixels-full (concat fill-pixels-full
+	 (fill-pixels-bottom-full (concat fill-pixels-bottom-full
 				   "};")))
-    (concat xpm-header-values-colors
-	    (if (> target-height height)
-		(concat xpm-pixels ",\n")
-	      (concat xpm-pixels "\n"))
-	    fill-pixels-full)))
+    ;; (message "Top half:\n%s" xpm-pixels-top-half)
+    ;; (message "Bottom half:\n%s" (concat xpm-pixels-bottom-half "\n"))
+    ;; ;; (message (format "Full: \n%s" xpm-pixels))
+    ;; ;; (message "HVC: \n%s" xpm-header-values-colors)
+    ;; (message "FULLPLUSNEWLINE: \n%s" (concat xpm-pixels "\n"))
+    ;; ;; (message "FULL again: \n%s" (concat xpm-pixels "\n"))
+    ;; ;; (message "Origin: \n%s" xpm-data)
+    ;; ;; (message "Test bottom full: \n%s" (concat xpm-header-values-colors
+    ;; ;; 	      (if (> target-height height)
+    ;; ;; 		  (concat xpm-pixels ",\n")
+    ;; ;; 		(concat xpm-pixels "\n"))
+    ;; ;; 	      fill-pixels-bottom-full))
+    ;; ;; (message "Test-Top: %s" fill-pixels-top-row)
+    ;; ;; (message "Bottom: %s" fill-pixels-bottom-row)
+    ;;  (message "Middle: %s" fill-pixels-middle-row)
+    ;;  (message "Middle Full: \n%s"
+    ;; 	      (concat xpm-header-values-colors
+    ;; 		      xpm-pixels-top-half
+    ;; 		      fill-pixels-middle-full
+    ;; 		      xpm-pixels-bottom-half
+    ;; 		      "\n};")
+    ;; 	      )
+    ;; (message "Row : %s" fill-pixels-row)
+    (cond
+     ((equal fill-direction 'top)
+      (concat xpm-header-values-colors
+	      fill-pixels-top-full
+	      xpm-pixels
+	      "\n};"))
+     ((equal fill-direction 'middle)
+      (concat xpm-header-values-colors
+	      xpm-pixels-top-half
+	      fill-pixels-middle-full
+	      xpm-pixels-bottom-half
+	      "\n};"))
+     ((equal fill-direction 'bottom)
+      (concat xpm-header-values-colors
+	      (if (> target-height height)
+		  (concat xpm-pixels ",\n")
+		(concat xpm-pixels "\n"))
+	      fill-pixels-bottom-full))
+     (t
+      (concat xpm-header-values-colors
+	      (if (> target-height height)
+		  (concat xpm-pixels ",\n")
+		(concat xpm-pixels "\n"))
+	      fill-pixels-bottom-full)))))
+
+(defun star-tabs--vertical-bar (height color)
+  (let* ((xpm-img-header (format "/* XPM */\nstatic char * test_xpm[]= {\n\"5 %s 1 1\",\n\"* c %s\",\n" height color))
+	(xpm-img-pixels "\"*****\",\n")
+	(xpm-img-pixels-last "\"*****\"\n};")
+	(xpm-img xpm-img-header))
+    (dotimes (_num (1- height))
+      (setq xpm-img (concat xpm-img xpm-img-pixels)))
+    (setq xpm-img (concat xpm-img xpm-img-pixels-last))
+    (propertize " " 'display (create-image xpm-img 'xpm t :ascent 'center ))))
 
 (defun star-tabs--create-image (xpm-data &optional image-face)
   "Create an image using XPM-DATA for use in the header line. 
@@ -2167,10 +2291,87 @@ If set, apply face IMAGE-FACE to the image."
   (propertize " "
 	      'display (create-image xpm-data 'xpm t :ascent 'center)
 	      'face image-face))
+
+(defvar star-tabs-tab-border-round-selected ""
+  "XPM data for rounded selected tab borders.")
+(setq star-tabs-tab-border-round-selected (format "/* XPM */
+static char * test_xpm[]=  {
+\"10 10 2 1\",
+\". c %s\",
+\"* c %s\",
+\"**********\",
+\".*********\",
+\"...*******\",
+\"....******\",
+\"......****\",
+\".......***\",
+\"........**\",
+\"........**\",
+\".........*\",
+\"..........\"
+};"  star-tabs-tab-bar-selected-background star-tabs-tab-bar-background))
+
+(defvar star-tabs-tab-border-round-selected ""
+  "XPM data for rounded non-selected tab borders.")
+(setq star-tabs-tab-border-round-non-selected (format "/* XPM */
+static char * test_xpm[]=  {
+\"10 10 2 1\",
+\". c %s\",
+\"* c %s\",
+\"**********\",
+\".*********\",
+\"...*******\",
+\"....******\",
+\"......****\",
+\".......***\",
+\"........**\",
+\"........**\",
+\".........*\",
+\"..........\"
+};"  star-tabs-tab-bar-non-selected-background star-tabs-tab-bar-background))
+
+(defvar star-tabs-tab-border-slant-selected ""
+  "XPM data for slanted selected tab borders.")
+(setq star-tabs-tab-border-slant-selected (format "/* XPM */
+static char * test_xpm[]=  {
+\"10 10 2 1\",
+\". c %s\",
+\"* c %s\",
+\"**********\",
+\".*********\",
+\"..********\",
+\"...*******\",
+\"....******\",
+\".....*****\",
+\"......****\",
+\".......***\",
+\"........**\",
+\".........*\"
+};"  star-tabs-tab-bar-selected-background star-tabs-tab-bar-background))
+
+(defvar star-tabs-tab-border-slant-non-selected ""
+  "XPM data for slanted non-selected tab borders.")
+(setq star-tabs-tab-border-slant-non-selected (format "/* XPM */
+static char * test_xpm[]=  {
+\"10 10 2 1\",
+\". c %s\",
+\"* c %s\",
+\"**********\",
+\".*********\",
+\"..********\",
+\"...*******\",
+\"....******\",
+\".....*****\",
+\"......****\",
+\".......***\",
+\"........**\",
+\".........*\"
+};"  star-tabs-tab-bar-non-selected-background star-tabs-tab-bar-background))
+
+
 (provide 'star-tabs)
 
 ;;; star-tabs.el ends here
-
 
 
 
