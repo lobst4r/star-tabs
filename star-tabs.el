@@ -421,7 +421,7 @@ of the buffers; just how the names are displayed in the tabs. "
 	 (disable-scroll-to-filter (plist-get collection-props :disable-scroll-to-filter))
 	 (hide-extension-names (plist-get collection-props :hide-extension-names))
 	 (collection-name-prefix (or (plist-get collection-props :collection-name-prefix) "star-tabs-collection-"))
-	 (border-style (or (plist-get collection-props :border-style) 'slanted))
+	 (border-style (or (plist-get collection-props :border-style) 'rounded))
 	 (name-no-prefix (plist-get collection-props :name))
 	 (name (intern (concat collection-name-prefix (plist-get collection-props :name))))
 	 (collection `(,name :enable-file-extension-filters ,enable-file-extension-filters
@@ -1953,7 +1953,7 @@ If there are no tabs in the tab bar, return (0 0) indicating that there is neith
   (when (member (current-buffer) star-tabs-active-buffers) ;; REVIEW: Will this trigger if another buffer is modified?
     (set-buffer-modified-p t) ; HACK: Make sure that buffer-modified-p is set to t even though it should automatically be set to t.
     (when star-tabs-debug-messages
-      (message "STAR-TABS: Buffer Modified"))
+      (message "STAR-TABS: Buffer Modified: %s" (buffer-name (current-buffer))))
     (star-tabs--filter-all-buffers) ;; TODO: only update specific filter group
     (when (not (star-tabs-get-active-group-buffers))
       (star-tabs-cycle-filters t))
@@ -2170,7 +2170,7 @@ except for the last line, which should be \"};\""
 	 (height (nth 1 xpm-values))
 	 (ncolors (nth 2 xpm-values))
 	 (cpp (nth 3 xpm-values))
-	 (new-values (format "\"%s %s %s %s\"," width (max height target-height) ncolors cpp))
+	 (new-values (format "\"%d %d %d %d\"," width (max height target-height) ncolors cpp))
 	 (xpm-split (split-string xpm-data "\n"))
 	 (xpm-header-values-colors "")
 	 (xpm-header-values-colors (dotimes (iter (+ 3 ncolors) xpm-header-values-colors)
