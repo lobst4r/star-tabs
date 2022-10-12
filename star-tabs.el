@@ -1781,7 +1781,7 @@ If SCROLL is set to an integer higher than 0, skip that many tabs if TRUNCATEDP 
   (let ((empty-space (/ (star-tabs--header-line-remaining-space)
 			(window-font-width nil 'star-tabs-tab-bar-empty-space)))
 	(white-space ""))
-    (while (> empty-space 0)
+    (while (>= empty-space 0)
       (setq white-space (concat " " white-space))
       (setq empty-space (1- empty-space)))
     (propertize white-space
