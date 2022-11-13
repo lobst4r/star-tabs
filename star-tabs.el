@@ -609,12 +609,13 @@ Note that file extensions will be readded if activated."
 
 ;; filter Interactions 
 
-(defun star-tabs-cycle-filters (&optional reverse inhibit-refresh)
+(defun star-tabs-cycle-filters (&optional reverse inhibit-refresh include-empty)
   "Cycle (move forward, or backward if REVERSE is non-nil) through filter groups in the active collection. 
-Ignore empty filter groups.
+Ignore empty filter groups, unless include-empty is set to non-nil.
 Also run hook star-tabs-filter-switch-hook if INHIBIT-REFRESH is nil."
   (interactive)
   (or reverse (setq reverse nil))
+  (or include-empty (setq include-empty nil))
   ;; Move (cycle) forward once, or backward if REVERSE is non-nil.
   (set (star-tabs-active-collection-name) (star-tabs-cycle-list-car
 					     (eval (star-tabs-active-collection-name))
@@ -622,7 +623,8 @@ Also run hook star-tabs-filter-switch-hook if INHIBIT-REFRESH is nil."
   (let ((filter-count (length (eval (star-tabs-active-collection-name)))))
     ;; Go through the list of filter groups in the active collection once, or until a non-empty filter group is found,
     ;; skipping to the next filter group if when the filter group is empty.
-    (while (and (not (star-tabs-get-active-group-buffers))
+    (while (and (and (not include-empty)
+                     (not (star-tabs-get-active-group-buffers)))
 		(>= filter-count 0))
       ;; Cycle by rotating the list of filters. The active filter is the car of the list.
       (set (star-tabs-active-collection-name)
@@ -633,7 +635,8 @@ Also run hook star-tabs-filter-switch-hook if INHIBIT-REFRESH is nil."
     (run-hooks 'star-tabs-filter-switch-hook)))
 
 (defun star-tabs-find-active-filter (&optional inhibit-refresh) 
-  "Find a filter group for the current buffer, if such filter exists in the current collection.
+  "Find a filter group for the current buffer.
+If no filter group exists in the current collection, do nothing.
 If the current buffer is in the active filter, do nothing.
 If INHIBIT-REFRESH is nil (default), refresh the tab bar as well.
 Return the name of the new filter if the filter switches."
@@ -751,7 +754,7 @@ Also run hook star-tabs-collection-property-change-hook unless inhibit-hook is n
       (while (and (not (eq (star-tabs-get-active-filter-name)
 			   filter-name))
 		  (>= filter-count 0))
-	(star-tabs-cycle-filters nil t)
+	(star-tabs-cycle-filters nil t t)
 	(setq filter-count (1- filter-count)))
       (when (and (not (eq filter-name (star-tabs-get-active-filter-name)))
 		 (not (eq current-filter (star-tabs-get-active-filter-name)))
@@ -2096,7 +2099,11 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil)
 	     ;; Make sure that emacs finds a filter group with tabs (if there is one) when activating star-tabs-tab-bar-mode.
 	     (unless (star-tabs-get-active-group-buffers)
-	       (star-tabs-cycle-filters)))))
+	       (star-tabs-cycle-filters))
+       ;; Make 'default' the current group when there are no buffers, if it exists,
+       ;; since it is a good starting point.
+       (unless star-tabs-active-buffers
+         (star-tabs-switch-to-filter 'default (star-tabs-active-collection-name))))))
 
 
 ;; Hooks
