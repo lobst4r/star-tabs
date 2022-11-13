@@ -609,12 +609,13 @@ Note that file extensions will be readded if activated."
 
 ;; filter Interactions 
 
-(defun star-tabs-cycle-filters (&optional reverse inhibit-refresh)
+(defun star-tabs-cycle-filters (&optional reverse inhibit-refresh include-empty)
   "Cycle (move forward, or backward if REVERSE is non-nil) through filter groups in the active collection. 
-Ignore empty filter groups.
+Ignore empty filter groups, unless include-empty is set to non-nil.
 Also run hook star-tabs-filter-switch-hook if INHIBIT-REFRESH is nil."
   (interactive)
   (or reverse (setq reverse nil))
+  (or include-empty (setq include-empty nil))
   ;; Move (cycle) forward once, or backward if REVERSE is non-nil.
   (set (star-tabs-active-collection-name) (star-tabs-cycle-list-car
 					     (eval (star-tabs-active-collection-name))
@@ -622,7 +623,8 @@ Also run hook star-tabs-filter-switch-hook if INHIBIT-REFRESH is nil."
   (let ((filter-count (length (eval (star-tabs-active-collection-name)))))
     ;; Go through the list of filter groups in the active collection once, or until a non-empty filter group is found,
     ;; skipping to the next filter group if when the filter group is empty.
-    (while (and (not (star-tabs-get-active-group-buffers))
+    (while (and (and (not include-empty)
+                     (not (star-tabs-get-active-group-buffers)))
 		(>= filter-count 0))
       ;; Cycle by rotating the list of filters. The active filter is the car of the list.
       (set (star-tabs-active-collection-name)
