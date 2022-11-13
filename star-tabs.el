@@ -2099,7 +2099,11 @@ and :file-extension-filter-threshold set above 0, and the total number of buffer
 	     (add-hook 'after-save-hook #'star-tabs-when-buffer-first-saved nil nil)
 	     ;; Make sure that emacs finds a filter group with tabs (if there is one) when activating star-tabs-tab-bar-mode.
 	     (unless (star-tabs-get-active-group-buffers)
-	       (star-tabs-cycle-filters)))))
+	       (star-tabs-cycle-filters))
+       ;; Make 'default' the current group when there are no buffers, if it exists,
+       ;; since it is a good starting point.
+       (unless star-tabs-active-buffers
+         (star-tabs-switch-to-filter 'default (star-tabs-active-collection-name))))))
 
 
 ;; Hooks
