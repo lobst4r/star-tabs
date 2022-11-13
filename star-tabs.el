@@ -754,7 +754,7 @@ Also run hook star-tabs-collection-property-change-hook unless inhibit-hook is n
       (while (and (not (eq (star-tabs-get-active-filter-name)
 			   filter-name))
 		  (>= filter-count 0))
-	(star-tabs-cycle-filters nil t)
+	(star-tabs-cycle-filters nil t t)
 	(setq filter-count (1- filter-count)))
       (when (and (not (eq filter-name (star-tabs-get-active-filter-name)))
 		 (not (eq current-filter (star-tabs-get-active-filter-name)))
