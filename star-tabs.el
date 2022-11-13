@@ -633,7 +633,8 @@ Also run hook star-tabs-filter-switch-hook if INHIBIT-REFRESH is nil."
     (run-hooks 'star-tabs-filter-switch-hook)))
 
 (defun star-tabs-find-active-filter (&optional inhibit-refresh) 
-  "Find a filter group for the current buffer, if such filter exists in the current collection.
+  "Find a filter group for the current buffer.
+If no filter group exists in the current collection, do nothing.
 If the current buffer is in the active filter, do nothing.
 If INHIBIT-REFRESH is nil (default), refresh the tab bar as well.
 Return the name of the new filter if the filter switches."
