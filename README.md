@@ -40,7 +40,7 @@ I originally created this for Emacs 26.1 but have since patched it to make it co
 
 -   Clone repository:
 
-`git clone --single-branch --branch master https://github.com/lobst4r/star-tabs.git`
+`git clone --single-branch --branch develop https://github.com/lobst4r/star-tabs.git`
 
 -   Add star-tabs.el to your Emacs load path.
 -   In your .emacs configuration file, add:
