@@ -1,3 +1,7 @@
+# IMPORTANT
+**This project is currently not maintained and might not support your version of Emacs. If you wish to make changes or contribute, feel free to fork this project, but use at your own risk.**
+I originally created this for Emacs 26.1 but have since patched it to make it compatible with newer versions. I have not, however, tested it to make sure that all features work as originally intended.
+
 
 # Table of Contents
 
@@ -50,7 +54,7 @@
 
 ## Prerequisites
 
--   Emacs 26.1+
+-   Emacs 28+
 -   OPTIONAL: [all-the-icons](https://github.com/domtronn/all-the-icons.el)
 
 
